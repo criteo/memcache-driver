@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("Criteo.MemcacheClient")]
+[assembly: AssemblyTitle("Criteo.MemcacheClient.UTest")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Criteo")]
-[assembly: AssemblyProduct("Criteo.MemcacheClient")]
-[assembly: AssemblyCopyright("Copyright © Criteo 2012")]
+[assembly: AssemblyCompany("Microsoft")]
+[assembly: AssemblyProduct("Criteo.MemcacheClient.UTest")]
+[assembly: AssemblyCopyright("Copyright © Microsoft 2012")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("1072ab76-cd3a-47e0-a4fe-f61bccb660a6")]
+[assembly: Guid("4cca661c-4159-4b0a-b6fe-75ac1bd9e320")]
 
 // Version information for an assembly consists of the following four values:
 //
@@ -32,7 +32,5 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("0.0.1.0")]
-[assembly: AssemblyFileVersion("0.0.1.0")]
-
-[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Criteo.MemcacheClient.UTest")]
+[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyFileVersion("1.0.0.0")]

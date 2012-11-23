@@ -5,11 +5,11 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProductVersion>8.0.30703</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{2243F9C2-EEDB-440E-B246-68E5925799D9}</ProjectGuid>
+    <ProjectGuid>{5E07B081-70B6-4217-A8DB-004464F37782}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Criteo.MemcacheClient</RootNamespace>
-    <AssemblyName>Criteo.MemcacheClient</AssemblyName>
+    <RootNamespace>Criteo.MemcacheClient.UTest</RootNamespace>
+    <AssemblyName>Criteo.MemcacheClient.UTest</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -21,7 +21,6 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -30,7 +29,6 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -42,27 +40,13 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="INodeLocator.cs" />
-    <Compile Include="MemacheHeader.cs" />
-    <Compile Include="MemcacheClient.cs" />
-    <Compile Include="MemcacheClientBase.cs" />
-    <Compile Include="Configuration\MemcacheClientConfiguration.cs" />
-    <Compile Include="Node\IMemcacheNode.cs" />
-    <Compile Include="Node\MemcacheNode.cs" />
-    <Compile Include="NodeLocator.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Requests\GetRequest.cs" />
-    <Compile Include="Requests\HealthCheckRequest.cs" />
-    <Compile Include="Requests\MemcacheRequest.cs" />
-    <Compile Include="Requests\NoOpRequest.cs" />
-    <Compile Include="Requests\SetRequest.cs" />
-    <Compile Include="Sockets\IMemcacheSocket.cs" />
-    <Compile Include="Sockets\MemcacheSocketAsynch.cs" />
-    <Compile Include="Sockets\MemcacheSocketBase.cs" />
-    <Compile Include="Sockets\MemcacheSocketThreaded.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Criteo.MemcacheClient.nuspec" />
+    <ProjectReference Include="..\Criteo.MemcacheClient.csproj">
+      <Project>{2243F9C2-EEDB-440E-B246-68E5925799D9}</Project>
+      <Name>Criteo.MemcacheClient</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
