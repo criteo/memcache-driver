@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>$id$</id>
+    <version>$version$</version>
+    <title>$title$</title>
+    <authors>$author$</authors>
+    <owners>$author$</owners>
+    <projectUrl>https://gitorious/scalability/criteo-memcache-client</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>$description$</description>
+    <releaseNotes>Pre-Alpha version, very unstable !</releaseNotes>
+    <copyright>Copyright 2012</copyright>
+    <tags>mecache couchbase</tags>
+  </metadata>
+</package>
