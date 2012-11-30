@@ -13,7 +13,7 @@ namespace Criteo.MemcacheClient.Requests
 
         public byte[] GetQueryBuffer()
         {
-            var requestHeader = new MemacheRequestHeader(Opcode.Get)
+            var requestHeader = new MemacheRequestHeader(Opcode.NoOp)
             {
                 Opaque = RequestId,
             };

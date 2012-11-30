@@ -45,7 +45,6 @@
     <Compile Include="INodeLocator.cs" />
     <Compile Include="MemacheHeader.cs" />
     <Compile Include="MemcacheClient.cs" />
-    <Compile Include="MemcacheClientBase.cs" />
     <Compile Include="Configuration\MemcacheClientConfiguration.cs" />
     <Compile Include="Node\IMemcacheNode.cs" />
     <Compile Include="Node\MemcacheNode.cs" />
@@ -53,7 +52,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Requests\GetRequest.cs" />
     <Compile Include="Requests\HealthCheckRequest.cs" />
-    <Compile Include="Requests\MemcacheRequest.cs" />
+    <Compile Include="Requests\IMemcacheRequest.cs" />
     <Compile Include="Requests\NoOpRequest.cs" />
     <Compile Include="Requests\SetRequest.cs" />
     <Compile Include="Sockets\IMemcacheSocket.cs" />

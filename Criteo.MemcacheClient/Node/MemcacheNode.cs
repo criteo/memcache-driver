@@ -97,6 +97,24 @@ namespace Criteo.MemcacheClient.Node
         int _stuckCount;
         private void Monitor(object dummy)
         {
+            if (!IsDead)
+            {
+                if (!_requestRan && WaitingRequests.Count > 0)
+                {
+                    // no request ran and the queue is not empty => increment the stuck counter
+                    ++_stuckCount;
+                    if (_stuckCount >= _configuration.DeadTimeout.TotalSeconds)
+                    {
+                        // we are stuck for too long time, the node is dead
+                        MarkAsDead();
+                    }
+                }
+                else
+                {
+                    // reset the stuck counter
+                    _stuckCount = 0;
+                }
+            }
             if (IsDead)
             {
                 if (NodeFlush != null)
@@ -105,10 +123,6 @@ namespace Criteo.MemcacheClient.Node
                 var noOp = new HealthCheckRequest { Callback = _ => IsDead = false };
                 WaitingRequests.Add(noOp);
             }
-            else if (!_requestRan && WaitingRequests.Count > 0
-                && ++_stuckCount > _configuration.DeadTimeout.TotalSeconds)
-                // no request has been executed and the queue is not empty => we are stuck
-                    MarkAsDead();
             _requestRan = false;
         }
 
