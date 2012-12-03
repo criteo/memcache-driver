@@ -104,7 +104,7 @@ namespace Criteo.MemcacheClient
             return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration });
         }
 
-        public bool Get(string key, Action<byte[]> callback)
+        public bool Get(string key, Action<Status, byte[]> callback)
         {
             return SendRequest(new GetRequest { Key = key, Callback = callback });
         }
@@ -113,7 +113,7 @@ namespace Criteo.MemcacheClient
         {
             var taskSource = new TaskCompletionSource<byte[]>();
 
-            if (!SendRequest(new GetRequest { Key = key, Callback = taskSource.SetResult }))
+            if (!SendRequest(new GetRequest { Key = key, Callback = (s, m) => taskSource.SetResult(m) }))
                 taskSource.SetResult(null);
 
             return taskSource.Task;

@@ -14,19 +14,31 @@ namespace Criteo.MemcacheClient.UTest.Mocks
     /// </summary>
     class DeadSocketMock : IMemcacheSocket
     {
-        public event Action<Exception> TransportError;
+        // I don't care of unsed event in my mocks ...
+        public event Action<Exception> TransportError
+        {
+            add { }
+            remove { }
+        }
 
-        public event Action<MemacheResponseHeader, IMemcacheRequest> MemcacheError;
+        public event Action<MemacheResponseHeader, IMemcacheRequest> MemcacheError
+        {
+            add { }
+            remove { }
+        }
 
-        public event Action<MemacheResponseHeader, IMemcacheRequest> MemcacheResponse;
-
+        public event Action<MemacheResponseHeader, IMemcacheRequest> MemcacheResponse
+        {
+            add { }
+            remove { }
+        }
 
         public BlockingCollection<IMemcacheRequest> WaitingRequests { get; set; }
         public void RespondToRequest()
         {
             IMemcacheRequest request;
             while(WaitingRequests.TryTake(out request, 0))
-                request.HandleResponse(new MemacheResponseHeader { }, null);
+                request.HandleResponse(new MemacheResponseHeader {}, null, null);
         }
     }
 }

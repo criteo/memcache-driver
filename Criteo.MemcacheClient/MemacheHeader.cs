@@ -72,6 +72,12 @@ namespace Criteo.MemcacheClient
             Opaque = data.CopyToUInt(12 + offset);
             Cas = data.CopyToULong(16 + offset);
         }
+
+        public MemacheResponseHeader(byte[] data, int offset = 0)
+            : this()
+        {
+            FromData(data, offset);
+        }
     }
 
     struct UdpHeader

@@ -78,24 +78,31 @@ namespace Criteo.MemcacheClient.Sockets
                     return;
                 }
 
-                var header = new MemacheResponseHeader();
-                header.FromData(args.Buffer);
+                var header = new MemacheResponseHeader(args.Buffer);
 
+                byte[] extra = null;
                 byte[] message = null;
                 // in case we have a message ! (should not happen for a set)
-                if (header.TotalBodyLength > 0)
+                if (header.ExtraLength > 0)
                 {
-                    message = new byte[header.TotalBodyLength];
+                    extra = new byte[header.ExtraLength];
+                    Socket.Receive(extra);
+                }
+                if (header.TotalBodyLength - header.ExtraLength > 0)
+                {
+                    message = new byte[header.TotalBodyLength - header.ExtraLength];
                     Socket.Receive(message);
                 }
 
                 // should assert we have the good request
                 var request = UnstackToMatch(header);
                 if (request != null)
-                    request.HandleResponse(header, message);
+                    request.HandleResponse(header, extra, message);
 
                 if (_memcacheResponse !=  null)
                     _memcacheResponse(header, request);
+
+                // TODO : should I keep that or the request only have to handle it ?
                 if (header.Status != Status.NoError && _memcacheError != null)
                     _memcacheError(header, request);
 

@@ -8,7 +8,7 @@ namespace Criteo.MemcacheClient.Requests
     internal class GetRequest : IMemcacheRequest
     {
         public string Key { get; set; }
-        public Action<byte[]> Callback { get; set; }
+        public Action<Status, byte[]> Callback { get; set; }
         public uint RequestId { get; set; }
         protected virtual Opcode RequestOpcode { get { return Opcode.Get; } }
 
@@ -33,14 +33,15 @@ namespace Criteo.MemcacheClient.Requests
             return buffer;
         }
 
-        public void HandleResponse(MemacheResponseHeader header, byte[] message)
+        public void HandleResponse(MemacheResponseHeader header, byte[] extra, byte[] message)
         {
-            if (message.CopyToUInt(0) != 0xdeadbeef)
+            if (extra == null || extra.Length == 0)
+                throw new Exception("The get command Magic Number is not present !");
+            else if (extra.Length != 4)
+                throw new Exception("The get command Magic Number is wrong size !");
+            else if (extra.CopyToUInt(0) != 0xdeadbeef)
                 throw new Exception("The get command Magic Number is wrong !");
-            var result = new byte[message.Length - 4];
-            Array.Copy(message, 4, result, 0, result.Length);
-            if (header.Status == Status.NoError)
-                Callback(result);
+                Callback(header.Status, message);
         }
     }
 }

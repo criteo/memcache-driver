@@ -37,7 +37,7 @@ namespace Criteo.MemcacheClient.Requests
         }
 
         // nothing to do on set response
-        public void HandleResponse(MemacheResponseHeader header, byte[] message)
+        public void HandleResponse(MemacheResponseHeader header, byte[] extra, byte[] message)
         {
         }
     }

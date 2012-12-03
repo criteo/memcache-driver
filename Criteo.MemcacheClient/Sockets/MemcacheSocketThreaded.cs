@@ -73,14 +73,19 @@ namespace Criteo.MemcacheClient.Sockets
                             received += Socket.Receive(buffer, received, 24 - received, SocketFlags.None);
                         } while (received < 24);
 
-                        var header = new MemacheResponseHeader();
-                        header.FromData(buffer);
+                        var header = new MemacheResponseHeader(buffer);
 
-                        byte[] message = null;
                         // in case we have a message ! (should not happen for a set)
-                        if (header.TotalBodyLength > 0)
+                        byte[] extra = null;
+                        if (header.ExtraLength > 0)
                         {
-                            message = new byte[header.TotalBodyLength];
+                            extra = new byte[header.ExtraLength];
+                            Socket.Receive(extra);
+                        }
+                        byte[] message = null;
+                        if (header.TotalBodyLength - header.ExtraLength > 0)
+                        {
+                            message = new byte[header.TotalBodyLength - header.ExtraLength];
                             Socket.Receive(message);
                         }
 
@@ -93,7 +98,7 @@ namespace Criteo.MemcacheClient.Sockets
                             _memcacheError(header, request);
 
                         if (request != null)
-                            request.HandleResponse(header, message);
+                            request.HandleResponse(header, extra, message);
                     }
                     catch (Exception e)
                     {
