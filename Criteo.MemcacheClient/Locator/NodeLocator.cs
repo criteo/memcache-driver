@@ -6,9 +6,9 @@ using System.Threading;
 
 using Criteo.MemcacheClient.Node;
 
-namespace Criteo.MemcacheClient
+namespace Criteo.MemcacheClient.Locator
 {
-    public class RoundRobinNodeLocator : INodeLocator
+    internal class RoundRobinNodeLocator : INodeLocator
     {
         private int _lastPosition = 0;
         public IMemcacheNode Locate(string key, IList<IMemcacheNode> nodes)

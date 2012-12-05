@@ -6,9 +6,13 @@ using System.Text;
 using NUnit.Framework;
 
 using Criteo.MemcacheClient.Requests;
+using Criteo.MemcacheClient.Headers;
 
 namespace Criteo.MemcacheClient.UTest.Tests
 {
+    /// <summary>
+    /// Test around the GetRequest object
+    /// </summary>
     [TestFixture]
     public class GetRequestTests
     {

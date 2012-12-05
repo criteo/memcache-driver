@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Criteo.MemcacheClient.Configuration;
 using Criteo.MemcacheClient.Requests;
 using Criteo.MemcacheClient.Node;
+using Criteo.MemcacheClient.Locator;
+using Criteo.MemcacheClient.Headers;
 
 namespace Criteo.MemcacheClient
 {
@@ -15,7 +17,7 @@ namespace Criteo.MemcacheClient
         private MemcacheClientConfiguration _configuration;
 
         private NodeAllocator DefaultNodeFactory =
-            (endPoint, configuration) => new MemcacheNode(endPoint, configuration);
+            (endPoint, configuration, SendRequest) => new MemcacheNode(endPoint, configuration, SendRequest);
 
         public event Action<MemacheResponseHeader, IMemcacheRequest> MemcacheError
         {
@@ -45,7 +47,7 @@ namespace Criteo.MemcacheClient
             }
         }
 
-        public event Action<MemcacheNode> NodeError
+        public event Action<IMemcacheNode> NodeError
         {
             add
             {
@@ -64,20 +66,23 @@ namespace Criteo.MemcacheClient
             _configuration = configuration;
             _locator = configuration.NodeLocator ?? new RoundRobinNodeLocator();
             _nodes = new List<IMemcacheNode>(configuration.NodesEndPoints.Count);
+
+            Action<IMemcacheRequest> requeueRequest;
+            switch(configuration.NodeDeadPolicy)
+            {
+                case RequeuePolicy.Requeue:
+                    requeueRequest = req => SendRequest(req);
+                    break;
+                default:
+                    requeueRequest = _ => { };
+                    break;
+            }
+
             foreach (var nodeEndPoint in configuration.NodesEndPoints)
             {
-                var node = (configuration.NodeFactory ?? DefaultNodeFactory)(nodeEndPoint, configuration);
-                node.NodeFlush += RequeueNodeRequests;
+                var node = (configuration.NodeFactory ?? DefaultNodeFactory)(nodeEndPoint, configuration, requeueRequest);
                 _nodes.Add(node);
             }
-        }
-
-        private void RequeueNodeRequests(MemcacheNode node)
-        {
-            IMemcacheRequest request;
-            while (node.WaitingRequests.Count > 0)
-                if (node.WaitingRequests.TryTake(out request) && !(request is HealthCheckRequest))
-                    SendRequest(request);
         }
 
         protected bool SendRequest(IMemcacheRequest request)
@@ -92,7 +97,7 @@ namespace Criteo.MemcacheClient
                     return false;
             }
 
-            var res = node.WaitingRequests.TryAdd(request, _configuration.EnqueueTimeout);
+            var res = node.TrySend(request, _configuration.EnqueueTimeout);
             if (!res && _configuration.QueueFullPolicy == Policy.Throw)
                 throw new Exception("Queue is full");
 

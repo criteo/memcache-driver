@@ -6,6 +6,7 @@ using System.Text;
 using NUnit.Framework;
 
 using Criteo.MemcacheClient.Requests;
+using Criteo.MemcacheClient.Headers;
 
 namespace Criteo.MemcacheClient.UTest.Tests
 {
@@ -31,6 +32,9 @@ namespace Criteo.MemcacheClient.UTest.Tests
 
         static readonly byte[] SET_MESSAGE = null;
 
+        /// <summary>
+        /// Test around the GetRequest object
+        /// </summary>
         [Test]
         public void SetRequestTest()
         {
@@ -43,10 +47,10 @@ namespace Criteo.MemcacheClient.UTest.Tests
             };
 
             var queryBuffer = request.GetQueryBuffer();
-
-            var condition = queryBuffer
-                .Zip(SET_QUERY, (a, b) => a == b)
-                .All(a => a);
+            var condition = queryBuffer.Length == SET_QUERY.Length
+                && queryBuffer
+                    .Zip(SET_QUERY, (a, b) => a == b)
+                    .All(a => a);
             Assert.IsTrue(condition, "The set query buffer is different of the expected one");
 
             var header = new MemacheResponseHeader { Opcode = Opcode.Set, Status = Status.NoError };

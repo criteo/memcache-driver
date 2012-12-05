@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 
 using Criteo.MemcacheClient.Requests;
+using Criteo.MemcacheClient.Headers;
 
 namespace Criteo.MemcacheClient.Node
 {
@@ -28,12 +29,7 @@ namespace Criteo.MemcacheClient.Node
         /// <summary>
         /// This event is triggered whenever the node goes dead
         /// </summary>
-        event Action<MemcacheNode> NodeDead;
-
-        /// <summary>
-        /// This event is raised when the node asks for a manual flush of it's own queue
-        /// </summary>
-        event Action<MemcacheNode> NodeFlush;
+        event Action<IMemcacheNode> NodeDead;
 
         /// <summary>
         /// Must returns true when the node is unreachable for a durable time
@@ -41,8 +37,11 @@ namespace Criteo.MemcacheClient.Node
         bool IsDead { get; }
 
         /// <summary>
-        /// The node queue for pushing requests
+        /// Try to send a request through the node
         /// </summary>
-        BlockingCollection<IMemcacheRequest> WaitingRequests { get; }
+        /// <param name="request">The request to send</param>
+        /// <param name="timeout">Timeout.Infinite means no timeout</param>
+        /// <returns>false if it failed</returns>
+        bool TrySend(IMemcacheRequest request, int timeout);
     }
 }

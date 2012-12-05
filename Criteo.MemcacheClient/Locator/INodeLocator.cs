@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using Criteo.MemcacheClient.Node;
 
-namespace Criteo.MemcacheClient
+namespace Criteo.MemcacheClient.Locator
 {
     public interface INodeLocator
     {

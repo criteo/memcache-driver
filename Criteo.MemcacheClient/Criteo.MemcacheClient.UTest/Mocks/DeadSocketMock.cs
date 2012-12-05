@@ -6,6 +6,8 @@ using System.Text;
 
 using Criteo.MemcacheClient.Requests;
 using Criteo.MemcacheClient.Sockets;
+using Criteo.MemcacheClient.Headers;
+using Criteo.MemcacheClient.Node;
 
 namespace Criteo.MemcacheClient.UTest.Mocks
 {
@@ -33,7 +35,7 @@ namespace Criteo.MemcacheClient.UTest.Mocks
             remove { }
         }
 
-        public BlockingCollection<IMemcacheRequest> WaitingRequests { get; set; }
+        public IMemcacheNodeQueue WaitingRequests { get; set; }
         public void RespondToRequest()
         {
             IMemcacheRequest request;

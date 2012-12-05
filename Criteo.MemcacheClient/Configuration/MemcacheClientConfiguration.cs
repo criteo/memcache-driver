@@ -7,6 +7,7 @@ using System.Threading;
 using Criteo.MemcacheClient.Requests;
 using Criteo.MemcacheClient.Sockets;
 using Criteo.MemcacheClient.Node;
+using Criteo.MemcacheClient.Locator;
 
 namespace Criteo.MemcacheClient.Configuration
 {
@@ -16,8 +17,14 @@ namespace Criteo.MemcacheClient.Configuration
         Ignore,
     }
 
-    public delegate IMemcacheSocket SocketAllocator(IPEndPoint endPoint, BlockingCollection<IMemcacheRequest> waitingRequests);
-    public delegate IMemcacheNode NodeAllocator(IPEndPoint endPoint, MemcacheClientConfiguration configuration);
+    public enum RequeuePolicy
+    {
+        Requeue,
+        Ignore,
+    }
+
+    public delegate IMemcacheSocket SocketAllocator(IPEndPoint endPoint, IMemcacheNodeQueue nodeQueue);
+    public delegate IMemcacheNode NodeAllocator(IPEndPoint endPoint, MemcacheClientConfiguration configuration, Action<IMemcacheRequest> requeueRequest);
 
     public class MemcacheClientConfiguration
     {
@@ -30,6 +37,7 @@ namespace Criteo.MemcacheClient.Configuration
 
         public Policy UnavaillablePolicy { get; set; }
         public Policy QueueFullPolicy { get; set; }
+        public RequeuePolicy NodeDeadPolicy { get; set; }
         public int EnqueueTimeout { get; set; }
         public int PoolSize { get; set; }
         public int QueueLength { get; set; }
@@ -44,6 +52,7 @@ namespace Criteo.MemcacheClient.Configuration
             UnavaillablePolicy = Policy.Ignore;
             QueueFullPolicy = Policy.Ignore;
             EnqueueTimeout = Timeout.Infinite;
+            NodeDeadPolicy = RequeuePolicy.Requeue;
         }
     }
 }

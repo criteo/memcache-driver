@@ -5,17 +5,19 @@ using System.Net.Sockets;
 using System.Threading;
 
 using Criteo.MemcacheClient.Requests;
+using Criteo.MemcacheClient.Headers;
+using Criteo.MemcacheClient.Node;
 
 namespace Criteo.MemcacheClient.Sockets
 {
-    public class MemcacheSocketThreaded : MemcacheSocketBase
+    internal class MemcacheSocketThreaded : MemcacheSocketBase
     {
         private Thread _sendingThread;
         private Thread _receivingThread;
 
         private CancellationTokenSource _token;
 
-        public MemcacheSocketThreaded(IPEndPoint endPoint, BlockingCollection<IMemcacheRequest> itemQueue)
+        public MemcacheSocketThreaded(IPEndPoint endPoint, IMemcacheNodeQueue itemQueue)
             : base(endPoint, itemQueue)
         {
         }

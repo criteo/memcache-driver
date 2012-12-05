@@ -5,12 +5,14 @@ using System.Net.Sockets;
 using System.Threading;
 
 using Criteo.MemcacheClient.Requests;
+using Criteo.MemcacheClient.Headers;
+using Criteo.MemcacheClient.Node;
 
 namespace Criteo.MemcacheClient.Sockets
 {
-    public abstract class MemcacheSocketBase : IMemcacheSocket
+    internal abstract class MemcacheSocketBase : IMemcacheSocket
     {
-        private BlockingCollection<IMemcacheRequest> _waitingRequests;
+        private IMemcacheNodeQueue _requestQueue;
 
         protected Action<Exception> _transportError;
         public event Action<Exception> TransportError
@@ -53,18 +55,13 @@ namespace Criteo.MemcacheClient.Sockets
 
         protected EndPoint EndPoint { get; private set; }
         protected Socket Socket { get; set; }
-        protected BlockingCollection<IMemcacheRequest> WaitingRequests { get { return _waitingRequests; } }
+        protected IMemcacheNodeQueue WaitingRequests { get { return _requestQueue; } }
         protected ConcurrentQueue<IMemcacheRequest> PendingRequests { get; private set; }
 
-        public MemcacheSocketBase(EndPoint endPoint, int mtu = 1450)
-            : this(endPoint, new BlockingCollection<IMemcacheRequest>())
-        {
-        }
-
-        internal MemcacheSocketBase(EndPoint endpoint, BlockingCollection<IMemcacheRequest> itemQueue)
+        internal MemcacheSocketBase(EndPoint endpoint, IMemcacheNodeQueue itemQueue)
         {
             EndPoint = endpoint;
-            _waitingRequests = itemQueue;
+            _requestQueue = itemQueue;
             PendingRequests = new ConcurrentQueue<IMemcacheRequest>();
 
             CreateSocket();
@@ -114,7 +111,7 @@ namespace Criteo.MemcacheClient.Sockets
             IMemcacheRequest item;
             while (oldPending.Count > 0)
                 if (oldPending.TryDequeue(out item))
-                    _waitingRequests.Add(item);
+                    _requestQueue.Add(item);
         }
 
         protected IMemcacheRequest UnstackToMatch(MemacheResponseHeader header)

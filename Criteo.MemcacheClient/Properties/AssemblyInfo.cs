@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("Criteo.MemcacheClient")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("Memcache client by Criteo !")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Criteo")]
 [assembly: AssemblyProduct("Criteo.MemcacheClient")]
@@ -31,7 +31,21 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("0.0.1")]
-[assembly: AssemblyFileVersion("0.0.1")]
+
+
+[assembly: AssemblyVersion(Criteo.MemcacheClient.Version.ASSEMBLY_VERSION)]
+[assembly: AssemblyFileVersion(Criteo.MemcacheClient.Version.ASSEMBLY_FILE_VERSION)]
+[assembly: AssemblyInformationalVersion(Criteo.MemcacheClient.Version.ASSEMBLY_INFORMATIONAL_VERSION)]
 
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Criteo.MemcacheClient.UTest")]
+
+namespace Criteo.MemcacheClient
+{
+    internal static class Version
+    {
+        internal const string VERSION = "0.0.1";
+        internal const string ASSEMBLY_VERSION = VERSION;
+        internal const string ASSEMBLY_FILE_VERSION = VERSION;
+        internal const string ASSEMBLY_INFORMATIONAL_VERSION = VERSION;
+    }
+}

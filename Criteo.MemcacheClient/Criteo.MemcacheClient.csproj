@@ -42,13 +42,16 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="INodeLocator.cs" />
-    <Compile Include="MemacheHeader.cs" />
+    <Compile Include="Headers\HeaderUtil.cs" />
+    <Compile Include="Headers\MemacheRequestHeader.cs" />
+    <Compile Include="Headers\MemacheResponseHeader.cs" />
+    <Compile Include="Locator\INodeLocator.cs" />
     <Compile Include="MemcacheClient.cs" />
     <Compile Include="Configuration\MemcacheClientConfiguration.cs" />
     <Compile Include="Node\IMemcacheNode.cs" />
+    <Compile Include="Node\IMemcacheNodeQueue.cs" />
     <Compile Include="Node\MemcacheNode.cs" />
-    <Compile Include="NodeLocator.cs" />
+    <Compile Include="Locator\NodeLocator.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Requests\GetRequest.cs" />
     <Compile Include="Requests\HealthCheckRequest.cs" />

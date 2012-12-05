@@ -5,12 +5,14 @@ using System.Net.Sockets;
 using System.Threading;
 
 using Criteo.MemcacheClient.Requests;
+using Criteo.MemcacheClient.Headers;
+using Criteo.MemcacheClient.Node;
 
 namespace Criteo.MemcacheClient.Sockets
 {
-    public class MemcacheSocketAsynch : MemcacheSocketBase
+    internal class MemcacheSocketAsynch : MemcacheSocketBase
     {
-        public MemcacheSocketAsynch(IPEndPoint endPoint, BlockingCollection<IMemcacheRequest> itemQueue)
+        public MemcacheSocketAsynch(IPEndPoint endPoint, IMemcacheNodeQueue itemQueue)
             : base(endPoint, itemQueue)
         {
         }

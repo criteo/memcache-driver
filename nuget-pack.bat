@@ -1,0 +1,1 @@
+NuGet.exe pack .\Criteo.MemcacheClient\Criteo.MemcacheClient.csproj -Build -Symbols -Properties Configuration=Release

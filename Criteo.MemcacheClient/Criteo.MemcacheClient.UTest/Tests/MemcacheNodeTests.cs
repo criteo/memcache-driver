@@ -13,6 +13,9 @@ using Criteo.MemcacheClient.Requests;
 
 namespace Criteo.MemcacheClient.UTest.Tests
 {
+    /// <summary>
+    /// Test around the MemcacheNode object
+    /// </summary>
     [TestFixture]
     public class MemcacheNodeTests
     {
@@ -26,11 +29,11 @@ namespace Criteo.MemcacheClient.UTest.Tests
                 SocketFactory = (_, queue) => (socketMock = new DeadSocketMock { WaitingRequests = queue }),
                 QueueLength = 1,
             };
-            var node = new MemcacheNode(null, config);
+            var node = new MemcacheNode(null, config, _ => { });
 
             Assert.IsNotNull(socketMock, "No socket has been created by the node");
 
-            node.WaitingRequests.Add(new NoOpRequest());
+            Assert.IsTrue(node.TrySend(new NoOpRequest(), Timeout.Infinite), "Unable to send a request throught the node");
             Thread.Sleep(2000);
 
             Assert.AreEqual(true, node.IsDead, "The node is still alive, should be dead now !");

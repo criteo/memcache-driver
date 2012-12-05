@@ -9,19 +9,24 @@ using System.Threading;
 using Criteo.MemcacheClient.Configuration;
 using Criteo.MemcacheClient.Sockets;
 using Criteo.MemcacheClient.Requests;
+using Criteo.MemcacheClient.Headers;
 
 namespace Criteo.MemcacheClient.Node
 {
 
-    public class MemcacheNode : IMemcacheNode
+    internal class MemcacheNode : IMemcacheNode, IMemcacheNodeQueue
     {
         public bool IsDead { get; private set; }
 
-        private static SocketAllocator DefaultAllocator = (IPEndPoint endPoint, BlockingCollection<IMemcacheRequest> waitingRequests) => new MemcacheSocketThreaded(endPoint, waitingRequests);
+        private static SocketAllocator DefaultAllocator = (IPEndPoint endPoint, IMemcacheNodeQueue nodeQueue) => new MemcacheSocketThreaded(endPoint, nodeQueue);
 
         private BlockingCollection<IMemcacheRequest> _waitingRequests;
         private List<IMemcacheSocket> _clients;
-        public BlockingCollection<IMemcacheRequest> WaitingRequests { get { return _waitingRequests; } }
+        private Action<IMemcacheRequest> _requeueRequest;
+        private Timer _monitoring;
+        private bool _requestRan;
+        private int _stuckCount;
+        private MemcacheClientConfiguration _configuration;
 
         public event Action<MemacheResponseHeader, IMemcacheRequest> MemcacheError
         {
@@ -65,13 +70,18 @@ namespace Criteo.MemcacheClient.Node
             }
         }
 
-        public event Action<MemcacheNode> NodeDead;
-        public event Action<MemcacheNode> NodeFlush;
+        public event Action<IMemcacheNode> NodeDead;
 
-        private MemcacheClientConfiguration _configuration;
-
-        public MemcacheNode(IPEndPoint endPoint, MemcacheClientConfiguration configuration)
+        /// <summary>
+        /// The constructor
+        /// </summary>
+        /// <param name="endPoint">Ip address and port of the node</param>
+        /// <param name="configuration">Configuration object</param>
+        /// <param name="requeueRequest">Delegate used to requeue pending requests when the node deads</param>
+        public MemcacheNode(IPEndPoint endPoint, MemcacheClientConfiguration configuration, Action<IMemcacheRequest> requeueRequest)
         {
+            _requeueRequest = requeueRequest;
+
             _configuration = configuration;
 
             if (configuration.QueueLength > 0)
@@ -82,7 +92,7 @@ namespace Criteo.MemcacheClient.Node
             _clients = new List<IMemcacheSocket>(configuration.PoolSize);
             for (int i = 0; i < configuration.PoolSize; ++i)
             {
-                var socket = (configuration.SocketFactory ?? DefaultAllocator)(endPoint, _waitingRequests);
+                var socket = (configuration.SocketFactory ?? DefaultAllocator)(endPoint, this);
                 socket.MemcacheResponse += (_, __) => _requestRan = true;
                 _clients.Add(socket);
             }
@@ -93,20 +103,38 @@ namespace Criteo.MemcacheClient.Node
             _monitoring = new Timer(Monitor, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         }
 
-        bool _requestRan;
-        int _stuckCount;
+        /// <summary>
+        /// See interface comments
+        /// </summary>
+        /// <param name="request" />
+        /// <param name="timeout" />
+        /// <returns />
+        public bool TrySend(IMemcacheRequest request, int timeout)
+        {
+            return _waitingRequests.TryAdd(request, timeout);
+        }
+
+        /// <summary>
+        /// The method executed by the monitoring timer
+        /// It checks if the node is dead when it's up, and if it's up again when it's dead
+        /// </summary>
+        /// <param name="dummy" />
         private void Monitor(object dummy)
         {
             if (!IsDead)
             {
-                if (!_requestRan && WaitingRequests.Count > 0)
+                if (!_requestRan && _waitingRequests.Count > 0)
                 {
                     // no request ran and the queue is not empty => increment the stuck counter
                     ++_stuckCount;
                     if (_stuckCount >= _configuration.DeadTimeout.TotalSeconds)
                     {
                         // we are stuck for too long time, the node is dead
-                        MarkAsDead();
+                        IsDead = true;
+                        FlushNode();
+
+                        if (NodeDead != null)
+                            NodeDead(this);
                     }
                 }
                 else
@@ -117,26 +145,38 @@ namespace Criteo.MemcacheClient.Node
             }
             if (IsDead)
             {
-                if (NodeFlush != null)
-                    NodeFlush(this);
+                FlushNode();
 
                 var noOp = new HealthCheckRequest { Callback = _ => IsDead = false };
-                WaitingRequests.Add(noOp);
+                _waitingRequests.Add(noOp);
             }
             _requestRan = false;
         }
 
-        private void MarkAsDead()
+        /// <summary>
+        /// Flush the content of the internal queue to eventually requeue them in unother node
+        /// </summary>
+        private void FlushNode()
         {
-            // flag the node as dead
-            IsDead = true;
-            // flush the queue
-            if (NodeFlush != null)
-                NodeFlush(this);
-            if (NodeDead != null)
-                NodeDead(this);
+            IMemcacheRequest req;
+            while (_waitingRequests.TryTake(out req))
+                if (!(req is HealthCheckRequest))
+                    _requeueRequest(req);
         }
 
-        private Timer _monitoring;
+        IMemcacheRequest IMemcacheNodeQueue.Take()
+        {
+            return _waitingRequests.Take();
+        }
+
+        bool IMemcacheNodeQueue.TryTake(out IMemcacheRequest request, int timeout)
+        {
+            return _waitingRequests.TryTake(out request, timeout);
+        }
+
+        void IMemcacheNodeQueue.Add(IMemcacheRequest request)
+        {
+            _waitingRequests.Add(request);
+        }
     }
 }
