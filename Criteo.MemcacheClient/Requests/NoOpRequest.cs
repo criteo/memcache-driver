@@ -7,7 +7,7 @@ using Criteo.MemcacheClient.Headers;
 
 namespace Criteo.MemcacheClient.Requests
 {
-    public class NoOpRequest : IMemcacheRequest
+    internal class NoOpRequest : IMemcacheRequest
     {
         public uint RequestId { get; set; }
         public string Key { get; set; }

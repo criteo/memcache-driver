@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Criteo.MemcacheClient.Requests
 {
-    public class HealthCheckRequest : NoOpRequest
+    internal class HealthCheckRequest : NoOpRequest
     {
     }
 }
