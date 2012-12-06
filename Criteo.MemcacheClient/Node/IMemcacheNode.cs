@@ -19,12 +19,12 @@ namespace Criteo.MemcacheClient.Node
         /// <summary>
         /// This event is triggered every time a respond from the server is not ok
         /// </summary>
-        event Action<MemacheResponseHeader, IMemcacheRequest> MemcacheError;
+        event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError;
 
         /// <summary>
         /// This event is triggered at every incoming response from the server
         /// </summary>
-        event Action<MemacheResponseHeader, IMemcacheRequest> MemcacheResponse;
+        event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheResponse;
 
         /// <summary>
         /// This event is triggered whenever the node goes dead

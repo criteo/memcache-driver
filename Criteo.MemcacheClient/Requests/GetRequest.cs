@@ -20,7 +20,7 @@ namespace Criteo.MemcacheClient.Requests
             if (keyAsBytes.Length > ushort.MaxValue)
                 throw new ArgumentException("The key is too long for the memcache binary protocol : " + Key);
 
-            var requestHeader = new MemacheRequestHeader(Opcode.Get)
+            var requestHeader = new MemcacheRequestHeader(Opcode.Get)
             {
                 KeyLength = (ushort)keyAsBytes.Length,
                 ExtraLength = 0,
@@ -28,14 +28,14 @@ namespace Criteo.MemcacheClient.Requests
                 Opaque = RequestId,
             };
 
-            var buffer = new byte[24 + requestHeader.TotalBodyLength];
+            var buffer = new byte[MemcacheRequestHeader.SIZE + requestHeader.TotalBodyLength];
             requestHeader.ToData(buffer, 0);
-            keyAsBytes.CopyTo(buffer, 24);
+            keyAsBytes.CopyTo(buffer, MemcacheRequestHeader.SIZE);
 
             return buffer;
         }
 
-        public void HandleResponse(MemacheResponseHeader header, byte[] extra, byte[] message)
+        public void HandleResponse(MemcacheResponseHeader header, byte[] extra, byte[] message)
         {
             if (extra == null || extra.Length == 0)
                 throw new Exception("The get command Magic Number is not present !");

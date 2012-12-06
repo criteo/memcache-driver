@@ -19,7 +19,7 @@ namespace Criteo.MemcacheClient.Requests
             if (keyAsBytes.Length > ushort.MaxValue)
                 throw new ArgumentException("The key is too long for the memcache binary protocol : " + Key);
 
-            var requestHeader = new MemacheRequestHeader(Opcode.Set)
+            var requestHeader = new MemcacheRequestHeader(Opcode.Set)
             {
                 KeyLength = (ushort)keyAsBytes.Length,
                 ExtraLength = 8,
@@ -27,10 +27,10 @@ namespace Criteo.MemcacheClient.Requests
                 Opaque = RequestId,
             };
 
-            var buffer = new byte[24 + requestHeader.TotalBodyLength];
+            var buffer = new byte[MemcacheRequestHeader.SIZE + requestHeader.TotalBodyLength];
             requestHeader.ToData(buffer, 0);
-            buffer.CopyFrom(24, (uint)0xdeadbeef);
-            buffer.CopyFrom(28, (uint)Expire.TotalSeconds);
+            buffer.CopyFrom(MemcacheRequestHeader.SIZE, (uint)0xdeadbeef);
+            buffer.CopyFrom(MemcacheRequestHeader.SIZE + sizeof(uint), (uint)Expire.TotalSeconds);
             keyAsBytes.CopyTo(buffer, 32);
             Message.CopyTo(buffer, 32 + keyAsBytes.Length);
 
@@ -38,7 +38,7 @@ namespace Criteo.MemcacheClient.Requests
         }
 
         // nothing to do on set response
-        public void HandleResponse(MemacheResponseHeader header, byte[] extra, byte[] message)
+        public void HandleResponse(MemcacheResponseHeader header, byte[] extra, byte[] message)
         {
         }
     }

@@ -51,6 +51,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Mocks\NodeQueueMock.cs" />
+    <Compile Include="Mocks\RequestMock.cs" />
     <Compile Include="Mocks\ServerMock.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Mocks\DeadSocketMock.cs" />

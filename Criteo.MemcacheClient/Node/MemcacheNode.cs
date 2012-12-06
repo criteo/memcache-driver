@@ -28,7 +28,7 @@ namespace Criteo.MemcacheClient.Node
         private int _stuckCount;
         private MemcacheClientConfiguration _configuration;
 
-        public event Action<MemacheResponseHeader, IMemcacheRequest> MemcacheError
+        public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError
         {
             add
             {
@@ -42,7 +42,7 @@ namespace Criteo.MemcacheClient.Node
             }
         }
 
-        public event Action<MemacheResponseHeader, IMemcacheRequest> MemcacheResponse
+        public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheResponse
         {
             add
             {

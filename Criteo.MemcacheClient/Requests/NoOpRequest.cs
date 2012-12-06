@@ -11,22 +11,22 @@ namespace Criteo.MemcacheClient.Requests
     {
         public uint RequestId { get; set; }
         public string Key { get; set; }
-        public Action<MemacheResponseHeader> Callback { get; set; }
+        public Action<MemcacheResponseHeader> Callback { get; set; }
 
         public byte[] GetQueryBuffer()
         {
-            var requestHeader = new MemacheRequestHeader(Opcode.NoOp)
+            var requestHeader = new MemcacheRequestHeader(Opcode.NoOp)
             {
                 Opaque = RequestId,
             };
 
-            var buffer = new byte[24];
+            var buffer = new byte[MemcacheRequestHeader.SIZE];
             requestHeader.ToData(buffer, 0);
 
             return buffer;
         }
 
-        public void HandleResponse(MemacheResponseHeader header, byte[] extra, byte[] message)
+        public void HandleResponse(MemcacheResponseHeader header, byte[] extra, byte[] message)
         {
             if (Callback != null)
                 Callback(header);

@@ -47,13 +47,9 @@ namespace Criteo.MemcacheClient.UTest.Tests
             };
 
             var queryBuffer = request.GetQueryBuffer();
-            var condition = queryBuffer.Length == SET_QUERY.Length
-                && queryBuffer
-                    .Zip(SET_QUERY, (a, b) => a == b)
-                    .All(a => a);
-            Assert.IsTrue(condition, "The set query buffer is different of the expected one");
+            CollectionAssert.AreEqual(SET_QUERY, queryBuffer, "The set query buffer is different of the expected one");
 
-            var header = new MemacheResponseHeader { Opcode = Opcode.Set, Status = Status.NoError };
+            var header = new MemcacheResponseHeader { Opcode = Opcode.Set, Status = Status.NoError };
             Assert.DoesNotThrow(() => request.HandleResponse(header, SET_EXTRA, SET_MESSAGE));
         }
     }

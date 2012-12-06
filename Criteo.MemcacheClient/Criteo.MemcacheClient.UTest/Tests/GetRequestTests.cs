@@ -57,7 +57,7 @@ namespace Criteo.MemcacheClient.UTest.Tests
                 .All(a => a);
             Assert.IsTrue(condition, "The get query buffer is different of the expected one");
 
-            var header = new MemacheResponseHeader { Opcode = Opcode.Get, Status = Status.NoError };
+            var header = new MemcacheResponseHeader { Opcode = Opcode.Get, Status = Status.NoError };
             Assert.Throws(typeof(Exception), () => request.HandleResponse(header, GET_BAD_MAGIC, GET_MESSAGE), "The get query doesn't detect bad magic");
             Assert.DoesNotThrow(() => request.HandleResponse(header, GET_MAGIC, GET_MESSAGE));
 

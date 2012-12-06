@@ -57,13 +57,13 @@ namespace Criteo.MemcacheClient.Sockets
         private void InitReadResponse()
         {
             _receiveArgs = new SocketAsyncEventArgs();
-            _receiveArgs.SetBuffer(new byte[24], 0, 24);
+            _receiveArgs.SetBuffer(new byte[MemcacheResponseHeader.SIZE], 0, MemcacheResponseHeader.SIZE);
             _receiveArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnReadResponseComplete);
         }
 
         private void ReadResponse()
         {
-            _receiveArgs.SetBuffer(0, 24);
+            _receiveArgs.SetBuffer(0, MemcacheResponseHeader.SIZE);
             Socket.ReceiveAsync(_receiveArgs);
         }
 
@@ -72,15 +72,15 @@ namespace Criteo.MemcacheClient.Sockets
             try
             {
                 // check if we read a full header, else continue
-                if (args.BytesTransferred + args.Offset < 24)
+                if (args.BytesTransferred + args.Offset < MemcacheResponseHeader.SIZE)
                 {
                     int offset = args.BytesTransferred + args.Offset;
-                    args.SetBuffer(offset, 24 - offset);
+                    args.SetBuffer(offset, MemcacheResponseHeader.SIZE - offset);
                     Socket.ReceiveAsync(args);
                     return;
                 }
 
-                var header = new MemacheResponseHeader(args.Buffer);
+                var header = new MemcacheResponseHeader(args.Buffer);
 
                 byte[] extra = null;
                 byte[] message = null;

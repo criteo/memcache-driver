@@ -5,8 +5,10 @@ using System.Text;
 
 namespace Criteo.MemcacheClient.Headers
 {
-    public struct MemacheResponseHeader : IEquatable<MemacheResponseHeader>
+    public struct MemcacheResponseHeader : IEquatable<MemcacheResponseHeader>
     {
+        public static readonly int SIZE = 24;
+
         private const byte Magic = 0x81;
         public Opcode Opcode;
         public ushort KeyLength;
@@ -44,7 +46,7 @@ namespace Criteo.MemcacheClient.Headers
             Cas = data.CopyToULong(16 + offset);
         }
 
-        public MemacheResponseHeader(byte[] data, int offset = 0)
+        public MemcacheResponseHeader(byte[] data, int offset = 0)
             : this()
         {
             FromData(data, offset);
@@ -52,11 +54,11 @@ namespace Criteo.MemcacheClient.Headers
 
         public override bool Equals(object obj)
         {
-            return obj is MemacheResponseHeader
-                && Equals((MemacheResponseHeader)obj);
+            return obj is MemcacheResponseHeader
+                && Equals((MemcacheResponseHeader)obj);
         }
 
-        public bool Equals(MemacheResponseHeader other)
+        public bool Equals(MemcacheResponseHeader other)
         {
             return other.Opcode == Opcode
                 && other.KeyLength == KeyLength

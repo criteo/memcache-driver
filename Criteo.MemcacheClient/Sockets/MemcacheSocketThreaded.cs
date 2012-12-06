@@ -61,7 +61,7 @@ namespace Criteo.MemcacheClient.Sockets
 
         private void StartReceivingThread()
         {
-            var buffer = new byte[24];
+            var buffer = new byte[MemcacheResponseHeader.SIZE];
             _receivingThread = new Thread(t =>
             {
                 var token = (CancellationToken)t;
@@ -72,10 +72,10 @@ namespace Criteo.MemcacheClient.Sockets
                         int received = 0;
                         do
                         {
-                            received += Socket.Receive(buffer, received, 24 - received, SocketFlags.None);
-                        } while (received < 24);
+                            received += Socket.Receive(buffer, received, MemcacheResponseHeader.SIZE - received, SocketFlags.None);
+                        } while (received < MemcacheResponseHeader.SIZE);
 
-                        var header = new MemacheResponseHeader(buffer);
+                        var header = new MemcacheResponseHeader(buffer);
 
                         // in case we have a message ! (should not happen for a set)
                         byte[] extra = null;
@@ -115,7 +115,7 @@ namespace Criteo.MemcacheClient.Sockets
                     }
                 }
             });
-            _receivingThread.Start(_token);
+            _receivingThread.Start(_token.Token);
         }
 
         protected override void Start()

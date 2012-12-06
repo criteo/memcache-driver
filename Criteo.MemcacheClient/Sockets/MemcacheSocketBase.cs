@@ -27,8 +27,8 @@ namespace Criteo.MemcacheClient.Sockets
             }
         }
 
-        protected Action<MemacheResponseHeader, IMemcacheRequest> _memcacheError;
-        public event Action<MemacheResponseHeader, IMemcacheRequest> MemcacheError
+        protected Action<MemcacheResponseHeader, IMemcacheRequest> _memcacheError;
+        public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError
         {
             add
             {
@@ -40,8 +40,8 @@ namespace Criteo.MemcacheClient.Sockets
             }
         }
 
-        protected Action<MemacheResponseHeader, IMemcacheRequest> _memcacheResponse;
-        public event Action<MemacheResponseHeader, IMemcacheRequest> MemcacheResponse
+        protected Action<MemcacheResponseHeader, IMemcacheRequest> _memcacheResponse;
+        public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheResponse
         {
             add
             {
@@ -114,7 +114,7 @@ namespace Criteo.MemcacheClient.Sockets
                     _requestQueue.Add(item);
         }
 
-        protected IMemcacheRequest UnstackToMatch(MemacheResponseHeader header)
+        protected IMemcacheRequest UnstackToMatch(MemcacheResponseHeader header)
         {
             IMemcacheRequest result = null;
 

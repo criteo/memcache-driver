@@ -43,8 +43,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Headers\HeaderUtil.cs" />
-    <Compile Include="Headers\MemacheRequestHeader.cs" />
-    <Compile Include="Headers\MemacheResponseHeader.cs" />
+    <Compile Include="Headers\MemcacheRequestHeader.cs" />
+    <Compile Include="Headers\MemcacheResponseHeader.cs" />
     <Compile Include="Locator\INodeLocator.cs" />
     <Compile Include="MemcacheClient.cs" />
     <Compile Include="Configuration\MemcacheClientConfiguration.cs" />

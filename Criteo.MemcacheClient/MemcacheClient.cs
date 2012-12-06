@@ -19,7 +19,7 @@ namespace Criteo.MemcacheClient
         private NodeAllocator DefaultNodeFactory =
             (endPoint, configuration, SendRequest) => new MemcacheNode(endPoint, configuration, SendRequest);
 
-        public event Action<MemacheResponseHeader, IMemcacheRequest> MemcacheError
+        public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError
         {
             add
             {

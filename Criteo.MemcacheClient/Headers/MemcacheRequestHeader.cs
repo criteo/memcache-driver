@@ -5,9 +5,11 @@ using System.Text;
 
 namespace Criteo.MemcacheClient.Headers
 {
-    public struct MemacheRequestHeader : IEquatable<MemacheRequestHeader>
+    public struct MemcacheRequestHeader : IEquatable<MemcacheRequestHeader>
     {
-        public MemacheRequestHeader(Opcode instruction)
+        public static readonly int SIZE = 24;
+
+        public MemcacheRequestHeader(Opcode instruction)
         {
             Opcode = instruction;
             KeyLength = 0;
@@ -58,11 +60,11 @@ namespace Criteo.MemcacheClient.Headers
 
         public override bool Equals(object obj)
         {
-            return obj is MemacheRequestHeader
-                && Equals((MemacheRequestHeader)obj);
+            return obj is MemcacheRequestHeader
+                && Equals((MemcacheRequestHeader)obj);
         }
 
-        public bool Equals(MemacheRequestHeader other)
+        public bool Equals(MemcacheRequestHeader other)
         {
             return other.Opcode == Opcode
                 && other.KeyLength == KeyLength

@@ -23,13 +23,13 @@ namespace Criteo.MemcacheClient.UTest.Mocks
             remove { }
         }
 
-        public event Action<MemacheResponseHeader, IMemcacheRequest> MemcacheError
+        public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError
         {
             add { }
             remove { }
         }
 
-        public event Action<MemacheResponseHeader, IMemcacheRequest> MemcacheResponse
+        public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheResponse
         {
             add { }
             remove { }
@@ -40,7 +40,7 @@ namespace Criteo.MemcacheClient.UTest.Mocks
         {
             IMemcacheRequest request;
             while(WaitingRequests.TryTake(out request, 0))
-                request.HandleResponse(new MemacheResponseHeader {}, null, null);
+                request.HandleResponse(new MemcacheResponseHeader {}, null, null);
         }
     }
 }
