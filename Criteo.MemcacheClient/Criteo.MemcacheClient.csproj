@@ -42,6 +42,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Authenticators\IAuthenticationToken.cs" />
+    <Compile Include="Authenticators\IMemcacheAuthenticator.cs" />
+    <Compile Include="Authenticators\SaslPlainTextAuthenticator.cs" />
+    <Compile Include="Exceptions\AuthenticationException.cs" />
+    <Compile Include="Exceptions\MemcacheException.cs" />
     <Compile Include="Headers\HeaderUtil.cs" />
     <Compile Include="Headers\MemcacheRequestHeader.cs" />
     <Compile Include="Headers\MemcacheResponseHeader.cs" />
@@ -57,6 +62,7 @@
     <Compile Include="Requests\HealthCheckRequest.cs" />
     <Compile Include="Requests\IMemcacheRequest.cs" />
     <Compile Include="Requests\NoOpRequest.cs" />
+    <Compile Include="Requests\SaslPlainRequest.cs" />
     <Compile Include="Requests\SetRequest.cs" />
     <Compile Include="Sockets\IMemcacheSocket.cs" />
     <Compile Include="Sockets\MemcacheSocketAsynch.cs" />

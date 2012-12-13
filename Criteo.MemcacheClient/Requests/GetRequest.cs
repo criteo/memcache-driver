@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 
 using Criteo.MemcacheClient.Headers;
+using Criteo.MemcacheClient.Exceptions;
 
 namespace Criteo.MemcacheClient.Requests
 {
@@ -38,11 +39,11 @@ namespace Criteo.MemcacheClient.Requests
         public void HandleResponse(MemcacheResponseHeader header, byte[] extra, byte[] message)
         {
             if (extra == null || extra.Length == 0)
-                throw new Exception("The get command Magic Number is not present !");
+                throw new MemcacheException("The get command Magic Number is not present !");
             else if (extra.Length != 4)
-                throw new Exception("The get command Magic Number is wrong size !");
+                throw new MemcacheException("The get command Magic Number is wrong size !");
             else if (extra.CopyToUInt(0) != 0xdeadbeef)
-                throw new Exception("The get command Magic Number is wrong !");
+                throw new MemcacheException("The get command Magic Number is wrong !");
                 Callback(header.Status, message);
         }
     }

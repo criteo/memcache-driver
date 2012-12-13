@@ -8,6 +8,7 @@ using Criteo.MemcacheClient.Requests;
 using Criteo.MemcacheClient.Sockets;
 using Criteo.MemcacheClient.Node;
 using Criteo.MemcacheClient.Locator;
+using Criteo.MemcacheClient.Authenticators;
 
 namespace Criteo.MemcacheClient.Configuration
 {
@@ -23,7 +24,7 @@ namespace Criteo.MemcacheClient.Configuration
         Ignore,
     }
 
-    public delegate IMemcacheSocket SocketAllocator(IPEndPoint endPoint, IMemcacheNodeQueue nodeQueue);
+    public delegate IMemcacheSocket SocketAllocator(IPEndPoint endPoint, IMemcacheNodeQueue nodeQueue, IMemcacheAuthenticator authenticator);
     public delegate IMemcacheNode NodeAllocator(IPEndPoint endPoint, MemcacheClientConfiguration configuration, Action<IMemcacheRequest> requeueRequest);
 
     public class MemcacheClientConfiguration
@@ -34,6 +35,7 @@ namespace Criteo.MemcacheClient.Configuration
         public INodeLocator NodeLocator { get; set; }
         public SocketAllocator SocketFactory { get; set; }
         public NodeAllocator NodeFactory { get; set; }
+        public IMemcacheAuthenticator Authenticator { get; set; }
 
         public Policy UnavaillablePolicy { get; set; }
         public Policy QueueFullPolicy { get; set; }
@@ -46,6 +48,7 @@ namespace Criteo.MemcacheClient.Configuration
 
         public MemcacheClientConfiguration()
         {
+            Authenticator = null;
             PoolSize = 2;
             DeadTimeout = TimeSpan.FromSeconds(15);
             SocketTimeout = TimeSpan.FromMilliseconds(200);

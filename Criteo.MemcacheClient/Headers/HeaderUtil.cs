@@ -16,6 +16,10 @@ namespace Criteo.MemcacheClient.Headers
         IncrDecrOnNonNumeric = 0x0006,
         UnknownCommand = 0x0081,
         OutOfMemory = 0x0082,
+
+        // SASL errors
+        AuthRequired = 0x0020,
+        StepRequired = 0x0021,
     }
 
     public enum Opcode : byte
@@ -47,6 +51,11 @@ namespace Criteo.MemcacheClient.Headers
         FlushQ = 0x18,
         AppendQ = 0x19,
         PrependQ = 0x1A,
+
+        // SASL commands
+        ListAuth = 0x20,
+        StartAuth = 0x21,
+        StepAuth = 0x22,
     }
 
     public static class HeaderUtil

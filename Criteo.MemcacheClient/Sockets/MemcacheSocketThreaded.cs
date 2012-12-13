@@ -7,6 +7,7 @@ using System.Threading;
 using Criteo.MemcacheClient.Requests;
 using Criteo.MemcacheClient.Headers;
 using Criteo.MemcacheClient.Node;
+using Criteo.MemcacheClient.Authenticators;
 
 namespace Criteo.MemcacheClient.Sockets
 {
@@ -14,11 +15,10 @@ namespace Criteo.MemcacheClient.Sockets
     {
         private Thread _sendingThread;
         private Thread _receivingThread;
-
         private CancellationTokenSource _token;
 
-        public MemcacheSocketThreaded(IPEndPoint endPoint, IMemcacheNodeQueue itemQueue)
-            : base(endPoint, itemQueue)
+        public MemcacheSocketThreaded(IPEndPoint endPoint, IMemcacheNodeQueue itemQueue, IMemcacheAuthenticator authenticator)
+            : base(endPoint, itemQueue, authenticator)
         {
         }
 
@@ -31,7 +31,10 @@ namespace Criteo.MemcacheClient.Sockets
                 {
                     try
                     {
-                        var request = WaitingRequests.Take();
+                        var request = GetNextRequest();
+                        if (request == null)
+                            return;
+
                         var buffer = request.GetQueryBuffer();
 
                         PendingRequests.Enqueue(request);

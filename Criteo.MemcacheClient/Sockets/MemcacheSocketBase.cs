@@ -7,13 +7,13 @@ using System.Threading;
 using Criteo.MemcacheClient.Headers;
 using Criteo.MemcacheClient.Requests;
 using Criteo.MemcacheClient.Node;
+using Criteo.MemcacheClient.Authenticators;
+using Criteo.MemcacheClient.Exceptions;
 
 namespace Criteo.MemcacheClient.Sockets
 {
     internal abstract class MemcacheSocketBase : IMemcacheSocket
     {
-        private IMemcacheNodeQueue _requestQueue;
-
         protected Action<Exception> _transportError;
         public event Action<Exception> TransportError
         {
@@ -55,14 +55,17 @@ namespace Criteo.MemcacheClient.Sockets
 
         protected EndPoint EndPoint { get; private set; }
         protected Socket Socket { get; set; }
-        protected IMemcacheNodeQueue WaitingRequests { get { return _requestQueue; } }
+        public IMemcacheNodeQueue WaitingRequests { protected get; set; }
         protected ConcurrentQueue<IMemcacheRequest> PendingRequests { get; private set; }
+        private IMemcacheAuthenticator _authenticator;
+        protected IAuthenticationToken AuthenticationToken { get; set; }
 
-        internal MemcacheSocketBase(EndPoint endpoint, IMemcacheNodeQueue itemQueue)
+        internal MemcacheSocketBase(EndPoint endpoint, IMemcacheNodeQueue itemQueue, IMemcacheAuthenticator authenticator)
         {
             EndPoint = endpoint;
-            _requestQueue = itemQueue;
+            WaitingRequests = itemQueue;
             PendingRequests = new ConcurrentQueue<IMemcacheRequest>();
+            _authenticator = authenticator;
 
             CreateSocket();
             Start();
@@ -81,6 +84,9 @@ namespace Criteo.MemcacheClient.Sockets
             if (Socket != null)
                 Socket.Dispose();
             Socket = socket;
+
+            if (_authenticator != null)
+                AuthenticationToken = _authenticator.CreateToken();
         }
 
         private Timer _startAttemptTimer;
@@ -111,7 +117,7 @@ namespace Criteo.MemcacheClient.Sockets
             IMemcacheRequest item;
             while (oldPending.Count > 0)
                 if (oldPending.TryDequeue(out item))
-                    _requestQueue.Add(item);
+                    WaitingRequests.Add(item);
         }
 
         protected IMemcacheRequest UnstackToMatch(MemcacheResponseHeader header)
@@ -130,6 +136,42 @@ namespace Criteo.MemcacheClient.Sockets
             }
 
             return result;
+        }
+
+        protected IMemcacheRequest GetNextRequest()
+        {
+            IMemcacheRequest request = null;
+            Status authStatus = Status.NoError;
+            if (AuthenticationToken != null)
+            {
+                authStatus = AuthenticationToken.StepAuthenticate(out request);
+
+                switch (authStatus)
+                {
+                    // auth OK, clear the token
+                    case Status.NoError:
+                        AuthenticationToken = null;
+                        break;
+                    case Status.StepRequired:
+                        if (request == null && _transportError != null)
+                        {
+                            _transportError(new AuthenticationException("Unable to authenticate : step required but no request from token"));
+                            Reset();
+                            return null;
+                        }
+                        break;
+                    default:
+                        if (_transportError != null)
+                            _transportError(new AuthenticationException("Unable to authenticate : status " + authStatus.ToString()));
+                        Reset();
+                        return null;
+                }
+            }
+
+            if (authStatus == Status.NoError)
+                request = WaitingRequests.Take();
+
+            return request;
         }
 
 

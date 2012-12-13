@@ -7,50 +7,58 @@ using System.Threading;
 using Criteo.MemcacheClient.Requests;
 using Criteo.MemcacheClient.Headers;
 using Criteo.MemcacheClient.Node;
+using Criteo.MemcacheClient.Authenticators;
+using Criteo.MemcacheClient.Exceptions;
 
 namespace Criteo.MemcacheClient.Sockets
 {
     internal class MemcacheSocketAsynch : MemcacheSocketBase
     {
-        public MemcacheSocketAsynch(IPEndPoint endPoint, IMemcacheNodeQueue itemQueue)
-            : base(endPoint, itemQueue)
+        public MemcacheSocketAsynch(IPEndPoint endPoint, IMemcacheNodeQueue itemQueue, IMemcacheAuthenticator authenticator)
+            : base(endPoint, itemQueue, authenticator)
         {
         }
 
         private Thread _sendingThread;
         private SocketAsyncEventArgs _receiveArgs;
-        private uint _requestId = 0;
+        private CancellationTokenSource _token;
 
         private void StartSendingThread()
         {
-            _sendingThread = new Thread(() =>
+            _sendingThread = new Thread(t =>
             {
+                var token = (CancellationToken)t;
                 while (true)
                 {
                     try
                     {
-                        var request = WaitingRequests.Take();
+                        var request = GetNextRequest();
+                        if (request == null)
+                            return;
+                        
                         var buffer = request.GetQueryBuffer();
 
                         PendingRequests.Enqueue(request);
-                        Socket.Send(buffer, 0, buffer.Length, SocketFlags.None);
-                    }
-                    catch (ThreadAbortException)
-                    {
-                        throw;
+                        int sent = 0;
+                        do
+                        {
+                            sent += Socket.Send(buffer, sent, buffer.Length - sent, SocketFlags.None);
+                        } while (sent != buffer.Length);
                     }
                     catch (Exception e)
                     {
-                        if (_transportError != null)
-                            _transportError(e);
+                        if (!token.IsCancellationRequested)
+                        {
+                            if (_transportError != null)
+                                _transportError(e);
 
-                        _sendingThread = null;
-                        Reset();
-                        return;
+                            _sendingThread = null;
+                            Reset();
+                        }
                     }
                 }
             });
-            _sendingThread.Start();
+            _sendingThread.Start(_token.Token);
         }
 
         private void InitReadResponse()
@@ -120,6 +128,7 @@ namespace Criteo.MemcacheClient.Sockets
 
         protected override void Start()
         {
+            _token = new CancellationTokenSource();
             StartSendingThread();
             InitReadResponse();
             ReadResponse();
@@ -127,9 +136,9 @@ namespace Criteo.MemcacheClient.Sockets
 
         protected override void ShutDown()
         {
-            if(_sendingThread != null)
-                _sendingThread.Abort();
+            _token.Cancel();
             _receiveArgs.Dispose();
+            Socket.Dispose();
         }
     }
 }

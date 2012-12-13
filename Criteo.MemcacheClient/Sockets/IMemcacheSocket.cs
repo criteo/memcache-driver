@@ -5,6 +5,7 @@ using System.Text;
 
 using Criteo.MemcacheClient.Requests;
 using Criteo.MemcacheClient.Headers;
+using Criteo.MemcacheClient.Node;
 
 namespace Criteo.MemcacheClient.Sockets
 {

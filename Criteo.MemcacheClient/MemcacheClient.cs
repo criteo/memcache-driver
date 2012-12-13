@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Criteo.MemcacheClient.Configuration;
@@ -7,7 +8,7 @@ using Criteo.MemcacheClient.Requests;
 using Criteo.MemcacheClient.Node;
 using Criteo.MemcacheClient.Locator;
 using Criteo.MemcacheClient.Headers;
-using System.Threading;
+using Criteo.MemcacheClient.Exceptions;
 
 namespace Criteo.MemcacheClient
 {
@@ -93,14 +94,14 @@ namespace Criteo.MemcacheClient
             if (node == null)
             {
                 if (_configuration.UnavaillablePolicy != Policy.Ignore)
-                    throw new Exception("No nodes are available");
+                    throw new MemcacheException("No nodes are available");
                 else
                     return false;
             }
 
             var res = node.TrySend(request, _configuration.EnqueueTimeout);
             if (!res && _configuration.QueueFullPolicy == Policy.Throw)
-                throw new Exception("Queue is full");
+                throw new MemcacheException("Queue is full");
 
             return res;
         }
