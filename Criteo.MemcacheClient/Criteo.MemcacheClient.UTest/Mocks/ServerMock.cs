@@ -9,7 +9,7 @@ using Criteo.MemcacheClient.Headers;
 
 namespace Criteo.MemcacheClient.UTest.Mocks
 {
-    class ServerMock
+    class ServerMock : IDisposable
     {
         Socket _socket;
 
@@ -18,6 +18,8 @@ namespace Criteo.MemcacheClient.UTest.Mocks
 
         public MemcacheResponseHeader ResponseHeader { private get; set; }
         public byte[] ResponseBody { private get; set; }
+
+        private SocketAsyncEventArgs _acceptEventArgs;
 
         /// <summary>
         /// Start and listen ongoing TCP connections
@@ -28,9 +30,9 @@ namespace Criteo.MemcacheClient.UTest.Mocks
             _socket = new Socket(endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             _socket.Bind(endPoint);
             _socket.Listen((int)SocketOptionName.MaxConnections);
-            var eventArg = new SocketAsyncEventArgs();
-            eventArg.Completed += new EventHandler<SocketAsyncEventArgs>(OnAccept);
-            _socket.AcceptAsync(eventArg);
+            _acceptEventArgs = new SocketAsyncEventArgs();
+            _acceptEventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnAccept);
+            _socket.AcceptAsync(_acceptEventArgs);
         }
 
         /// <summary>
@@ -40,13 +42,17 @@ namespace Criteo.MemcacheClient.UTest.Mocks
         /// <param name="e" />
         void OnAccept(object sender, SocketAsyncEventArgs e)
         {
+            var socket = sender as Socket;
+            if (e.SocketError != SocketError.Success)
+                return;
+
             var acceptedSocket = e.AcceptSocket;
             var eventArg = new SocketAsyncEventArgs();
             eventArg.SetBuffer(new byte[MemcacheRequestHeader.SIZE], 0, MemcacheRequestHeader.SIZE);
             eventArg.Completed += new EventHandler<SocketAsyncEventArgs>(OnReceive);
             acceptedSocket.ReceiveAsync(eventArg);
 
-            _socket.AcceptAsync(e);
+            //socket.AcceptAsync(e);
         }
 
         /// <summary>
@@ -60,6 +66,10 @@ namespace Criteo.MemcacheClient.UTest.Mocks
         /// <param name="e" />
         void OnReceive(object sender, SocketAsyncEventArgs e)
         {
+            // ends when error occur
+            if (e.SocketError != SocketError.Success)
+                return;
+
             // ends request header transfer
             var socket = sender as Socket;
             int transfered = e.BytesTransferred;
@@ -102,6 +112,12 @@ namespace Criteo.MemcacheClient.UTest.Mocks
 
             // start to receive again
             socket.ReceiveAsync(e);
+        }
+
+        public void Dispose()
+        {
+            if(_socket != null)
+                _socket.Dispose();
         }
     }
 }

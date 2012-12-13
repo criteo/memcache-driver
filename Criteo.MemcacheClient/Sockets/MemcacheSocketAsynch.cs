@@ -30,7 +30,6 @@ namespace Criteo.MemcacheClient.Sockets
                     try
                     {
                         var request = WaitingRequests.Take();
-                        request.RequestId = ++_requestId;
                         var buffer = request.GetQueryBuffer();
 
                         PendingRequests.Enqueue(request);

@@ -58,7 +58,7 @@
     <Compile Include="Mocks\DeadSocketMock.cs" />
     <Compile Include="Tests\MemcacheNodeTests.cs" />
     <Compile Include="Tests\GetRequestTests.cs" />
-    <Compile Include="Tests\MemcacheSocketThreadedTests.cs" />
+    <Compile Include="Tests\MemcacheSocketTests.cs" />
     <Compile Include="Tests\SetRequestTests.cs" />
   </ItemGroup>
   <ItemGroup>

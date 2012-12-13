@@ -42,5 +42,9 @@ namespace Criteo.MemcacheClient.UTest.Mocks
             while(WaitingRequests.TryTake(out request, 0))
                 request.HandleResponse(new MemcacheResponseHeader {}, null, null);
         }
+
+        public void Dispose()
+        {
+        }
     }
 }

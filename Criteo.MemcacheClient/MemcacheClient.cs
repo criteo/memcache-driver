@@ -7,6 +7,7 @@ using Criteo.MemcacheClient.Requests;
 using Criteo.MemcacheClient.Node;
 using Criteo.MemcacheClient.Locator;
 using Criteo.MemcacheClient.Headers;
+using System.Threading;
 
 namespace Criteo.MemcacheClient
 {
@@ -106,22 +107,31 @@ namespace Criteo.MemcacheClient
 
         public bool Set(string key, byte[] message, TimeSpan expiration)
         {
-            return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration });
+            return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId });
         }
 
         public bool Get(string key, Action<Status, byte[]> callback)
         {
-            return SendRequest(new GetRequest { Key = key, Callback = callback });
+            return SendRequest(new GetRequest { Key = key, Callback = callback, RequestId = NextRequestId });
         }
 
         public Task<byte[]> Get(string key)
         {
             var taskSource = new TaskCompletionSource<byte[]>();
 
-            if (!SendRequest(new GetRequest { Key = key, Callback = (s, m) => taskSource.SetResult(m) }))
+            if (!SendRequest(new GetRequest { Key = key, Callback = (s, m) => taskSource.SetResult(m), RequestId = NextRequestId }))
                 taskSource.SetResult(null);
 
             return taskSource.Task;
+        }
+
+        private int _currentRequestId = 0;
+        protected uint NextRequestId
+        {
+            get
+            {
+                return (uint)Interlocked.Increment(ref _currentRequestId);
+            }
         }
     }
 }

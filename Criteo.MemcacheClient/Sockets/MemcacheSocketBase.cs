@@ -4,8 +4,8 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 
-using Criteo.MemcacheClient.Requests;
 using Criteo.MemcacheClient.Headers;
+using Criteo.MemcacheClient.Requests;
 using Criteo.MemcacheClient.Node;
 
 namespace Criteo.MemcacheClient.Sockets
@@ -132,5 +132,11 @@ namespace Criteo.MemcacheClient.Sockets
             return result;
         }
 
+
+        public void Dispose()
+        {
+            if (Socket != null)
+                Socket.Dispose();
+        }
     }
 }

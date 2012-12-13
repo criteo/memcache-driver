@@ -27,13 +27,11 @@ namespace Criteo.MemcacheClient.Sockets
             _sendingThread = new Thread(t =>
             {
                 var token = (CancellationToken)t;
-                uint requestId = 0;
                 while (!token.IsCancellationRequested)
                 {
                     try
                     {
                         var request = WaitingRequests.Take();
-                        request.RequestId = ++requestId;
                         var buffer = request.GetQueryBuffer();
 
                         PendingRequests.Enqueue(request);

@@ -8,7 +8,7 @@ using Criteo.MemcacheClient.Headers;
 
 namespace Criteo.MemcacheClient.Sockets
 {
-    public interface IMemcacheSocket
+    public interface IMemcacheSocket : IDisposable
     {
         /// <summary>
         /// This event is triggered when an exception occures

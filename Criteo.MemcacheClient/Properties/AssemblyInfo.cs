@@ -37,7 +37,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyFileVersion(Criteo.MemcacheClient.Version.ASSEMBLY_FILE_VERSION)]
 [assembly: AssemblyInformationalVersion(Criteo.MemcacheClient.Version.ASSEMBLY_INFORMATIONAL_VERSION)]
 
-[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Criteo.MemcacheClient.UTest")]
+[assembly: InternalsVisibleTo("Criteo.MemcacheClient.UTest")]
 
 namespace Criteo.MemcacheClient
 {
