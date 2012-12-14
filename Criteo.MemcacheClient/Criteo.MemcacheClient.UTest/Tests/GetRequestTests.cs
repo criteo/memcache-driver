@@ -7,6 +7,7 @@ using NUnit.Framework;
 
 using Criteo.MemcacheClient.Requests;
 using Criteo.MemcacheClient.Headers;
+using Criteo.MemcacheClient.Exceptions;
 
 namespace Criteo.MemcacheClient.UTest.Tests
 {
@@ -55,7 +56,7 @@ namespace Criteo.MemcacheClient.UTest.Tests
             CollectionAssert.AreEqual(GET_QUERY, queryBuffer, "The get query buffer is different of the expected one");
 
             var header = new MemcacheResponseHeader { Opcode = Opcode.Get, Status = Status.NoError };
-            Assert.Throws(typeof(Exception), () => request.HandleResponse(header, GET_BAD_MAGIC, GET_MESSAGE), "The get query doesn't detect bad magic");
+            Assert.Throws(typeof(MemcacheException), () => request.HandleResponse(header, GET_BAD_MAGIC, GET_MESSAGE), "The get query doesn't detect bad magic");
             Assert.DoesNotThrow(() => request.HandleResponse(header, GET_MAGIC, GET_MESSAGE), "Handle request should not throw an exception");
 
             Assert.AreSame(GET_MESSAGE, message, "Sent message and the one return by the request are different");
