@@ -136,9 +136,15 @@ namespace Criteo.MemcacheClient.Sockets
 
         protected override void ShutDown()
         {
-            _token.Cancel();
-            _receiveArgs.Dispose();
-            Socket.Dispose();
+            if(_token != null)
+                _token.Cancel();
+            if(_receiveArgs != null)
+                _receiveArgs.Dispose();
+            if (Socket != null)
+            {
+                Socket.Dispose();
+                Socket = null;
+            }
         }
     }
 }
