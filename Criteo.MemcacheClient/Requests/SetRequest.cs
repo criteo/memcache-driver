@@ -2,16 +2,26 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+
 using Criteo.MemcacheClient.Headers;
 
 namespace Criteo.MemcacheClient.Requests
 {
     class SetRequest : IMemcacheRequest
     {
+        static private DateTime Epock = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        private const uint RawDataFlag = 0xfa52;
+
         public string Key { get; set; }
         public byte[] Message { get; set; }
         public TimeSpan Expire { get; set; }
         public uint RequestId { get; set; }
+        public uint Flags { get; set; }
+
+        public SetRequest()
+        {
+            Flags = RawDataFlag;
+        }
 
         public byte[] GetQueryBuffer()
         {
@@ -29,13 +39,20 @@ namespace Criteo.MemcacheClient.Requests
 
             var buffer = new byte[MemcacheRequestHeader.SIZE + requestHeader.TotalBodyLength];
             requestHeader.ToData(buffer, 0);
-            buffer.CopyFrom(MemcacheRequestHeader.SIZE, (uint)0xdeadbeef);
-            buffer.CopyFrom(MemcacheRequestHeader.SIZE + sizeof(uint), (uint)Expire.TotalSeconds);
+            buffer.CopyFrom(MemcacheRequestHeader.SIZE, Flags);
+
+            uint expire;
+            if (Expire.CompareTo(TimeSpan.FromDays(30)) < 0)
+                expire = (uint)Expire.TotalSeconds;
+            else
+                expire = (uint)(DateTime.UtcNow.Add(Expire) - Epock).TotalSeconds;
+
+            buffer.CopyFrom(MemcacheRequestHeader.SIZE + sizeof(uint), expire);
             keyAsBytes.CopyTo(buffer, 32);
             Message.CopyTo(buffer, 32 + keyAsBytes.Length);
 
             return buffer;
-        }
+        } 
 
         // nothing to do on set response
         public void HandleResponse(MemcacheResponseHeader header, byte[] extra, byte[] message)

@@ -27,6 +27,7 @@ namespace Criteo.MemcacheClient.Node
         private bool _requestRan;
         private int _stuckCount;
         private MemcacheClientConfiguration _configuration;
+        private IPEndPoint _endPoint;
 
         public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError
         {
@@ -81,8 +82,8 @@ namespace Criteo.MemcacheClient.Node
         public MemcacheNode(IPEndPoint endPoint, MemcacheClientConfiguration configuration, Action<IMemcacheRequest> requeueRequest)
         {
             _requeueRequest = requeueRequest;
-
             _configuration = configuration;
+            _endPoint = endPoint;
 
             if (configuration.QueueLength > 0)
                 _waitingRequests = new BlockingCollection<IMemcacheRequest>(configuration.QueueLength);
@@ -177,6 +178,11 @@ namespace Criteo.MemcacheClient.Node
         void IMemcacheNodeQueue.Add(IMemcacheRequest request)
         {
             _waitingRequests.Add(request);
+        }
+
+        public override string ToString()
+        {
+            return _endPoint.Address.ToString() + ":" + _endPoint.Port;
         }
     }
 }

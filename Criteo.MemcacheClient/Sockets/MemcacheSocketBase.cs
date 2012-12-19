@@ -67,8 +67,7 @@ namespace Criteo.MemcacheClient.Sockets
             PendingRequests = new ConcurrentQueue<IMemcacheRequest>();
             _authenticator = authenticator;
 
-            CreateSocket();
-            Start();
+            Reset();
         }
 
         protected abstract void ShutDown();
@@ -107,8 +106,10 @@ namespace Criteo.MemcacheClient.Sockets
                         CreateSocket();
                         Start();
                     }
-                    catch (Exception)
+                    catch (Exception e)
                     {
+                        if (_transportError != null)
+                            _transportError(e);
                         _startAttemptTimer.Change(1000, Timeout.Infinite);
                     }
                 }, null, 0, Timeout.Infinite);

@@ -14,6 +14,7 @@ namespace Criteo.MemcacheClient.Requests
         public Action<Status, byte[]> Callback { get; set; }
         public uint RequestId { get; set; }
         protected virtual Opcode RequestOpcode { get { return Opcode.Get; } }
+        public uint Flag { get; private set; }
 
         public byte[] GetQueryBuffer()
         {
@@ -39,11 +40,10 @@ namespace Criteo.MemcacheClient.Requests
         public void HandleResponse(MemcacheResponseHeader header, byte[] extra, byte[] message)
         {
             if (extra == null || extra.Length == 0)
-                throw new MemcacheException("The get command Magic Number is not present !");
+                throw new MemcacheException("The get command flag is not present !");
             else if (extra.Length != 4)
-                throw new MemcacheException("The get command Magic Number is wrong size !");
-            else if (extra.CopyToUInt(0) != 0xdeadbeef)
-                throw new MemcacheException("The get command Magic Number is wrong !");
+                throw new MemcacheException("The get command flag is wrong size !");
+            Flag = extra.CopyToUInt(0);
                 Callback(header.Status, message);
         }
     }
