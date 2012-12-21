@@ -31,6 +31,20 @@ namespace Criteo.Memcache.Headers
         public uint Opaque;
         public ulong Cas;
 
+        public override string ToString()
+        {
+            var bld = new StringBuilder();
+            bld.Append("Opcode:").Append(Opcode.ToString()).Append('|')
+                .Append("KeyLength:").Append(KeyLength).Append('|')
+                .Append("ExtraLength:").Append(ExtraLength).Append('|')
+                .Append("DataType:").Append(DataType).Append('|')
+                .Append("Reserved:").Append(Reserved).Append('|')
+                .Append("TotalBodyLength:").Append(TotalBodyLength).Append('|')
+                .Append("Opaque:").Append(Opaque).Append('|')
+                .Append("Cas:").Append(Cas);
+            return bld.ToString();
+        }
+
         public void ToData(byte[] data, int offset = 0)
         {
             data[offset] = Magic;

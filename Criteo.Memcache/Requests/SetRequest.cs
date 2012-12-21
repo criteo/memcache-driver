@@ -18,6 +18,10 @@ namespace Criteo.Memcache.Requests
         public uint RequestId { get; set; }
         public uint Flags { get; set; }
 
+        public Action<Status> CallBack { get; set; }
+
+        protected virtual Opcode Code { get { return Opcode.Set; } }
+
         public SetRequest()
         {
             Flags = RawDataFlag;
@@ -29,7 +33,7 @@ namespace Criteo.Memcache.Requests
             if (keyAsBytes.Length > ushort.MaxValue)
                 throw new ArgumentException("The key is too long for the memcache binary protocol : " + Key);
 
-            var requestHeader = new MemcacheRequestHeader(Opcode.Set)
+            var requestHeader = new MemcacheRequestHeader(Code)
             {
                 KeyLength = (ushort)keyAsBytes.Length,
                 ExtraLength = 8,
@@ -57,6 +61,8 @@ namespace Criteo.Memcache.Requests
         // nothing to do on set response
         public void HandleResponse(MemcacheResponseHeader header, byte[] extra, byte[] message)
         {
+            if (CallBack != null)
+                CallBack(header.Status);
         }
     }
 }

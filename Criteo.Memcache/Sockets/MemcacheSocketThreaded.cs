@@ -83,13 +83,22 @@ namespace Criteo.Memcache.Sockets
                         if (header.ExtraLength > 0)
                         {
                             extra = new byte[header.ExtraLength];
-                            Socket.Receive(extra);
+                            received = 0;
+                            do
+                            {
+                                received += Socket.Receive(extra, received, header.ExtraLength - received, SocketFlags.None);
+                            } while (received < header.ExtraLength);
                         }
                         byte[] message = null;
-                        if (header.TotalBodyLength - header.ExtraLength > 0)
+                        int messageLength = (int)(header.TotalBodyLength - header.ExtraLength);
+                        if (messageLength > 0)
                         {
-                            message = new byte[header.TotalBodyLength - header.ExtraLength];
-                            Socket.Receive(message);
+                            message = new byte[messageLength];
+                            received = 0;
+                            do
+                            {
+                                received += Socket.Receive(message, received, messageLength - received, SocketFlags.None);
+                            } while (received < messageLength);
                         }
 
                         // should assert we have the good request
@@ -110,7 +119,6 @@ namespace Criteo.Memcache.Sockets
                             if (_transportError != null)
                                 _transportError(e);
 
-                            _receivingThread = null;
                             Reset();
                         }
                     }

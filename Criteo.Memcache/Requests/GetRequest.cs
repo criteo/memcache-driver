@@ -39,12 +39,15 @@ namespace Criteo.Memcache.Requests
 
         public void HandleResponse(MemcacheResponseHeader header, byte[] extra, byte[] message)
         {
-            if (extra == null || extra.Length == 0)
-                throw new MemcacheException("The get command flag is not present !");
-            else if (extra.Length != 4)
-                throw new MemcacheException("The get command flag is wrong size !");
-            Flag = extra.CopyToUInt(0);
-                Callback(header.Status, message);
+            if (header.Status == Status.NoError)
+            {
+                if (extra == null || extra.Length == 0)
+                    throw new MemcacheException("The get command flag is not present !");
+                else if (extra.Length != 4)
+                    throw new MemcacheException("The get command flag is wrong size !");
+                Flag = extra.CopyToUInt(0);
+            }
+            Callback(header.Status, message);
         }
     }
 }

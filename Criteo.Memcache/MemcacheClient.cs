@@ -106,9 +106,19 @@ namespace Criteo.Memcache
             return res;
         }
 
-        public bool Set(string key, byte[] message, TimeSpan expiration)
+        public bool Set(string key, byte[] message, TimeSpan expiration, Action<Status> callback = null)
         {
-            return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId });
+            return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback });
+        }
+
+        public bool Update(string key, byte[] message, TimeSpan expiration, Action<Status> callback = null)
+        {
+            return SendRequest(new UpdateRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback });
+        }
+
+        public bool Add(string key, byte[] message, TimeSpan expiration, Action<Status> callback = null)
+        {
+            return SendRequest(new AddRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback });
         }
 
         public bool Get(string key, Action<Status, byte[]> callback)
@@ -120,7 +130,13 @@ namespace Criteo.Memcache
         {
             var taskSource = new TaskCompletionSource<byte[]>();
 
-            if (!SendRequest(new GetRequest { Key = key, Callback = (s, m) => taskSource.SetResult(m), RequestId = NextRequestId }))
+            if (!SendRequest(new GetRequest { Key = key, Callback = (s, m) =>  
+                {
+                    if (s == Status.NoError)
+                        taskSource.SetResult(m);
+                    else
+                        taskSource.SetResult(null);
+                }, RequestId = NextRequestId }))
                 taskSource.SetResult(null);
 
             return taskSource.Task;

@@ -91,16 +91,26 @@ namespace Criteo.Memcache.Sockets
 
                 byte[] extra = null;
                 byte[] message = null;
+                int received;
                 // in case we have a message ! (should not happen for a set)
                 if (header.ExtraLength > 0)
                 {
                     extra = new byte[header.ExtraLength];
-                    Socket.Receive(extra);
+                    received = 0;
+                    do
+                    {
+                        received += Socket.Receive(extra, received, header.ExtraLength - received, SocketFlags.None);
+                    } while (received < header.ExtraLength);
                 }
+                int messageLength = (int)(header.TotalBodyLength - header.ExtraLength);
                 if (header.TotalBodyLength - header.ExtraLength > 0)
                 {
                     message = new byte[header.TotalBodyLength - header.ExtraLength];
-                    Socket.Receive(message);
+                    received = 0;
+                    do
+                    {
+                        received += Socket.Receive(message, received, messageLength - received, SocketFlags.None);
+                    } while (received < messageLength);
                 }
 
                 // should assert we have the good request
