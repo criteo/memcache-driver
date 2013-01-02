@@ -17,13 +17,14 @@ namespace Criteo.Memcache.Requests
         public TimeSpan Expire { get; set; }
         public uint RequestId { get; set; }
         public uint Flags { get; set; }
+        public Opcode Code { get; set; }
 
         public Action<Status> CallBack { get; set; }
 
-        protected virtual Opcode Code { get { return Opcode.Set; } }
 
         public SetRequest()
         {
+            Code = Opcode.Set;
             Flags = RawDataFlag;
         }
 

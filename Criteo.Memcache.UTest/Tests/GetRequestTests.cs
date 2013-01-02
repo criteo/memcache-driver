@@ -44,7 +44,7 @@ namespace Criteo.Memcache.UTest.Tests
         public void GetRequestTest()
         {
             byte[] message = null;
-            var request = new GetRequest { Key = @"Hello", RequestId = 0, Callback = (s, m) => message = m };
+            var request = new GetRequest { Key = @"Hello", RequestId = 0, CallBack = (s, m) => message = m };
 
             var queryBuffer = request.GetQueryBuffer();
 

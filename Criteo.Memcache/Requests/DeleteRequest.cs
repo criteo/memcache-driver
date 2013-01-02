@@ -4,17 +4,14 @@ using System.Linq;
 using System.Text;
 
 using Criteo.Memcache.Headers;
-using Criteo.Memcache.Exceptions;
 
 namespace Criteo.Memcache.Requests
 {
-    internal class GetRequest : IMemcacheRequest
+    class DeleteRequest : IMemcacheRequest
     {
         public string Key { get; set; }
-        public Action<Status, byte[]> CallBack { get; set; }
         public uint RequestId { get; set; }
-        protected virtual Opcode RequestOpcode { get { return Opcode.Get; } }
-        public uint Flag { get; private set; }
+        public Action<Status> CallBack { get; set; }
 
         public byte[] GetQueryBuffer()
         {
@@ -22,7 +19,7 @@ namespace Criteo.Memcache.Requests
             if (keyAsBytes.Length > ushort.MaxValue)
                 throw new ArgumentException("The key is too long for the memcache binary protocol : " + Key);
 
-            var requestHeader = new MemcacheRequestHeader(Opcode.Get)
+            var requestHeader = new MemcacheRequestHeader(Opcode.Delete)
             {
                 KeyLength = (ushort)keyAsBytes.Length,
                 ExtraLength = 0,
@@ -32,22 +29,15 @@ namespace Criteo.Memcache.Requests
 
             var buffer = new byte[MemcacheRequestHeader.SIZE + requestHeader.TotalBodyLength];
             requestHeader.ToData(buffer, 0);
-            keyAsBytes.CopyTo(buffer, MemcacheRequestHeader.SIZE);
 
             return buffer;
-        }
+        } 
 
+        // nothing to do on set response
         public void HandleResponse(MemcacheResponseHeader header, byte[] extra, byte[] message)
         {
-            if (header.Status == Status.NoError)
-            {
-                if (extra == null || extra.Length == 0)
-                    throw new MemcacheException("The get command flag is not present !");
-                else if (extra.Length != 4)
-                    throw new MemcacheException("The get command flag is wrong size !");
-                Flag = extra.CopyToUInt(0);
-            }
-            CallBack(header.Status, message);
+            if (CallBack != null)
+                CallBack(header.Status);
         }
     }
 }

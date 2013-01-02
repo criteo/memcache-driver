@@ -12,6 +12,25 @@ using Criteo.Memcache.Exceptions;
 
 namespace Criteo.Memcache
 {
+    public enum StoreMode
+    {
+        /// <summary>
+        /// Creates or replace an already existing value
+        /// </summary>
+        Set,
+        /// <summary>
+        /// Fails with status KeyNotFound if not present
+        /// </summary>
+        Replace,
+        /// <summary>
+        /// Fails with status KeyExists if already present
+        /// </summary>
+        Add,
+    }
+
+    /// <summary>
+    /// The main class of the library
+    /// </summary>
     public class MemcacheClient
     {
         private INodeLocator _locator;
@@ -21,6 +40,9 @@ namespace Criteo.Memcache
         private NodeAllocator DefaultNodeFactory =
             (endPoint, configuration, SendRequest) => new MemcacheNode(endPoint, configuration, SendRequest);
 
+        /// <summary>
+        /// Raised when the server answer with a error code
+        /// </summary>
         public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError
         {
             add
@@ -35,6 +57,9 @@ namespace Criteo.Memcache
             }
         }
 
+        /// <summary>
+        /// Raised when the transport layer fails
+        /// </summary>
         public event Action<Exception> TransportError
         {
             add
@@ -49,6 +74,9 @@ namespace Criteo.Memcache
             }
         }
 
+        /// <summary>
+        /// Raised when a node seems unreachable
+        /// </summary>
         public event Action<IMemcacheNode> NodeError
         {
             add
@@ -63,6 +91,10 @@ namespace Criteo.Memcache
             }
         }
 
+        /// <summary>
+        /// The constructor, see @MemcacheClientConfiguration for details
+        /// </summary>
+        /// <param name="configuration"></param>
         public MemcacheClient(MemcacheClientConfiguration configuration)
         {
             _configuration = configuration;
@@ -87,6 +119,11 @@ namespace Criteo.Memcache
             }
         }
 
+        /// <summary>
+        /// Sends a request with the policy defined with the configuration object
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
         protected bool SendRequest(IMemcacheRequest request)
         {
             var node = _locator.Locate(request.Key, _nodes);
@@ -106,40 +143,82 @@ namespace Criteo.Memcache
             return res;
         }
 
+        /// <summary>
+        /// Sets the key with the given message with the given TTL
+        /// </summary>
+        /// <param name="key" />
+        /// <param name="message" />
+        /// <param name="expiration" />
+        /// <param name="callback">Will be called after the memcached respond</param>
+        /// <returns></returns>
         public bool Set(string key, byte[] message, TimeSpan expiration, Action<Status> callback = null)
         {
-            return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback });
+            return Store(StoreMode.Set, key, message, expiration, callback);
         }
 
+        /// <summary>
+        /// Sets the key with the given message with the given TTL
+        /// Fails if the key doesn't exists (KeyNotFound as status on callback)
+        /// </summary>
+        /// <param name="key" />
+        /// <param name="message" />
+        /// <param name="expiration" />
+        /// <param name="callback">Will be called after the memcached respond</param>
+        /// <returns></returns>
         public bool Update(string key, byte[] message, TimeSpan expiration, Action<Status> callback = null)
         {
-            return SendRequest(new UpdateRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback });
+            return Store(StoreMode.Replace, key, message, expiration, callback);
         }
 
+        /// <summary>
+        /// Sets the key with the given message with the given TTL
+        /// Fails if the key already exists (KeyExists as status on callback)
+        /// </summary>
+        /// <param name="key" />
+        /// <param name="message" />
+        /// <param name="expiration" />
+        /// <param name="callback">Will be called after the memcached respond</param>
+        /// <returns></returns>
         public bool Add(string key, byte[] message, TimeSpan expiration, Action<Status> callback = null)
         {
-            return SendRequest(new AddRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback });
+            return Store(StoreMode.Add, key, message, expiration, callback);
         }
 
+        public bool Store(StoreMode mode, string key, byte[] message, TimeSpan expiration, Action<Status> callback = null)
+        {
+            switch (mode)
+            {
+                case StoreMode.Set:
+                    return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback });
+                case StoreMode.Replace:
+                    return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, Code = Opcode.Replace});
+                case StoreMode.Add:
+                    return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, Code = Opcode.Add });
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// Fetch the value for the given key
+        /// </summary>
+        /// <param name="key" />
+        /// <param name="callback">Will be called after the memcached respond</param>
+        /// <returns></returns>
         public bool Get(string key, Action<Status, byte[]> callback)
         {
-            return SendRequest(new GetRequest { Key = key, Callback = callback, RequestId = NextRequestId });
+            return SendRequest(new GetRequest { Key = key, CallBack = callback, RequestId = NextRequestId });
         }
 
-        public Task<byte[]> Get(string key)
+        /// <summary>
+        /// Delete the entry associated with the given key
+        /// </summary>
+        /// <param name="key" />
+        /// <param name="callback">Will be called after the memcached respond</param>
+        /// <returns></returns>
+        public bool Delete(string key, Action<Status> callback)
         {
-            var taskSource = new TaskCompletionSource<byte[]>();
-
-            if (!SendRequest(new GetRequest { Key = key, Callback = (s, m) =>  
-                {
-                    if (s == Status.NoError)
-                        taskSource.SetResult(m);
-                    else
-                        taskSource.SetResult(null);
-                }, RequestId = NextRequestId }))
-                taskSource.SetResult(null);
-
-            return taskSource.Task;
+            return SendRequest(new DeleteRequest { Key = key, CallBack = callback, RequestId = NextRequestId });
         }
 
         private int _currentRequestId = 0;
