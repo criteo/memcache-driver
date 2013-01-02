@@ -7,9 +7,9 @@ using Criteo.Memcache.Requests;
 using Criteo.Memcache.Headers;
 using Criteo.Memcache.Node;
 
-namespace Criteo.Memcache.Sockets
+namespace Criteo.Memcache.Transport
 {
-    public interface IMemcacheSocket : IDisposable
+    public interface IMemcacheTransport : IDisposable
     {
         /// <summary>
         /// This event is triggered when an exception occures
@@ -25,5 +25,7 @@ namespace Criteo.Memcache.Sockets
         /// This event is triggered at every incoming response from the server
         /// </summary>
         event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheResponse;
+
+        IMemcacheRequestsQueue RequestsQueue { get; }
     }
 }

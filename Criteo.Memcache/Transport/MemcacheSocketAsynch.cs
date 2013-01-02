@@ -10,12 +10,12 @@ using Criteo.Memcache.Node;
 using Criteo.Memcache.Authenticators;
 using Criteo.Memcache.Exceptions;
 
-namespace Criteo.Memcache.Sockets
+namespace Criteo.Memcache.Transport
 {
-    internal class MemcacheSocketAsynch : MemcacheSocketBase
+    internal class MemcacheSocketAsynch : MemcacheSocketAsynchronous
     {
-        public MemcacheSocketAsynch(IPEndPoint endPoint, IMemcacheNodeQueue itemQueue, IMemcacheAuthenticator authenticator)
-            : base(endPoint, itemQueue, authenticator)
+        public MemcacheSocketAsynch(IPEndPoint endPoint, IMemcacheRequestsQueue itemQueue, IMemcacheAuthenticator authenticator)
+            : base(endPoint, authenticator, itemQueue)
         {
         }
 

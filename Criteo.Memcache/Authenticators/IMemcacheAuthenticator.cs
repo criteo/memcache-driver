@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using Criteo.Memcache.Sockets;
+using Criteo.Memcache.Transport;
 using Criteo.Memcache.Headers;
 using Criteo.Memcache.Requests;
 

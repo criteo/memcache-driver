@@ -5,7 +5,7 @@ using System.Net;
 using System.Threading;
 
 using Criteo.Memcache.Requests;
-using Criteo.Memcache.Sockets;
+using Criteo.Memcache.Transport;
 using Criteo.Memcache.Node;
 using Criteo.Memcache.Locator;
 using Criteo.Memcache.Authenticators;
@@ -24,7 +24,7 @@ namespace Criteo.Memcache.Configuration
         Ignore,
     }
 
-    public delegate IMemcacheSocket SocketAllocator(IPEndPoint endPoint, IMemcacheNodeQueue nodeQueue, IMemcacheAuthenticator authenticator);
+    public delegate IMemcacheTransport SocketAllocator(IPEndPoint endPoint, IMemcacheAuthenticator authenticator, object token);
     public delegate IMemcacheNode NodeAllocator(IPEndPoint endPoint, MemcacheClientConfiguration configuration, Action<IMemcacheRequest> requeueRequest);
 
     public class MemcacheClientConfiguration

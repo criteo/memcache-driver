@@ -7,21 +7,21 @@ using System.Net;
 using System.Threading;
 
 using Criteo.Memcache.Configuration;
-using Criteo.Memcache.Sockets;
+using Criteo.Memcache.Transport;
 using Criteo.Memcache.Requests;
 using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.Node
 {
 
-    internal class MemcacheNode : IMemcacheNode, IMemcacheNodeQueue
+    internal class MemcacheNode : IMemcacheNode, IMemcacheRequestsQueue
     {
         public bool IsDead { get; private set; }
 
-        private static SocketAllocator DefaultAllocator = (endPoint, nodeQueue, authenticator) => new MemcacheSocketThreaded(endPoint, nodeQueue, authenticator);
+        private static SocketAllocator DefaultAllocator = (endPoint, authenticator, nodeQueue) => new MemcacheSocketThreaded(endPoint, nodeQueue as IMemcacheRequestsQueue, authenticator);
 
         private BlockingCollection<IMemcacheRequest> _waitingRequests;
-        private List<IMemcacheSocket> _clients;
+        private List<IMemcacheTransport> _clients;
         private Action<IMemcacheRequest> _requeueRequest;
         private Timer _monitoring;
         private bool _requestRan;
@@ -90,10 +90,10 @@ namespace Criteo.Memcache.Node
             else
                 _waitingRequests = new BlockingCollection<IMemcacheRequest>();
 
-            _clients = new List<IMemcacheSocket>(configuration.PoolSize);
+            _clients = new List<IMemcacheTransport>(configuration.PoolSize);
             for (int i = 0; i < configuration.PoolSize; ++i)
             {
-                var socket = (configuration.SocketFactory ?? DefaultAllocator)(endPoint, this, configuration.Authenticator);
+                var socket = (configuration.SocketFactory ?? DefaultAllocator)(endPoint, configuration.Authenticator, this);
                 socket.MemcacheResponse += (_, __) => _requestRan = true;
                 _clients.Add(socket);
             }
@@ -165,17 +165,17 @@ namespace Criteo.Memcache.Node
                     _requeueRequest(req);
         }
 
-        IMemcacheRequest IMemcacheNodeQueue.Take()
+        IMemcacheRequest IMemcacheRequestsQueue.Take()
         {
             return _waitingRequests.Take();
         }
 
-        bool IMemcacheNodeQueue.TryTake(out IMemcacheRequest request, int timeout)
+        bool IMemcacheRequestsQueue.TryTake(out IMemcacheRequest request, int timeout)
         {
             return _waitingRequests.TryTake(out request, timeout);
         }
 
-        void IMemcacheNodeQueue.Add(IMemcacheRequest request)
+        void IMemcacheRequestsQueue.Add(IMemcacheRequest request)
         {
             _waitingRequests.Add(request);
         }

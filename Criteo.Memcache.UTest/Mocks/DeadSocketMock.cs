@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 
 using Criteo.Memcache.Requests;
-using Criteo.Memcache.Sockets;
+using Criteo.Memcache.Transport;
 using Criteo.Memcache.Headers;
 using Criteo.Memcache.Node;
 
@@ -14,7 +14,7 @@ namespace Criteo.Memcache.UTest.Mocks
     /// <summary>
     /// Doesn't do anything, should simulate a dead socket
     /// </summary>
-    class DeadSocketMock : IMemcacheSocket
+    class DeadSocketMock : IMemcacheTransport
     {
         // I don't care of unsed event in my mocks ...
         public event Action<Exception> TransportError
@@ -35,7 +35,7 @@ namespace Criteo.Memcache.UTest.Mocks
             remove { }
         }
 
-        public IMemcacheNodeQueue WaitingRequests { get; set; }
+        public IMemcacheRequestsQueue WaitingRequests { get; set; }
         public void RespondToRequest()
         {
             IMemcacheRequest request;
@@ -45,6 +45,12 @@ namespace Criteo.Memcache.UTest.Mocks
 
         public void Dispose()
         {
+        }
+
+
+        public IMemcacheRequestsQueue RequestsQueue
+        {
+            get { return WaitingRequests; }
         }
     }
 }

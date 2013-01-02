@@ -9,16 +9,16 @@ using Criteo.Memcache.Headers;
 using Criteo.Memcache.Node;
 using Criteo.Memcache.Authenticators;
 
-namespace Criteo.Memcache.Sockets
+namespace Criteo.Memcache.Transport
 {
-    internal class MemcacheSocketThreaded : MemcacheSocketBase
+    internal class MemcacheSocketThreaded : MemcacheSocketAsynchronous
     {
         private Thread _sendingThread;
         private Thread _receivingThread;
         private CancellationTokenSource _token;
 
-        public MemcacheSocketThreaded(IPEndPoint endPoint, IMemcacheNodeQueue itemQueue, IMemcacheAuthenticator authenticator)
-            : base(endPoint, itemQueue, authenticator)
+        public MemcacheSocketThreaded(IPEndPoint endPoint, IMemcacheRequestsQueue itemQueue, IMemcacheAuthenticator authenticator)
+            : base(endPoint, authenticator, itemQueue)
         {
         }
 

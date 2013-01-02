@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using Criteo.Memcache.Sockets;
+using Criteo.Memcache.Transport;
 using Criteo.Memcache.Node;
 using Criteo.Memcache.Requests;
 using Criteo.Memcache.Headers;

@@ -7,7 +7,7 @@ using Criteo.Memcache.Requests;
 
 namespace Criteo.Memcache.Node
 {
-    public interface IMemcacheNodeQueue
+    public interface IMemcacheRequestsQueue
     {
         /// <summary>
         /// Blocking method that returns a request from the node queue

@@ -12,7 +12,7 @@ using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Headers;
 using Criteo.Memcache.Requests;
 using Criteo.Memcache.Node;
-using Criteo.Memcache.Sockets;
+using Criteo.Memcache.Transport;
 
 using Criteo.Memcache.UTest.Mocks;
 
@@ -20,7 +20,6 @@ namespace Criteo.Memcache.UTest.Tests
 {
     /// <summary>
     /// Test around the MemcacheSocketThreaded object
-    /// Not working yet !
     /// </summary>
     [TestFixture]
     public class MemcacheSocketTests
@@ -28,13 +27,13 @@ namespace Criteo.Memcache.UTest.Tests
         [Test]
         public void MemcacheSocketThreadedTest()
         {
-            MemcacheSocketTest((e, q, a) => new MemcacheSocketThreaded(e, q, a));
+            MemcacheSocketTest((e, a, q) => new MemcacheSocketThreaded(e, q as IMemcacheRequestsQueue, a));
         }
 
         [Test]
         public void MemcacheSocketAsynchTest()
         {
-            MemcacheSocketTest((e, q, a) => new MemcacheSocketAsynch(e, q, a));
+            MemcacheSocketTest((e, a, q) => new MemcacheSocketAsynch(e, q as IMemcacheRequestsQueue, a));
         }
 
         public void MemcacheSocketTest(SocketAllocator socketAllocator)
@@ -43,7 +42,7 @@ namespace Criteo.Memcache.UTest.Tests
             var queue = new NodeQueueMock();
 
             using (var serverMock = new ServerMock(localhost))
-            using (var socket = socketAllocator(localhost, queue,  null))
+            using (var socket = socketAllocator(localhost, null, queue as IMemcacheRequestsQueue))
             {
                 // random header
                 var requestHeader = new MemcacheRequestHeader
