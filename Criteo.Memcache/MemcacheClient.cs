@@ -31,7 +31,7 @@ namespace Criteo.Memcache
     /// <summary>
     /// The main class of the library
     /// </summary>
-    public class MemcacheClient
+    public class MemcacheClient : IDisposable
     {
         private INodeLocator _locator;
         private IList<IMemcacheNode> _nodes;
@@ -136,7 +136,7 @@ namespace Criteo.Memcache
                     return false;
             }
 
-            var res = node.TrySend(request, _configuration.EnqueueTimeout);
+            var res = node.TrySend(request, _configuration.QueueTimeout);
             if (!res && _configuration.QueueFullPolicy == Policy.Throw)
                 throw new MemcacheException("Queue is full");
 
@@ -228,6 +228,12 @@ namespace Criteo.Memcache
             {
                 return (uint)Interlocked.Increment(ref _currentRequestId);
             }
+        }
+
+        public void Dispose()
+        {
+            foreach (var node in _nodes)
+                node.Dispose();
         }
     }
 }

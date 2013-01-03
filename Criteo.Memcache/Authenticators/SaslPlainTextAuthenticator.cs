@@ -11,7 +11,7 @@ using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.Authenticators
 {
-    internal class SaslPlainTextAuthenticator : IMemcacheAuthenticator
+    public class SaslPlainTextAuthenticator : IMemcacheAuthenticator
     {
         public string Zone { get; set; }
         public string User { get; set; }

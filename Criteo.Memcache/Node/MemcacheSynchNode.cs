@@ -59,5 +59,10 @@ namespace Criteo.Memcache.Node
 
             return true;
         }
+
+        public void Dispose()
+        {
+            _transport.Dispose();
+        }
     }
 }

@@ -9,7 +9,7 @@ using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.Node
 {
-    public interface IMemcacheNode
+    public interface IMemcacheNode : IDisposable
     {
         /// <summary>
         /// This event is triggered when an exception occures

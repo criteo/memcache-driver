@@ -40,10 +40,10 @@ using System.Runtime.InteropServices;
 [assembly: InternalsVisibleTo("Criteo.Memcache.UTest")]
 
 namespace Criteo.Memcache
-{
+{   
     internal static class Version
     {
-        internal const string VERSION = "0.0.1";
+        internal const string VERSION = "0.1.0";
         internal const string ASSEMBLY_VERSION = VERSION;
         internal const string ASSEMBLY_FILE_VERSION = VERSION;
         internal const string ASSEMBLY_INFORMATIONAL_VERSION = VERSION;

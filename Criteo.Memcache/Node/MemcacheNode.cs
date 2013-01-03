@@ -184,5 +184,11 @@ namespace Criteo.Memcache.Node
         {
             return _endPoint.Address.ToString() + ":" + _endPoint.Port;
         }
+
+        public void Dispose()
+        {
+            foreach (var client in _clients)
+                client.Dispose();
+        }
     }
 }
