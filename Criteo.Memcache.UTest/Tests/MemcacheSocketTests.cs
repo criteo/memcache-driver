@@ -27,13 +27,13 @@ namespace Criteo.Memcache.UTest.Tests
         [Test]
         public void MemcacheSocketThreadedTest()
         {
-            MemcacheSocketTest((e, a, q) => new MemcacheSocketThreaded(e, q as IMemcacheRequestsQueue, a));
+            MemcacheSocketTest((e, a, q) => new MemcacheSocketThreadedRead(e, q as IMemcacheRequestsQueue, a));
         }
 
         [Test]
         public void MemcacheSocketAsynchTest()
         {
-            MemcacheSocketTest((e, a, q) => new MemcacheSocketAsynch(e, q as IMemcacheRequestsQueue, a));
+            MemcacheSocketTest((e, a, q) => new MemcacheSocketAsynchRead(e, q as IMemcacheRequestsQueue, a));
         }
 
         public void MemcacheSocketTest(SocketAllocator socketAllocator)

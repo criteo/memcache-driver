@@ -11,61 +11,22 @@ using Criteo.Memcache.Authenticators;
 
 namespace Criteo.Memcache.Transport
 {
-    internal class MemcacheSocketThreaded : MemcacheSocketAsynchronous
+    internal class MemcacheSocketThreadedRead : MemcacheSocketAsynchronous
     {
-        private Thread _sendingThread;
         private Thread _receivingThread;
-        private CancellationTokenSource _token;
 
-        public MemcacheSocketThreaded(IPEndPoint endPoint, IMemcacheRequestsQueue itemQueue, IMemcacheAuthenticator authenticator)
+        public MemcacheSocketThreadedRead(IPEndPoint endPoint, IMemcacheRequestsQueue itemQueue, IMemcacheAuthenticator authenticator)
             : base(endPoint, authenticator, itemQueue)
         {
         }
 
-        private void StartSendingThread()
-        {
-            _sendingThread = new Thread(t =>
-            {
-                var token = (CancellationToken)t;
-                while (!token.IsCancellationRequested)
-                {
-                    try
-                    {
-                        var request = GetNextRequest();
-                        if (request == null)
-                            return;
-
-                        var buffer = request.GetQueryBuffer();
-
-                        PendingRequests.Enqueue(request);
-                        int sent = 0;
-                        do
-                        {
-                            sent += Socket.Send(buffer, sent, buffer.Length - sent, SocketFlags.None);
-                        } while (sent != buffer.Length);
-                    }
-                    catch (Exception e)
-                    {
-                        if (!token.IsCancellationRequested)
-                        {
-                            if (_transportError != null)
-                                _transportError(e);
-
-                            _sendingThread = null;
-                            Reset();
-                        }
-                    }
-                }
-            });
-            _sendingThread.Start(_token.Token);
-        }
-
-        private void StartReceivingThread()
+        private void StartReceivingThread(CancellationTokenSource tokenSource)
         {
             var buffer = new byte[MemcacheResponseHeader.SIZE];
-            _receivingThread = new Thread(t =>
+            var token = tokenSource.Token;
+
+            _receivingThread = new Thread(() =>
             {
-                var token = (CancellationToken)t;
                 while (!token.IsCancellationRequested)
                 {
                     try
@@ -124,25 +85,13 @@ namespace Criteo.Memcache.Transport
                     }
                 }
             });
-            _receivingThread.Start(_token.Token);
+            _receivingThread.Start();
         }
 
         protected override void Start()
         {
-            _token = new CancellationTokenSource();
-            StartSendingThread();
-            StartReceivingThread();
-        }
-
-        protected override void ShutDown()
-        {
-            if(_token != null)
-                _token.Cancel();
-            if (Socket != null)
-            {
-                Socket.Dispose();
-                Socket = null;
-            }
+            base.Start();
+            StartReceivingThread(_token);
         }
     }
 }

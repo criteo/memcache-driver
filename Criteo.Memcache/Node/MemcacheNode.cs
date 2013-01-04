@@ -18,7 +18,7 @@ namespace Criteo.Memcache.Node
     {
         public bool IsDead { get; private set; }
 
-        private static SocketAllocator DefaultAllocator = (endPoint, authenticator, nodeQueue) => new MemcacheSocketThreaded(endPoint, nodeQueue as IMemcacheRequestsQueue, authenticator);
+        private static SocketAllocator DefaultAllocator = (endPoint, authenticator, nodeQueue) => new MemcacheSocketThreadedRead(endPoint, nodeQueue as IMemcacheRequestsQueue, authenticator);
 
         private BlockingCollection<IMemcacheRequest> _waitingRequests;
         private List<IMemcacheTransport> _clients;

@@ -12,54 +12,14 @@ using Criteo.Memcache.Exceptions;
 
 namespace Criteo.Memcache.Transport
 {
-    internal class MemcacheSocketAsynch : MemcacheSocketAsynchronous
+    internal class MemcacheSocketAsynchRead : MemcacheSocketAsynchronous
     {
-        public MemcacheSocketAsynch(IPEndPoint endPoint, IMemcacheRequestsQueue itemQueue, IMemcacheAuthenticator authenticator)
+        public MemcacheSocketAsynchRead(IPEndPoint endPoint, IMemcacheRequestsQueue itemQueue, IMemcacheAuthenticator authenticator)
             : base(endPoint, authenticator, itemQueue)
         {
         }
 
-        private Thread _sendingThread;
         private SocketAsyncEventArgs _receiveArgs;
-        private CancellationTokenSource _token;
-
-        private void StartSendingThread()
-        {
-            _sendingThread = new Thread(t =>
-            {
-                var token = (CancellationToken)t;
-                while (true)
-                {
-                    try
-                    {
-                        var request = GetNextRequest();
-                        if (request == null)
-                            return;
-                        
-                        var buffer = request.GetQueryBuffer();
-
-                        PendingRequests.Enqueue(request);
-                        int sent = 0;
-                        do
-                        {
-                            sent += Socket.Send(buffer, sent, buffer.Length - sent, SocketFlags.None);
-                        } while (sent != buffer.Length);
-                    }
-                    catch (Exception e)
-                    {
-                        if (!token.IsCancellationRequested)
-                        {
-                            if (_transportError != null)
-                                _transportError(e);
-
-                            _sendingThread = null;
-                            Reset();
-                        }
-                    }
-                }
-            });
-            _sendingThread.Start(_token.Token);
-        }
 
         private void InitReadResponse()
         {
@@ -138,23 +98,17 @@ namespace Criteo.Memcache.Transport
 
         protected override void Start()
         {
-            _token = new CancellationTokenSource();
-            StartSendingThread();
+            base.Start();
             InitReadResponse();
             ReadResponse();
         }
 
         protected override void ShutDown()
         {
-            if(_token != null)
-                _token.Cancel();
             if(_receiveArgs != null)
                 _receiveArgs.Dispose();
-            if (Socket != null)
-            {
-                Socket.Dispose();
-                Socket = null;
-            }
+
+            base.ShutDown();
         }
     }
 }
