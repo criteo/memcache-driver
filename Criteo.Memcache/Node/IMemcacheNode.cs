@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Text;
 
 using Criteo.Memcache.Requests;
@@ -30,6 +31,11 @@ namespace Criteo.Memcache.Node
         /// This event is triggered whenever the node goes dead
         /// </summary>
         event Action<IMemcacheNode> NodeDead;
+
+        /// <summary>
+        /// The node endpoint
+        /// </summary>
+        IPEndPoint EndPoint { get; }
 
         /// <summary>
         /// Must returns true when the node is unreachable for a durable time

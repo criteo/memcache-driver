@@ -50,14 +50,16 @@
     <Compile Include="Headers\HeaderUtil.cs" />
     <Compile Include="Headers\MemcacheRequestHeader.cs" />
     <Compile Include="Headers\MemcacheResponseHeader.cs" />
+    <Compile Include="Locator\EnyimLocator.cs" />
     <Compile Include="Locator\INodeLocator.cs" />
+    <Compile Include="Locator\KetamaLocator.cs" />
     <Compile Include="MemcacheClient.cs" />
     <Compile Include="Configuration\MemcacheClientConfiguration.cs" />
     <Compile Include="Node\IMemcacheNode.cs" />
     <Compile Include="Node\IMemcacheRequestsQueue.cs" />
     <Compile Include="Node\MemcacheSynchNode.cs" />
     <Compile Include="Node\MemcacheNode.cs" />
-    <Compile Include="Locator\NodeLocator.cs" />
+    <Compile Include="Locator\RoundRobinLocator.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Requests\DeleteRequest.cs" />
     <Compile Include="Requests\GetRequest.cs" />

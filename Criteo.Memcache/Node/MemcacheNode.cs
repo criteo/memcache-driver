@@ -73,6 +73,11 @@ namespace Criteo.Memcache.Node
 
         public event Action<IMemcacheNode> NodeDead;
 
+        public IPEndPoint EndPoint
+        {
+            get { return _endPoint; }
+        }
+
         /// <summary>
         /// The constructor
         /// </summary>

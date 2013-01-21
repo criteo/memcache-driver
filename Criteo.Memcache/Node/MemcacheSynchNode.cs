@@ -39,11 +39,18 @@ namespace Criteo.Memcache.Node
 
         public event Action<IMemcacheNode> NodeDead;
 
-        public object _mutex = new object();
+        private IPEndPoint _endPoint;
+        public IPEndPoint EndPoint
+        {
+            get { return _endPoint; }
+        }
+
+        private object _mutex = new object();
 
         private IMemcacheTransport _transport;
         public MemcacheSynchNode(IPEndPoint endPoint, MemcacheClientConfiguration configuration, Action<IMemcacheRequest> requeueRequest)
         {
+            _endPoint = endPoint;
             _transport = (configuration.SocketFactory ?? DefaultAllocator)(endPoint, null, configuration.Authenticator);
         }
 

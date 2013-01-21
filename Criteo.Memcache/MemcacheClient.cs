@@ -98,7 +98,7 @@ namespace Criteo.Memcache
         public MemcacheClient(MemcacheClientConfiguration configuration)
         {
             _configuration = configuration;
-            _locator = configuration.NodeLocator ?? new RoundRobinNodeLocator();
+            _locator = configuration.NodeLocator ?? new RoundRobinLocator();
             _nodes = new List<IMemcacheNode>(configuration.NodesEndPoints.Count);
 
             Action<IMemcacheRequest> requeueRequest;
@@ -126,7 +126,7 @@ namespace Criteo.Memcache
         /// <returns></returns>
         protected bool SendRequest(IMemcacheRequest request)
         {
-            var node = _locator.Locate(request.Key, _nodes);
+            var node = _locator.Locate(request.Key);
 
             if (node == null)
             {
