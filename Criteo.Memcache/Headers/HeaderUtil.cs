@@ -14,10 +14,21 @@ namespace Criteo.Memcache.Headers
         InvalidArguments = 0x0004,
         ItemNotStored = 0x0005,
         IncrDecrOnNonNumeric = 0x0006,
+
+        // Revamp from http://code.google.com/p/memcached/wiki/BinaryProtocolRevamped#Response_Status
+        VbucketBelongsToAnotherServer = 0x0007,
+        AuthenticationError = 0x0008,
+        AuthenticationContinue = 0x0009,
+        NotSupported = 0x0083,
+        InternalError = 0x0084,
+        Busy = 0x0085,
+        TemporaryFailure = 0x0086,
+        // End revamp
+
         UnknownCommand = 0x0081,
         OutOfMemory = 0x0082,
 
-        // SASL errors
+        // SASL Commands from Couchbase
         AuthRequired = 0x0020,
         StepRequired = 0x0021,
     }
