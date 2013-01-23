@@ -24,7 +24,7 @@ namespace Criteo.Memcache.Configuration
         Ignore,
     }
 
-    public delegate IMemcacheTransport SocketAllocator(IPEndPoint endPoint, IMemcacheAuthenticator authenticator, object token);
+    public delegate IMemcacheTransport TransportAllocator(IPEndPoint endPoint, IMemcacheAuthenticator authenticator, IMemcacheRequestsQueue queue, int queueTimeout, int pendingLimit);
     public delegate IMemcacheNode NodeAllocator(IPEndPoint endPoint, MemcacheClientConfiguration configuration, Action<IMemcacheRequest> requeueRequest);
 
     public class MemcacheClientConfiguration
@@ -33,7 +33,7 @@ namespace Criteo.Memcache.Configuration
         public IList<IPEndPoint> NodesEndPoints { get { return _nodesEndPoints;} }
 
         public INodeLocator NodeLocator { get; set; }
-        public SocketAllocator SocketFactory { get; set; }
+        public TransportAllocator SocketFactory { get; set; }
         public NodeAllocator NodeFactory { get; set; }
         public IMemcacheAuthenticator Authenticator { get; set; }
 
@@ -43,6 +43,8 @@ namespace Criteo.Memcache.Configuration
         public int QueueTimeout { get; set; }
         public int PoolSize { get; set; }
         public int QueueLength { get; set; }
+        public int TransportQueueLength { get; set; }
+        public int TransportQueueTimeout { get; set; }
         public TimeSpan DeadTimeout { get; set; }
         public TimeSpan SocketTimeout { get; set; }
 
@@ -56,6 +58,8 @@ namespace Criteo.Memcache.Configuration
             QueueFullPolicy = Policy.Ignore;
             QueueTimeout = Timeout.Infinite;
             NodeDeadPolicy = RequeuePolicy.Requeue;
+            TransportQueueLength = 0;
+            TransportQueueTimeout = Timeout.Infinite;
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -55,15 +56,19 @@ namespace Criteo.Memcache.Transport
 
         protected EndPoint EndPoint { get; private set; }
         protected Socket Socket { get; set; }
-        protected ConcurrentQueue<IMemcacheRequest> PendingRequests { get; private set; }
+        private RequestQueue _pendingRequests;
         private IMemcacheAuthenticator _authenticator;
         protected IAuthenticationToken AuthenticationToken { get; set; }
 
-        internal MemcacheSocketBase(EndPoint endpoint, IMemcacheAuthenticator authenticator)
+        private int _requestLimit;
+        private int _queueTimeout;
+
+        internal MemcacheSocketBase(EndPoint endpoint, IMemcacheAuthenticator authenticator, int queueTimeout, int pendingLimit)
         {
             EndPoint = endpoint;
-            PendingRequests = new ConcurrentQueue<IMemcacheRequest>();
             _authenticator = authenticator;
+            _requestLimit = 1000;
+            _queueTimeout = Timeout.Infinite;
 
             Reset();
         }
@@ -94,10 +99,9 @@ namespace Criteo.Memcache.Transport
             ShutDown();
 
             // keep the pending request somewhere
-            var oldPending = PendingRequests;
+            var oldPending = Interlocked.Exchange(ref _pendingRequests, new RequestQueue(_queueTimeout, _requestLimit));
 
             // restart the while thing
-            PendingRequests = new ConcurrentQueue<IMemcacheRequest>();
             _startAttemptTimer = new Timer(_ =>
                 {
                     try
@@ -109,14 +113,18 @@ namespace Criteo.Memcache.Transport
                     {
                         if (_transportError != null)
                             _transportError(e);
-                        _startAttemptTimer.Change(1000, Timeout.Infinite);
+                        _startAttemptTimer.Change(10000, Timeout.Infinite);
                     }
                 }, null, 0, Timeout.Infinite);
 
-            DisposePending(oldPending);
-        }
 
-        protected abstract void DisposePending(ConcurrentQueue<IMemcacheRequest> pending);
+            if (oldPending != null)
+            {
+                foreach (var item in oldPending.Requests)
+                    RequestsQueue.Add(item);
+                oldPending.Dispose();
+            }
+        }
 
         protected IMemcacheRequest UnstackToMatch(MemcacheResponseHeader header)
         {
@@ -128,7 +136,8 @@ namespace Criteo.Memcache.Transport
             }
             else
             {
-                PendingRequests.TryDequeue(out result);
+                if (!_pendingRequests.TryDequeue(out result))
+                    throw new Exception("Received a response when no request is pending");
                 if (result.RequestId != header.Opaque)
                     throw new Exception("Received a response that doesn't match with the sent request queue");
             }
@@ -136,10 +145,86 @@ namespace Criteo.Memcache.Transport
             return result;
         }
 
+        protected bool EnqueueRequest(IMemcacheRequest request)
+        {
+            return _pendingRequests.EnqueueRequest(request);
+        }
+
+        protected bool EnqueueRequest(IMemcacheRequest request, CancellationToken token)
+        {
+            return _pendingRequests.EnqueueRequest(request, token);
+        }
+
         public void Dispose()
         {
             if (Socket != null)
                 Socket.Dispose();
+            if (_pendingRequests != null)
+                _pendingRequests.Dispose();
+        }
+
+        private class RequestQueue : IDisposable
+        {
+            private ConcurrentQueue<IMemcacheRequest> _pendingRequests;
+            private SemaphoreSlim _requestLimiter = null;
+            private int _timeout;
+
+            public RequestQueue(int timeout, int limit)
+            {
+                _timeout = timeout;
+                _pendingRequests = new ConcurrentQueue<IMemcacheRequest>();
+                if (limit > 0)
+                    _requestLimiter = new SemaphoreSlim(limit);
+            }
+
+            public bool EnqueueRequest(IMemcacheRequest request)
+            {
+                if (!_requestLimiter.Wait(_timeout))
+                    return false;
+
+                _pendingRequests.Enqueue(request);
+                return true;
+            }
+
+            public bool EnqueueRequest(IMemcacheRequest request, CancellationToken token)
+            {
+                if(!_requestLimiter.Wait(_timeout, token))
+                    return false;
+
+                _pendingRequests.Enqueue(request);
+                return true;
+            }
+
+            public bool TryDequeue(out IMemcacheRequest request)
+            {
+                if (_pendingRequests.TryDequeue(out request))
+                { 
+                    _requestLimiter.Release();
+                    return true;
+                }
+                return false;
+            }
+
+            /// <summary>
+            /// Not thread-safe shouldn't be used while the object is shared
+            /// </summary>
+            /// <returns></returns>
+            public IEnumerable<IMemcacheRequest> Requests
+            {
+                get
+                {
+                    IMemcacheRequest request;
+                    while (_pendingRequests.Count > 0)
+                        if (_pendingRequests.TryDequeue(out request))
+                            yield return request;
+                }
+            }
+
+            public void Dispose()
+            {
+                if (_requestLimiter != null)
+                    _requestLimiter.Dispose();
+            }
         }
     }
 }

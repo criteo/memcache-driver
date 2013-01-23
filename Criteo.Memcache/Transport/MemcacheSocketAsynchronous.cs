@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -19,19 +20,10 @@ namespace Criteo.Memcache.Transport
         protected CancellationTokenSource _token;
         public override IMemcacheRequestsQueue RequestsQueue { get { return _requestsQueue; } }
 
-        public MemcacheSocketAsynchronous(EndPoint endpoint, IMemcacheAuthenticator authenticator, IMemcacheRequestsQueue itemQueue)
-            : base(endpoint, authenticator)
+        public MemcacheSocketAsynchronous(EndPoint endpoint, IMemcacheAuthenticator authenticator, IMemcacheRequestsQueue itemQueue, int queueTimeout, int pendingLimit)
+            : base(endpoint, authenticator, queueTimeout, pendingLimit)
         {
             _requestsQueue = itemQueue;
-        }
-
-        protected override void DisposePending(ConcurrentQueue<IMemcacheRequest> pending)
-        {
-            // take the needed time to resend the aborted requests
-            IMemcacheRequest item;
-            while (pending.Count > 0)
-                if (pending.TryDequeue(out item))
-                    RequestsQueue.Add(item);
         }
 
         protected override void Start()
@@ -66,12 +58,22 @@ namespace Criteo.Memcache.Transport
 
                         var buffer = request.GetQueryBuffer();
 
-                        PendingRequests.Enqueue(request);
+                        var queued = EnqueueRequest(request, token);
+                        if (!queued)
+                        {
+                            // timeouted, how to manage that?
+                            continue;
+                        }
+
                         int sent = 0;
                         do
                         {
                             sent += Socket.Send(buffer, sent, buffer.Length - sent, SocketFlags.None);
                         } while (sent != buffer.Length);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // canceled from outside, the error if occurs has already been handled
                     }
                     catch (Exception e)
                     {

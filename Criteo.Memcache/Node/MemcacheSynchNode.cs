@@ -17,7 +17,9 @@ namespace Criteo.Memcache.Node
     /// </summary>
     internal class MemcacheSynchNode : IMemcacheNode
     {
-        private static SocketAllocator DefaultAllocator = (endPoint, authenticator, mutex) => new MemcacheSocketSynchronous(endPoint, authenticator, mutex);
+        private static TransportAllocator DefaultAllocator = 
+            (endPoint, authenticator, mutex, queueTimeout, pendingLimit) 
+                => new MemcacheSocketSynchronous(endPoint, authenticator, mutex, queueTimeout, pendingLimit);
 
         public event Action<Exception> TransportError
         {
@@ -45,13 +47,11 @@ namespace Criteo.Memcache.Node
             get { return _endPoint; }
         }
 
-        private object _mutex = new object();
-
         private IMemcacheTransport _transport;
         public MemcacheSynchNode(IPEndPoint endPoint, MemcacheClientConfiguration configuration, Action<IMemcacheRequest> requeueRequest)
         {
             _endPoint = endPoint;
-            _transport = (configuration.SocketFactory ?? DefaultAllocator)(endPoint, null, configuration.Authenticator);
+            _transport = (configuration.SocketFactory ?? DefaultAllocator)(endPoint, configuration.Authenticator, null, configuration.TransportQueueTimeout, configuration.TransportQueueLength);
         }
 
         public bool IsDead
@@ -61,7 +61,7 @@ namespace Criteo.Memcache.Node
 
         public bool TrySend(IMemcacheRequest request, int timeout)
         {
-            lock (_mutex)
+            lock (_transport)
                 _transport.RequestsQueue.Add(request);
 
             return true;

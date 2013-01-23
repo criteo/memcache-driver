@@ -15,8 +15,8 @@ namespace Criteo.Memcache.Transport
     {
         private Thread _receivingThread;
 
-        public MemcacheSocketThreadedRead(IPEndPoint endPoint, IMemcacheRequestsQueue itemQueue, IMemcacheAuthenticator authenticator)
-            : base(endPoint, authenticator, itemQueue)
+        public MemcacheSocketThreadedRead(IPEndPoint endPoint, IMemcacheRequestsQueue itemQueue, IMemcacheAuthenticator authenticator, int queueTimeout, int pendingLimit)
+            : base(endPoint, authenticator, itemQueue, queueTimeout, pendingLimit)
         {
         }
 

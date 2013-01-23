@@ -27,22 +27,22 @@ namespace Criteo.Memcache.UTest.Tests
         [Test]
         public void MemcacheSocketThreadedTest()
         {
-            MemcacheSocketTest((e, a, q) => new MemcacheSocketThreadedRead(e, q as IMemcacheRequestsQueue, a));
+            MemcacheSocketTest((e, a, q, t, l) => new MemcacheSocketThreadedRead(e, q as IMemcacheRequestsQueue, a, t, l));
         }
 
         [Test]
         public void MemcacheSocketAsynchTest()
         {
-            MemcacheSocketTest((e, a, q) => new MemcacheSocketAsynchRead(e, q as IMemcacheRequestsQueue, a));
+            MemcacheSocketTest((e, a, q, t, l) => new MemcacheSocketAsynchRead(e, q as IMemcacheRequestsQueue, a, t, l));
         }
 
-        public void MemcacheSocketTest(SocketAllocator socketAllocator)
+        public void MemcacheSocketTest(TransportAllocator socketAllocator)
         {
             var localhost = new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 11211);
             var queue = new NodeQueueMock();
 
             using (var serverMock = new ServerMock(localhost))
-            using (var socket = socketAllocator(localhost, null, queue as IMemcacheRequestsQueue))
+            using (var socket = socketAllocator(localhost, null, queue as IMemcacheRequestsQueue, 0 ,0))
             {
                 // random header
                 var requestHeader = new MemcacheRequestHeader

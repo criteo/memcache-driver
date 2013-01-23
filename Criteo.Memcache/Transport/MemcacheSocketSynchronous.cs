@@ -20,12 +20,10 @@ namespace Criteo.Memcache.Transport
         private Thread _receivingThread;
         private CancellationTokenSource _token;
         private ConcurrentQueue<IMemcacheRequest> _pending = new ConcurrentQueue<IMemcacheRequest>();
-        private object _mutex;
 
-        public MemcacheSocketSynchronous(EndPoint endpoint, IMemcacheAuthenticator authenticator, object mutex)
-            : base(endpoint, authenticator)
+        public MemcacheSocketSynchronous(EndPoint endpoint, IMemcacheAuthenticator authenticator, IMemcacheRequestsQueue _, int queueTimeout, int pendingLimit)
+            : base(endpoint, authenticator, queueTimeout, pendingLimit)
         {
-            _mutex = mutex;
         }
 
         private void StartReceivingThread()
@@ -97,15 +95,19 @@ namespace Criteo.Memcache.Transport
 
         protected override void Start()
         {
-            _token = new CancellationTokenSource();
-            StartReceivingThread();
-            Authenticate();
+            try
+            {
+                _token = new CancellationTokenSource();
+                StartReceivingThread();
+                Authenticate();
 
-            foreach (var request in _pending)
-                Add(request);
-
-
-            Monitor.Exit(_mutex);
+                foreach (var request in _pending)
+                    Add(request);
+            }
+            finally
+            {
+                Monitor.Exit(this);
+            }
         }
 
         private bool Authenticate()
@@ -151,7 +153,8 @@ namespace Criteo.Memcache.Transport
 
         protected override void ShutDown()
         {
-            Monitor.Enter(_mutex);
+            if (this!=null)
+                Monitor.Enter(this);
 
             if (_token != null)
                 _token.Cancel();
@@ -160,16 +163,6 @@ namespace Criteo.Memcache.Transport
                 Socket.Dispose();
                 Socket = null;
             }
-        }
-
-        /// <summary>
-        /// Resend all the pending requests after the socket is up again
-        /// </summary>
-        /// <param name="pending"></param>
-        protected override void DisposePending(ConcurrentQueue<IMemcacheRequest> pending)
-        {
-            foreach (var request in pending)
-                _pending.Enqueue(request);
         }
 
         public IMemcacheRequest Take()
@@ -195,7 +188,7 @@ namespace Criteo.Memcache.Transport
 
                 var buffer = request.GetQueryBuffer();
 
-                PendingRequests.Enqueue(request);
+                EnqueueRequest(request);
                 int sent = 0;
                 do
                 {

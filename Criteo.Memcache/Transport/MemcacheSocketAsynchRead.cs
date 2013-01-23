@@ -14,8 +14,8 @@ namespace Criteo.Memcache.Transport
 {
     internal class MemcacheSocketAsynchRead : MemcacheSocketAsynchronous
     {
-        public MemcacheSocketAsynchRead(IPEndPoint endPoint, IMemcacheRequestsQueue itemQueue, IMemcacheAuthenticator authenticator)
-            : base(endPoint, authenticator, itemQueue)
+        public MemcacheSocketAsynchRead(IPEndPoint endPoint, IMemcacheRequestsQueue itemQueue, IMemcacheAuthenticator authenticator, int queueTimeout, int pendingLimit)
+            : base(endPoint, authenticator, itemQueue, queueTimeout, pendingLimit)
         {
         }
 
