@@ -29,6 +29,7 @@ namespace Criteo.Memcache.Requests
 
             var buffer = new byte[MemcacheRequestHeader.SIZE + requestHeader.TotalBodyLength];
             requestHeader.ToData(buffer, 0);
+            keyAsBytes.CopyTo(buffer, MemcacheResponseHeader.SIZE);
 
             return buffer;
         } 
