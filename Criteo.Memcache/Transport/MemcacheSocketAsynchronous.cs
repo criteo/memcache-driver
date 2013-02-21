@@ -15,15 +15,12 @@ namespace Criteo.Memcache.Transport
 {
     abstract class MemcacheSocketAsynchronous : MemcacheSocketBase
     {
-        private IMemcacheRequestsQueue _requestsQueue;
         private Thread _sendingThread;
         protected CancellationTokenSource _token;
-        public override IMemcacheRequestsQueue RequestsQueue { get { return _requestsQueue; } }
 
-        public MemcacheSocketAsynchronous(EndPoint endpoint, IMemcacheAuthenticator authenticator, IMemcacheRequestsQueue itemQueue, int queueTimeout, int pendingLimit)
-            : base(endpoint, authenticator, queueTimeout, pendingLimit)
+        public MemcacheSocketAsynchronous(EndPoint endpoint, IMemcacheAuthenticator authenticator, IMemcacheRequestsQueue itemQueue, IMemcacheNode node, int queueTimeout, int pendingLimit)
+            : base(endpoint, authenticator, queueTimeout, pendingLimit, itemQueue, node)
         {
-            _requestsQueue = itemQueue;
         }
 
         protected override void Start()

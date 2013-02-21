@@ -15,15 +15,18 @@ using Criteo.Memcache.Exceptions;
 
 namespace Criteo.Memcache.Transport
 {
-    internal class MemcacheSocketSynchronous : MemcacheSocketBase, IMemcacheRequestsQueue
+    internal class MemcacheSocketSynchronous : MemcacheSocketBase, ISynchronousTransport
     {
         private Thread _receivingThread;
         private CancellationTokenSource _token;
         private ConcurrentQueue<IMemcacheRequest> _pending = new ConcurrentQueue<IMemcacheRequest>();
+        private volatile bool _isAlive;
+        private volatile Action<MemcacheSocketSynchronous> _setupAction;
 
-        public MemcacheSocketSynchronous(EndPoint endpoint, IMemcacheAuthenticator authenticator, IMemcacheRequestsQueue _, int queueTimeout, int pendingLimit)
-            : base(endpoint, authenticator, queueTimeout, pendingLimit)
+        public MemcacheSocketSynchronous(EndPoint endpoint, IMemcacheAuthenticator authenticator, IMemcacheNode node, int queueTimeout, int pendingLimit, Action<MemcacheSocketSynchronous> setupAction)
+            : base(endpoint, authenticator, queueTimeout, pendingLimit, null, node)
         {
+            _setupAction = setupAction;
         }
 
         private void StartReceivingThread()
@@ -95,18 +98,30 @@ namespace Criteo.Memcache.Transport
 
         protected override void Start()
         {
-            try
-            {
-                _token = new CancellationTokenSource();
-                StartReceivingThread();
-                Authenticate();
+            _token = new CancellationTokenSource();
+            StartReceivingThread();
+            Authenticate();
 
-                foreach (var request in _pending)
-                    Add(request);
-            }
-            finally
+            lock (this)
             {
-                Monitor.Exit(this);
+                if (_setupAction != null)
+                    _setupAction(this);
+                _setupAction = null;
+                _isAlive = true;
+            }
+        }
+
+        protected override void ShutDown()
+        {
+            lock (this)
+                _isAlive = false;
+
+            if (_token != null)
+                _token.Cancel();
+            if (Socket != null)
+            {
+                Socket.Dispose();
+                Socket = null;
             }
         }
 
@@ -136,6 +151,7 @@ namespace Criteo.Memcache.Transport
                                 Reset();
                                 return false;
                             }
+                            SendRequest(request);
                             break;
                         default:
                             if (_transportError != null)
@@ -143,57 +159,24 @@ namespace Criteo.Memcache.Transport
                             Reset();
                             return false;
                     }
-
-                    Add(request);
                 }
             }
 
             return true;
         }
 
-        protected override void ShutDown()
-        {
-            if (this!=null)
-                Monitor.Enter(this);
-
-            if (_token != null)
-                _token.Cancel();
-            if (Socket != null)
-            {
-                Socket.Dispose();
-                Socket = null;
-            }
-        }
-
-        public IMemcacheRequest Take()
-        {
-            throw new NotImplementedException();
-        }
-
-        public bool TryTake(out IMemcacheRequest request, int timeout)
-        {
-            throw new NotImplementedException();
-        }
-
         /// <summary>
         /// Synchronously sends the request
         /// </summary>
         /// <param name="request"></param>
-        public void Add(IMemcacheRequest request)
+        public bool TrySend(IMemcacheRequest request)
         {
             try
             {
-                if (request == null)
-                    return;
+                if (request == null || !_isAlive)
+                    return false;
 
-                var buffer = request.GetQueryBuffer();
-
-                EnqueueRequest(request);
-                int sent = 0;
-                do
-                {
-                    sent += Socket.Send(buffer, sent, buffer.Length - sent, SocketFlags.None);
-                } while (sent != buffer.Length);
+                SendRequest(request);
             }
             catch (Exception e)
             {
@@ -201,12 +184,36 @@ namespace Criteo.Memcache.Transport
                     _transportError(e);
 
                 Reset();
+
+                return false;
             }
+
+            return true;
         }
 
-        public override IMemcacheRequestsQueue RequestsQueue
+        private void SendRequest(IMemcacheRequest request)
         {
-            get { return this; }
+            var buffer = request.GetQueryBuffer();
+
+            EnqueueRequest(request);
+            int sent = 0;
+            do
+            {
+                sent += Socket.Send(buffer, sent, buffer.Length - sent, SocketFlags.None);
+            } while (sent != buffer.Length);
+        }
+
+        public void SetupAction(Action<ISynchronousTransport> action)
+        {
+            lock (this)
+            {
+                if (_isAlive)
+                    // the transport is already up => execute now
+                    action(this);
+                else
+                    // plan to execute when the transport will be alive
+                    _setupAction = action;
+            }
         }
     }
 }

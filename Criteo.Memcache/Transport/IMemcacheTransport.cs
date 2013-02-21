@@ -25,7 +25,5 @@ namespace Criteo.Memcache.Transport
         /// This event is triggered at every incoming response from the server
         /// </summary>
         event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheResponse;
-
-        IMemcacheRequestsQueue RequestsQueue { get; }
     }
 }

@@ -26,7 +26,7 @@ namespace Criteo.Memcache.UTest.Tests
             var config = new MemcacheClientConfiguration
             {
                 DeadTimeout = TimeSpan.FromSeconds(1),
-                SocketFactory = (_, __, queue, ___, ____) => (socketMock = new DeadSocketMock { WaitingRequests = queue as IMemcacheRequestsQueue }),
+                SocketFactory = (_, __, n, ___, ____, _____) => (socketMock = new DeadSocketMock { WaitingRequests = n as IMemcacheRequestsQueue }),
                 QueueLength = 1,
             };
             var node = new MemcacheNode(null, config, _ => { });

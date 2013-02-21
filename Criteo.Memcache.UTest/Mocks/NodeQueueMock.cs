@@ -9,7 +9,7 @@ using Criteo.Memcache.Requests;
 
 namespace Criteo.Memcache.UTest.Mocks
 {
-    class NodeQueueMock : IMemcacheRequestsQueue
+    class NodeQueueMock : IMemcacheRequestsQueue, IMemcacheNode
     {
         BlockingCollection<IMemcacheRequest> _queue = new BlockingCollection<IMemcacheRequest>();
 
@@ -26,6 +26,36 @@ namespace Criteo.Memcache.UTest.Mocks
         public void Add(IMemcacheRequest request)
         {
             _queue.Add(request);
+        }
+
+#pragma warning disable 67
+        public event Action<Exception> TransportError;
+
+        public event Action<Headers.MemcacheResponseHeader, IMemcacheRequest> MemcacheError;
+
+        public event Action<Headers.MemcacheResponseHeader, IMemcacheRequest> MemcacheResponse;
+
+        public event Action<IMemcacheNode> NodeDead;
+#pragma warning restore 67
+
+        public System.Net.IPEndPoint EndPoint
+        {
+            get { throw new NotImplementedException(); }
+        }
+
+        public bool IsDead
+        {
+            get { return false; }
+        }
+
+        public bool TrySend(IMemcacheRequest request, int timeout)
+        {
+            return _queue.TryAdd(request, timeout);
+        }
+
+        public void Dispose()
+        {
+            _queue.Dispose();
         }
     }
 }

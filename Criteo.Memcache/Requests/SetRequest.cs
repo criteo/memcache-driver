@@ -21,7 +21,6 @@ namespace Criteo.Memcache.Requests
 
         public Action<Status> CallBack { get; set; }
 
-
         public SetRequest()
         {
             Code = Opcode.Set;
@@ -64,6 +63,12 @@ namespace Criteo.Memcache.Requests
         {
             if (CallBack != null)
                 CallBack(header.Status);
+        }
+
+        public void Fail()
+        {
+            if (CallBack != null)
+                CallBack(Status.InternalError);
         }
     }
 }

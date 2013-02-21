@@ -22,11 +22,5 @@ namespace Criteo.Memcache.Node
         /// <param name="timeout" />
         /// <returns>false if the queue was empty after the timeout</returns>
         bool TryTake(out IMemcacheRequest request, int timeout);
-
-        /// <summary>
-        /// Returns an untreated request to the node
-        /// </summary>
-        /// <param name="request" />
-        void Add(IMemcacheRequest request);
     }
 }

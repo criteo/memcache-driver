@@ -31,5 +31,11 @@ namespace Criteo.Memcache.Requests
             if (Callback != null)
                 Callback(header);
         }
+
+        public void Fail()
+        {
+            if (Callback != null)
+                Callback(new MemcacheResponseHeader { Opcode = Opcode.NoOp, Status = Status.InternalError, Opaque = RequestId });
+        }
     }
 }

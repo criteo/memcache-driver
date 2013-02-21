@@ -27,22 +27,22 @@ namespace Criteo.Memcache.UTest.Tests
         [Test]
         public void MemcacheSocketThreadedTest()
         {
-            MemcacheSocketTest((e, a, q, t, l) => new MemcacheSocketThreadedRead(e, q as IMemcacheRequestsQueue, a, t, l));
+            MemcacheSocketTest((e, a, q, n, t, l) => new MemcacheSocketThreadedRead(e, q, n, a, t, l));
         }
 
         [Test]
         public void MemcacheSocketAsynchTest()
         {
-            MemcacheSocketTest((e, a, q, t, l) => new MemcacheSocketAsynchRead(e, q as IMemcacheRequestsQueue, a, t, l));
+            MemcacheSocketTest((e, a, q, n, t, l) => new MemcacheSocketAsynchRead(e, q, n, a, t, l));
         }
 
         public void MemcacheSocketTest(TransportAllocator socketAllocator)
         {
             var localhost = new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 11211);
-            var queue = new NodeQueueMock();
+            var node = new NodeQueueMock();
 
             using (var serverMock = new ServerMock(localhost))
-            using (var socket = socketAllocator(localhost, null, queue as IMemcacheRequestsQueue, 0 ,0))
+            using (var socket = socketAllocator(localhost, null, node, node, 0, 0))
             {
                 // random header
                 var requestHeader = new MemcacheRequestHeader
@@ -97,7 +97,7 @@ namespace Criteo.Memcache.UTest.Tests
                     Message = responseMessage,
                     Extra = responseExtra,*/
                 };
-                queue.Add(request);
+                Assert.IsTrue(node.TrySend(request, Timeout.Infinite));
 
                 Assert.IsTrue(request.Mutex.Wait(TimeSpan.FromSeconds(10)), "The request has not been completed on less than 10 sec");
 

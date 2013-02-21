@@ -19,8 +19,8 @@ namespace Criteo.Memcache.Node
         public bool IsDead { get; private set; }
 
         private static TransportAllocator DefaultAllocator = 
-            (endPoint, authenticator, nodeQueue, queueTimeout, pendingLimit) 
-                => new MemcacheSocketThreadedRead(endPoint, nodeQueue, authenticator, queueTimeout, pendingLimit);
+            (endPoint, authenticator, queue, node, queueTimeout, pendingLimit) 
+                => new MemcacheSocketThreadedRead(endPoint, queue, node, authenticator, queueTimeout, pendingLimit);
 
         private BlockingCollection<IMemcacheRequest> _waitingRequests;
         private List<IMemcacheTransport> _clients;
@@ -100,7 +100,13 @@ namespace Criteo.Memcache.Node
             _clients = new List<IMemcacheTransport>(configuration.PoolSize);
             for (int i = 0; i < configuration.PoolSize; ++i)
             {
-                var socket = (configuration.SocketFactory ?? DefaultAllocator)(endPoint, configuration.Authenticator, this, configuration.TransportQueueTimeout, configuration.TransportQueueLength);
+                var socket = (configuration.SocketFactory ?? DefaultAllocator)
+                                (endPoint, 
+                                configuration.Authenticator, 
+                                this,
+                                this,
+                                configuration.TransportQueueTimeout, 
+                                configuration.TransportQueueLength);
                 socket.MemcacheResponse += (_, __) => _requestRan = true;
                 _clients.Add(socket);
             }
@@ -180,11 +186,6 @@ namespace Criteo.Memcache.Node
         bool IMemcacheRequestsQueue.TryTake(out IMemcacheRequest request, int timeout)
         {
             return _waitingRequests.TryTake(out request, timeout);
-        }
-
-        void IMemcacheRequestsQueue.Add(IMemcacheRequest request)
-        {
-            _waitingRequests.Add(request);
         }
 
         public override string ToString()

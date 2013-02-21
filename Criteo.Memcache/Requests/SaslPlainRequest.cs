@@ -52,5 +52,11 @@ namespace Criteo.Memcache.Requests
             if (Callback != null)
                 Callback(header.Status);
         }
+
+        public void Fail()
+        {
+            if (Callback != null)
+                Callback(Status.InternalError);
+        }
     }
 }

@@ -47,7 +47,14 @@ namespace Criteo.Memcache.Requests
                     throw new MemcacheException("The get command flag is wrong size !");
                 Flag = extra.CopyToUInt(0);
             }
-            CallBack(header.Status, message);
+            if (CallBack != null)
+                CallBack(header.Status, message);
+        }
+
+        public void Fail()
+        {
+            if (CallBack != null)
+                CallBack(Status.InternalError, null);
         }
     }
 }

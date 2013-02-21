@@ -14,5 +14,6 @@ namespace Criteo.Memcache.Requests
         
         byte[] GetQueryBuffer();
         void HandleResponse(MemcacheResponseHeader header, byte[] extra, byte[] message);
+        void Fail();
     }
 }

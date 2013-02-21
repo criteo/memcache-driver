@@ -59,23 +59,26 @@ namespace Criteo.Memcache.Transport
         private RequestQueue _pendingRequests;
         private IMemcacheAuthenticator _authenticator;
         protected IAuthenticationToken AuthenticationToken { get; set; }
+        private IMemcacheNode _node;
 
         private int _requestLimit;
         private int _queueTimeout;
 
-        internal MemcacheSocketBase(EndPoint endpoint, IMemcacheAuthenticator authenticator, int queueTimeout, int pendingLimit)
+        internal MemcacheSocketBase(EndPoint endpoint, IMemcacheAuthenticator authenticator, int queueTimeout, int pendingLimit, IMemcacheRequestsQueue queue, IMemcacheNode node)
         {
             EndPoint = endpoint;
             _authenticator = authenticator;
             _requestLimit = 1000;
             _queueTimeout = Timeout.Infinite;
+            RequestsQueue = queue;
+            _node = node;
 
             Reset();
         }
 
         protected abstract void ShutDown();
         protected abstract void Start();
-        public abstract IMemcacheRequestsQueue RequestsQueue { get; }
+        public IMemcacheRequestsQueue RequestsQueue { get; private set; }
 
         protected void CreateSocket()
         {
@@ -120,8 +123,9 @@ namespace Criteo.Memcache.Transport
 
             if (oldPending != null)
             {
-                foreach (var item in oldPending.Requests)
-                    RequestsQueue.Add(item);
+                foreach (var request in oldPending.Requests)
+                    if (!_node.TrySend(request, -1))
+                        request.Fail();
                 oldPending.Dispose();
             }
         }

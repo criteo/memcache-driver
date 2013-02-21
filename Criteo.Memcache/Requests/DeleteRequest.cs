@@ -32,13 +32,19 @@ namespace Criteo.Memcache.Requests
             keyAsBytes.CopyTo(buffer, MemcacheResponseHeader.SIZE);
 
             return buffer;
-        } 
+        }
 
         // nothing to do on set response
         public void HandleResponse(MemcacheResponseHeader header, byte[] extra, byte[] message)
         {
             if (CallBack != null)
                 CallBack(header.Status);
+        }
+
+        public void Fail()
+        {
+            if (CallBack != null)
+                CallBack(Status.InternalError);
         }
     }
 }

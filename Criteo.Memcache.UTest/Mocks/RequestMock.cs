@@ -37,5 +37,10 @@ namespace Criteo.Memcache.UTest.Mocks
             Message = message;
             Mutex.Set();
         }
+
+        public void Fail()
+        {
+            Mutex.Set();
+        }
     }
 }
