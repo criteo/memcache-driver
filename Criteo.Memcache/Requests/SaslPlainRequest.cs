@@ -35,13 +35,14 @@ namespace Criteo.Memcache.Requests
             var header = new MemcacheRequestHeader(Opcode.StartAuth)
             {
                 ExtraLength = 0,
+                KeyLength = (ushort)key.Length,
                 TotalBodyLength = (uint)(key.Length + data.Length),
             };
 
             var message = new byte[MemcacheRequestHeader.SIZE + header.TotalBodyLength];
             header.ToData(message);
             Array.Copy(key, 0, message, MemcacheRequestHeader.SIZE, key.Length);
-            Array.Copy(data, 0, message, MemcacheRequestHeader.SIZE + key.Length, message.Length);
+            Array.Copy(data, 0, message, MemcacheRequestHeader.SIZE + key.Length, data.Length);
 
             return message;
         }
