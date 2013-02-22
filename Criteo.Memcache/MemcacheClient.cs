@@ -100,7 +100,6 @@ namespace Criteo.Memcache
             _configuration = configuration;
             _locator = configuration.NodeLocator ?? new RoundRobinLocator();
             _nodes = new List<IMemcacheNode>(configuration.NodesEndPoints.Count);
-            _locator.Initialize(_nodes);
 
             Action<IMemcacheRequest> requeueRequest;
             switch(configuration.NodeDeadPolicy)
@@ -118,6 +117,8 @@ namespace Criteo.Memcache
                 var node = (configuration.NodeFactory ?? DefaultNodeFactory)(nodeEndPoint, configuration, requeueRequest);
                 _nodes.Add(node);
             }
+
+            _locator.Initialize(_nodes);
         }
 
         /// <summary>

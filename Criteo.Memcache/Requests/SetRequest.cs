@@ -37,7 +37,7 @@ namespace Criteo.Memcache.Requests
             {
                 KeyLength = (ushort)keyAsBytes.Length,
                 ExtraLength = 8,
-                TotalBodyLength = (uint)(8 + keyAsBytes.Length + Message.Length),
+                TotalBodyLength = (uint)(8 + keyAsBytes.Length + (Message == null? 0 : Message.Length)),
                 Opaque = RequestId,
             };
 
@@ -53,7 +53,8 @@ namespace Criteo.Memcache.Requests
 
             buffer.CopyFrom(MemcacheRequestHeader.SIZE + sizeof(uint), expire);
             keyAsBytes.CopyTo(buffer, 32);
-            Message.CopyTo(buffer, 32 + keyAsBytes.Length);
+            if(Message != null)
+                Message.CopyTo(buffer, 32 + keyAsBytes.Length);
 
             return buffer;
         } 

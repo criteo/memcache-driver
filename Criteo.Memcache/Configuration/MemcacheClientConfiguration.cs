@@ -33,6 +33,9 @@ namespace Criteo.Memcache.Configuration
         public static NodeAllocator SynchronousNodeAllocator =
             (endPoint, configuration, requeueRequest) => new MemcacheSynchNode(endPoint, configuration, requeueRequest);
 
+        public static Func<string, INodeLocator> KetamaLocatorFactory =
+            HashName => new KetamaLocator(HashName);
+
         private IList<IPEndPoint> _nodesEndPoints = new List<IPEndPoint>();
         public IList<IPEndPoint> NodesEndPoints { get { return _nodesEndPoints;} }
 

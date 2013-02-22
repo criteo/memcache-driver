@@ -39,7 +39,7 @@ namespace Criteo.Memcache.Locator
 
         public void Initialize(IList<IMemcacheNode> nodes)
         {
-            int PartCount = _hashAlgo.HashSize / (8 * sizeof(int)); // HashSize is in bits, uint is 4 bytes long
+            int PartCount = Hash.HashSize / (8 * sizeof(int)); // HashSize is in bits, uint is 4 bytes long
             if (PartCount < 1) throw new ArgumentOutOfRangeException("The hash algorithm must provide at least 32 bits long hashes");
 
             var keys = new List<uint>(nodes.Count);
@@ -58,7 +58,7 @@ namespace Criteo.Memcache.Locator
 
                 for (int mutation = 0; mutation < ServerAddressMutations / PartCount; mutation++)
                 {
-                    byte[] data = _hashAlgo.ComputeHash(Encoding.ASCII.GetBytes(address + "-" + mutation));
+                    byte[] data = Hash.ComputeHash(Encoding.ASCII.GetBytes(address + "-" + mutation));
 
                     for (int p = 0; p < PartCount; p++)
                     {
@@ -83,7 +83,7 @@ namespace Criteo.Memcache.Locator
         private uint GetKeyHash(string key)
         {
             var keyData = Encoding.UTF8.GetBytes(key);
-            return _hashAlgo.ComputeHash(keyData).CopyToUInt(0);
+            return Hash.ComputeHash(keyData).CopyToUInt(0);
         }
 
         public IMemcacheNode Locate(string key)
