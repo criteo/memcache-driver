@@ -22,7 +22,7 @@ namespace Criteo.Memcache.Requests
             if (keyAsBytes.Length > ushort.MaxValue)
                 throw new ArgumentException("The key is too long for the memcache binary protocol : " + Key);
 
-            var requestHeader = new MemcacheRequestHeader(Opcode.Get)
+            var requestHeader = new MemcacheRequestHeader(RequestOpcode)
             {
                 KeyLength = (ushort)keyAsBytes.Length,
                 ExtraLength = 0,

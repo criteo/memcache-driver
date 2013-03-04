@@ -119,12 +119,6 @@ namespace Criteo.Memcache.Headers
             return value;
         }
 
-        static public void CopyTo<T>(this IEnumerable<T> that, T[] buffer, int offset)
-        {
-            foreach (T item in that)
-                buffer[offset++] = item;
-        }
-
         static public bool IsQuiet(this Opcode that)
         {
             switch (that)
