@@ -244,7 +244,7 @@ namespace Criteo.Memcache.Transport
                                 Reset();
                                 return false;
                             }
-                            SendRequest(request);
+                            return SendRequest(request);
                             break;
                         default:
                             if (_transportError != null)
@@ -269,7 +269,7 @@ namespace Criteo.Memcache.Transport
                 if (request == null || !_isAlive)
                     return false;
 
-                SendRequest(request);
+                return SendRequest(request);
             }
             catch (Exception e)
             {
@@ -280,20 +280,21 @@ namespace Criteo.Memcache.Transport
 
                 return false;
             }
-
-            return true;
         }
 
-        private void SendRequest(IMemcacheRequest request)
+        private bool SendRequest(IMemcacheRequest request)
         {
             var buffer = request.GetQueryBuffer();
 
-            EnqueueRequest(request);
+            if (!EnqueueRequest(request, _token.Token))
+                return false;
+
             int sent = 0;
             do
             {
                 sent += Socket.Send(buffer, sent, buffer.Length - sent, SocketFlags.None);
             } while (sent != buffer.Length);
+            return true;
         }
 
         public void SetupAction(Action<ISynchronousTransport> action)

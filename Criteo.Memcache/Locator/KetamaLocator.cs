@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -18,72 +19,116 @@ namespace Criteo.Memcache.Locator
         private const string DefaultHashName = "System.Security.Cryptography.MD5";
         private const int ServerAddressMutations = 160;
 
-        [ThreadStatic]
-        private HashAlgorithm _hashAlgo;
-        protected HashAlgorithm Hash 
-        { 
-            get
+        #region Hash Pooling
+        private ConcurrentBag<HashAlgorithm> _hashAlgoPool;
+        private Func<HashAlgorithm> _hashFactory;
+
+        protected struct HashProxy : IDisposable
+        {
+            private HashAlgorithm _value;
+            private ConcurrentBag<HashAlgorithm> _pool;
+
+            public HashProxy(ConcurrentBag<HashAlgorithm> pool, Func<HashAlgorithm> hashFactory)
             {
-                if (_hashAlgo == null)
-                    _hashAlgo = _hashFactory();
-                return _hashAlgo;
+                _pool = pool;
+                if (!pool.TryTake(out _value))
+                    _value = hashFactory();
+            }
+
+            public HashAlgorithm Value
+            {
+                get
+                {
+                    return _value;
+                }
+            }
+
+            public void Dispose()
+            {
+                if (_value != null)
+                    _pool.Add(_value);
             }
         }
-        private Func<HashAlgorithm> _hashFactory;
-        private LookupData _lookupData;
 
-        public KetamaLocator(string hashName = null)
+        protected HashProxy Hash
         {
+            get
+            {
+                return new HashProxy(_hashAlgoPool, _hashFactory);
+            }
+        }
+        #endregion Hash Pooling
+
+        private IList<IMemcacheNode> _nodes;
+        private LookupData _lookupData;
+        private Timer _resurrectTimer;
+        private int _resurrectFreq;
+
+        public KetamaLocator(string hashName = null, int resurectFreq = 1000)
+        {
+            _hashAlgoPool = new ConcurrentBag<HashAlgorithm>();
             _hashFactory = () => HashAlgorithm.Create(hashName = hashName ?? DefaultHashName);
+            _resurrectFreq = resurectFreq;
         }
 
         public void Initialize(IList<IMemcacheNode> nodes)
         {
-            int PartCount = Hash.HashSize / (8 * sizeof(int)); // HashSize is in bits, uint is 4 bytes long
-            if (PartCount < 1) throw new ArgumentOutOfRangeException("The hash algorithm must provide at least 32 bits long hashes");
+            _nodes = nodes;
+            foreach(var node in nodes)
+                node.NodeDead += _ => Reinitialize();
 
-            var keys = new List<uint>(nodes.Count);
-            var keyToServer = new Dictionary<uint, IMemcacheNode>(nodes.Count, new UIntEqualityComparer());
+            using(var hash = Hash)
+                _lookupData = new LookupData(nodes, hash.Value);
 
-            for (int nodeIndex = 0; nodeIndex < nodes.Count; nodeIndex++)
+            _resurrectTimer = new Timer(UpdateState, null, _resurrectFreq, _resurrectFreq);
+        }
+
+        private void Reinitialize()
+        {
+            // filter only working nodes and 
+            var newNodes = new List<IMemcacheNode>(_nodes.Count);
+            foreach (var node in _nodes)
+                if (!node.IsDead)
+                    newNodes.Add(node);
+
+            using (var hash = Hash)
+                Interlocked.Exchange(ref _lookupData, new LookupData(newNodes, hash.Value));
+        }
+
+        /// <summary>
+        /// Checks if the liveness of the nodes has changed
+        /// </summary>
+        private void UpdateState(object _)
+        {
+            var ld = _lookupData;
+
+            var nodeSet = new HashSet<IMemcacheNode>(ld.nodes);
+            bool mustRecompute = false;
+            foreach (var node in _nodes)
             {
-                var currentNode = nodes[nodeIndex];
-
-                // every server is registered numberOfKeys times
-                // using UInt32s generated from the different parts of the hash
-                // i.e. hash is 64 bit:
-                // 01 02 03 04 05 06 07
-                // server will be stored with keys 0x07060504 & 0x03020100
-                string address = currentNode.EndPoint.ToString();
-
-                for (int mutation = 0; mutation < ServerAddressMutations / PartCount; mutation++)
+                // this node is a new dead, recompte all
+                if (node.IsDead && nodeSet.Contains(node))
                 {
-                    byte[] data = Hash.ComputeHash(Encoding.ASCII.GetBytes(address + "-" + mutation));
-
-                    for (int p = 0; p < PartCount; p++)
-                    {
-                        var key = data.CopyToUInt(p * 4);
-                        keys.Add(key);
-                        keyToServer[key] = currentNode;
-                    }
+                    mustRecompute = true;
+                    break;
+                }
+                // this node has changed to alive, recompute all
+                if (!node.IsDead && !nodeSet.Contains(node))
+                {
+                    mustRecompute = true;
+                    break;
                 }
             }
-            keys.Sort();
 
-            var lookupData = new LookupData
-            {
-                keys = keys.ToArray(),
-                keyToServer = keyToServer,
-                nodes = nodes.ToArray(),
-            };
-
-            Interlocked.Exchange(ref _lookupData, lookupData);
+            if(mustRecompute)
+                Reinitialize();
         }
 
         private uint GetKeyHash(string key)
         {
             var keyData = Encoding.UTF8.GetBytes(key);
-            return Hash.ComputeHash(keyData).CopyToUInt(0);
+            using (var hash = Hash)
+                return hash.Value.ComputeHash(keyData).CopyToUInt(0);
         }
 
         public IMemcacheNode Locate(string key)
@@ -99,26 +144,6 @@ namespace Criteo.Memcache.Locator
             }
 
             var retval = LocateNode(ld, this.GetKeyHash(key));
-
-            // if the result is not alive then try to mutate the item key and 
-            // find another node this way we do not have to reinitialize every 
-            // time a node dies/comes back
-            // (DefaultServerPool will resurrect the nodes in the background without affecting the hashring)
-            if (retval.IsDead)
-            {
-                for (var i = 0; i < ld.nodes.Length; i++)
-                {
-                    // -- this is from spymemcached so we select the same node for the same items
-                    ulong tmpKey = (ulong)GetKeyHash(i + key);
-                    tmpKey += (uint)(tmpKey ^ (tmpKey >> 32));
-                    tmpKey &= 0xffffffffL; /* truncate to 32-bits */
-                    // -- end
-
-                    retval = LocateNode(ld, (uint)tmpKey);
-
-                    if (!retval.IsDead) return retval;
-                }
-            }
 
             return retval.IsDead ? null : retval;
         }
@@ -163,6 +188,43 @@ namespace Criteo.Memcache.Locator
             public uint[] keys;
             // used to lookup a server based on its key
             public Dictionary<uint, IMemcacheNode> keyToServer;
+
+            public LookupData(IList<IMemcacheNode> nodes, HashAlgorithm hash)
+            {
+                int PartCount = hash.HashSize / (8 * sizeof(int)); // HashSize is in bits, uint is 4 bytes long
+                if (PartCount < 1) throw new ArgumentOutOfRangeException("The hash algorithm must provide at least 32 bits long hashes");
+
+                var keys = new List<uint>(nodes.Count);
+                keyToServer = new Dictionary<uint, IMemcacheNode>(nodes.Count, new UIntEqualityComparer());
+
+                for (int nodeIndex = 0; nodeIndex < nodes.Count; nodeIndex++)
+                {
+                    var currentNode = nodes[nodeIndex];
+
+                    // every server is registered numberOfKeys times
+                    // using UInt32s generated from the different parts of the hash
+                    // i.e. hash is 64 bit:
+                    // 01 02 03 04 05 06 07
+                    // server will be stored with keys 0x07060504 & 0x03020100
+                    string address = currentNode.EndPoint.ToString();
+
+                    for (int mutation = 0; mutation < ServerAddressMutations / PartCount; mutation++)
+                    {
+                        byte[] data = hash.ComputeHash(Encoding.ASCII.GetBytes(address + "-" + mutation));
+
+                        for (int p = 0; p < PartCount; p++)
+                        {
+                            var key = data.CopyToUInt(p * 4);
+                            keys.Add(key);
+                            keyToServer[key] = currentNode;
+                        }
+                    }
+                }
+                keys.Sort();
+
+                this.keys = keys.ToArray();
+                this.nodes = nodes.ToArray();
+            }
         }
 
         /// <summary>

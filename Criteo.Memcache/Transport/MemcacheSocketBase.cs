@@ -124,7 +124,7 @@ namespace Criteo.Memcache.Transport
             if (oldPending != null)
             {
                 foreach (var request in oldPending.Requests)
-                    if (!_node.TrySend(request, -1))
+                    if (_node != null && !_node.TrySend(request, -1))
                         request.Fail();
                 oldPending.Dispose();
             }
@@ -136,14 +136,14 @@ namespace Criteo.Memcache.Transport
 
             if (header.Opcode.IsQuiet())
             {
-                throw new Exception("No way we can match a quiet request !");
+                throw new MemcacheException("No way we can match a quiet request !");
             }
             else
             {
                 if (!_pendingRequests.TryDequeue(out result))
-                    throw new Exception("Received a response when no request is pending");
+                    throw new MemcacheException("Received a response when no request is pending");
                 if (result.RequestId != header.Opaque)
-                    throw new Exception("Received a response that doesn't match with the sent request queue");
+                    throw new MemcacheException("Received a response that doesn't match with the sent request queue");
             }
 
             return result;
@@ -164,7 +164,10 @@ namespace Criteo.Memcache.Transport
             if (Socket != null)
                 Socket.Dispose();
             if (_pendingRequests != null)
+            {
                 _pendingRequests.Dispose();
+                _pendingRequests = null;
+            }
         }
 
         private class RequestQueue : IDisposable
