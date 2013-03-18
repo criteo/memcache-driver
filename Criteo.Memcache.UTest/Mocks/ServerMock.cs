@@ -32,7 +32,8 @@ namespace Criteo.Memcache.UTest.Mocks
             _socket.Listen((int)SocketOptionName.MaxConnections);
             _acceptEventArgs = new SocketAsyncEventArgs();
             _acceptEventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnAccept);
-            _socket.AcceptAsync(_acceptEventArgs);
+            if (!_socket.AcceptAsync(_acceptEventArgs))
+                throw new Exception("Unable to listen on port " + endPoint.Port);
         }
 
         /// <summary>

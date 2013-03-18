@@ -24,10 +24,13 @@ namespace Criteo.Memcache.Transport
         private volatile Action<MemcacheSocketSynchronous> _setupAction;
         private bool _threadedReceived = false;
 
-        public MemcacheSocketSynchronous(EndPoint endpoint, IMemcacheAuthenticator authenticator, IMemcacheNode node, int queueTimeout, int pendingLimit, Action<MemcacheSocketSynchronous> setupAction)
+        public MemcacheSocketSynchronous(EndPoint endpoint, IMemcacheAuthenticator authenticator, IMemcacheNode node, int queueTimeout, int pendingLimit, Action<MemcacheSocketSynchronous> setupAction, bool threaded)
             : base(endpoint, authenticator, queueTimeout, pendingLimit, null, node)
         {
             _setupAction = setupAction;
+            _threadedReceived = threaded;
+
+            Reset();
         }
 
         #region Threaded Reads
@@ -245,7 +248,6 @@ namespace Criteo.Memcache.Transport
                                 return false;
                             }
                             return SendRequest(request);
-                            break;
                         default:
                             if (_transportError != null)
                                 _transportError(new AuthenticationException("Unable to authenticate : status " + authStatus.ToString()));
@@ -297,16 +299,13 @@ namespace Criteo.Memcache.Transport
             return true;
         }
 
-        public void SetupAction(Action<ISynchronousTransport> action)
+        public void PlanSetup()
         {
             lock (this)
             {
-                if (_isAlive)
+                if (_isAlive && _setupAction != null)
                     // the transport is already up => execute now
-                    action(this);
-                else
-                    // plan to execute when the transport will be alive
-                    _setupAction = action;
+                    _setupAction(this);
             }
         }
     }

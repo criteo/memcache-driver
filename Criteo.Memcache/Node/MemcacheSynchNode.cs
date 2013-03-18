@@ -18,10 +18,11 @@ namespace Criteo.Memcache.Node
         private readonly BlockingCollection<ISynchronousTransport> _transportPool;
         private readonly IList<ISynchronousTransport> _transportList;
         private int _workingTransport;
+        private CancellationTokenSource _tokenSource;
 
         private static SynchornousTransportAllocator DefaultAllocator = 
             (endPoint, authenticator, node, queueTimeout, pendingLimit, setupAction)
-                => new MemcacheSocketSynchronous(endPoint, authenticator, node, queueTimeout, pendingLimit, setupAction);
+                => new MemcacheSocketSynchronous(endPoint, authenticator, node, queueTimeout, pendingLimit, setupAction, false);
 
         #region Events
         public event Action<Exception> TransportError
@@ -99,6 +100,9 @@ namespace Criteo.Memcache.Node
         {
             _transportPool.Add(transport);
             Interlocked.Increment(ref _workingTransport);
+
+            if (_tokenSource == null || _tokenSource.IsCancellationRequested)
+                _tokenSource = new CancellationTokenSource();
         }
 
         public bool IsDead
@@ -109,7 +113,8 @@ namespace Criteo.Memcache.Node
         public bool TrySend(IMemcacheRequest request, int timeout)
         {
             ISynchronousTransport transport;
-            while (_transportPool.TryTake(out transport, timeout))
+            while (_tokenSource != null && !_tokenSource.IsCancellationRequested
+                && _transportPool.TryTake(out transport, timeout, _tokenSource.Token))
             {
                 if (transport.TrySend(request))
                 {
@@ -119,12 +124,21 @@ namespace Criteo.Memcache.Node
                 }
                 else
                 {
+                    // TODO : don't flag as dead right now, start a timer to check if all transport are dead for more than configuration.DeadTimeout seconds
+
                     // the current transport is not working
-                    if (0 == Interlocked.Decrement(ref _workingTransport) && NodeDead != null)
-                        NodeDead(this);
+                    Interlocked.Decrement(ref _workingTransport);
 
                     // let the transport plan to add it in the pool when it will be up again
-                    transport.SetupAction(TransportAlive);
+                    transport.PlanSetup();
+
+                    // no more transport ? it's dead ! (don't flag dead before SetupAction, it can synchronously increment _workingTransport)
+                    if (0 == _workingTransport)
+                    {
+                        _tokenSource.Cancel();
+                        if (NodeDead != null)
+                            NodeDead(this);
+                    }
                 }
             }
 

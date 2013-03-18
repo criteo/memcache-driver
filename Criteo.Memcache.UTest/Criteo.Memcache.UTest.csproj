@@ -51,6 +51,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Mocks\NodeMock.cs" />
+    <Compile Include="Mocks\SynchTransportMock.cs" />
+    <Compile Include="Tests\LocatorTests.cs" />
     <Compile Include="Mocks\NodeQueueMock.cs" />
     <Compile Include="Mocks\RequestMock.cs" />
     <Compile Include="Mocks\ServerMock.cs" />
@@ -64,6 +67,7 @@
     <Compile Include="Tests\Requests\NoOpRequestTests.cs" />
     <Compile Include="Tests\Requests\SaslPlainTextRequestTests.cs" />
     <Compile Include="Tests\Requests\SetRequestTests.cs" />
+    <Compile Include="Tests\SynchTransportTest.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Criteo.Memcache\Criteo.Memcache.csproj">

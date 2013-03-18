@@ -10,6 +10,6 @@ namespace Criteo.Memcache.Transport
     public interface ISynchronousTransport : IMemcacheTransport
     {
         bool TrySend(IMemcacheRequest req);
-        void SetupAction(Action<ISynchronousTransport> action);
+        void PlanSetup();
     }
 }

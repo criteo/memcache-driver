@@ -1,52 +1,45 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Net;
-using System.Net.Sockets;
 using System.Threading;
 
 using NUnit.Framework;
 
-using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Headers;
-using Criteo.Memcache.Requests;
-using Criteo.Memcache.Node;
 using Criteo.Memcache.Transport;
 
 using Criteo.Memcache.UTest.Mocks;
 
 namespace Criteo.Memcache.UTest.Tests
 {
-    /// <summary>
-    /// Test around the MemcacheSocketThreaded object
-    /// </summary>
     [TestFixture]
-    public class MemcacheSocketTests
+    public class SynchTransportTest
     {
-
         private IPAddress LOCALHOST = new IPAddress(new byte[] { 127, 0, 0, 1 });
 
         [Test]
-        public void MemcacheSocketThreadedTest()
+        public void MemcacheTransportSynchronousThreadedTest()
         {
-            var endPoint = new IPEndPoint(LOCALHOST, 11211);
-            MemcacheSocketTest((e, a, q, n, t, l) => new MemcacheSocketThreadedRead(e, q, n, a, t, l), endPoint);
+            var endPoint = new IPEndPoint(LOCALHOST, 11213);
+            using (ISynchronousTransport transport = new MemcacheSocketSynchronous(endPoint, null, null, 0, 0, _ => { }, true))
+            {
+                MemcacheSocketSynchronousTest(transport, endPoint);
+            }
         }
 
         [Test]
-        public void MemcacheSocketAsynchTest()
+        public void MemcacheTransportSynchronousAsyncTest()
         {
-            var endPoint = new IPEndPoint(LOCALHOST, 11212);
-            MemcacheSocketTest((e, a, q, n, t, l) => new MemcacheSocketAsynchRead(e, q, n, a, t, l), endPoint);
+            var endPoint = new IPEndPoint(LOCALHOST, 11214);
+            using (ISynchronousTransport transport = new MemcacheSocketSynchronous(endPoint, null, null, 0, 0, _ => { }, false))
+            {
+                MemcacheSocketSynchronousTest(transport, endPoint);
+            }
         }
 
-        public void MemcacheSocketTest(TransportAllocator socketAllocator, IPEndPoint endpoint)
+        public void MemcacheSocketSynchronousTest(ISynchronousTransport transport, IPEndPoint endPoint)
         {
-            var node = new NodeQueueMock();
 
-            using (var serverMock = new ServerMock(endpoint))
-            using (var transport = socketAllocator(endpoint, null, node, node, 0, 0))
+            using (var serverMock = new ServerMock(endPoint))
             {
                 // random header
                 var requestHeader = new MemcacheRequestHeader
@@ -83,7 +76,7 @@ namespace Criteo.Memcache.UTest.Tests
                 // body with the size defined in the header
                 var responseExtra = new byte[] { 1, 2, 3 };
                 var responseMessage = new byte[] { 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
-
+                
                 // build the request buffer
                 var responseBody = new byte[responseHeader.TotalBodyLength];
                 Array.Copy(responseExtra, 0, responseBody, 0, responseHeader.ExtraLength);
@@ -101,7 +94,11 @@ namespace Criteo.Memcache.UTest.Tests
                     Message = responseMessage,
                     Extra = responseExtra,*/
                 };
-                Assert.IsTrue(node.TrySend(request, Timeout.Infinite));
+
+                // wait for the transport to be alive
+                Thread.Sleep(1000);
+
+                Assert.IsTrue(transport.TrySend(request));
 
                 Assert.IsTrue(request.Mutex.Wait(TimeSpan.FromSeconds(10)), "The request has not been completed on less than 10 sec");
 
@@ -112,8 +109,8 @@ namespace Criteo.Memcache.UTest.Tests
                 Assert.AreEqual(responseHeader, request.ResponseHeader, "Received header differ from header sent by the server");
                 CollectionAssert.AreEqual(responseExtra, request.Extra, "Received extra is different than sent by the server");
                 CollectionAssert.AreEqual(responseMessage, request.Message, "Received message is different than sent by the server");
+                //Thread.Sleep(1000);
             }
         }
-
     }
 }

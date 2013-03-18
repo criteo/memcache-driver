@@ -30,11 +30,8 @@ namespace Criteo.Memcache.UTest.Mocks
 
 #pragma warning disable 67
         public event Action<Exception> TransportError;
-
         public event Action<Headers.MemcacheResponseHeader, IMemcacheRequest> MemcacheError;
-
         public event Action<Headers.MemcacheResponseHeader, IMemcacheRequest> MemcacheResponse;
-
         public event Action<IMemcacheNode> NodeDead;
 #pragma warning restore 67
 

@@ -21,6 +21,7 @@ namespace Criteo.Memcache.Transport
         public MemcacheSocketAsynchronous(EndPoint endpoint, IMemcacheAuthenticator authenticator, IMemcacheRequestsQueue itemQueue, IMemcacheNode node, int queueTimeout, int pendingLimit)
             : base(endpoint, authenticator, queueTimeout, pendingLimit, itemQueue, node)
         {
+            Reset();
         }
 
         protected override void Start()

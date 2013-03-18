@@ -15,6 +15,7 @@ namespace Criteo.Memcache.Transport
 {
     internal abstract class MemcacheSocketBase : IMemcacheTransport
     {
+        #region Events
         protected Action<Exception> _transportError;
         public event Action<Exception> TransportError
         {
@@ -53,13 +54,15 @@ namespace Criteo.Memcache.Transport
                 _memcacheResponse -= value;
             }
         }
+        #endregion Event
+
+        private RequestQueue _pendingRequests;
+        private IMemcacheAuthenticator _authenticator;
+        private IMemcacheNode _node;
 
         protected EndPoint EndPoint { get; private set; }
         protected Socket Socket { get; set; }
-        private RequestQueue _pendingRequests;
-        private IMemcacheAuthenticator _authenticator;
         protected IAuthenticationToken AuthenticationToken { get; set; }
-        private IMemcacheNode _node;
 
         private int _requestLimit;
         private int _queueTimeout;
@@ -72,8 +75,6 @@ namespace Criteo.Memcache.Transport
             _queueTimeout = Timeout.Infinite;
             RequestsQueue = queue;
             _node = node;
-
-            Reset();
         }
 
         protected abstract void ShutDown();

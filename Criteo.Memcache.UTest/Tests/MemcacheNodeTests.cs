@@ -20,7 +20,7 @@ namespace Criteo.Memcache.UTest.Tests
     public class MemcacheNodeTests
     {
         [Test]
-        public void DeadDetection()
+        public void AsyncNodeDeadDetection()
         {
             DeadSocketMock socketMock = null;
             var config = new MemcacheClientConfiguration
@@ -42,6 +42,38 @@ namespace Criteo.Memcache.UTest.Tests
             socketMock.RespondToRequest();
 
             Assert.AreEqual(false, node.IsDead, "The node is still dead, should be alive now !");
+        }
+        
+        [Test]
+        public void SyncNodeDeadDetection()
+        {
+            var transportMocks = new List<SynchTransportMock>();
+            var config = new MemcacheClientConfiguration
+            {
+                DeadTimeout = TimeSpan.FromSeconds(1),
+                SynchornousTransportFactory = (_, __, ___, ____, _____, s) => 
+                    {
+                        var transport = new SynchTransportMock { IsDead = false, Setup = s };
+                        transportMocks.Add(transport);
+                        return transport;
+                    },
+                PoolSize = 2,
+            };
+            var node = new MemcacheSynchNode(null, config, _ => { });
+            CollectionAssert.IsNotEmpty(transportMocks, "No transport has been created by the node");
+            
+            Assert.IsTrue(node.TrySend(new NoOpRequest(), Timeout.Infinite), "Unable to send a request throught the node");
+
+            foreach (var transport in transportMocks)
+                transport.IsDead = true;
+
+            Assert.IsFalse(node.TrySend(new NoOpRequest(), Timeout.Infinite), "The node did not failed with all transport deads");
+
+            foreach (var transport in transportMocks)
+                transport.IsDead = false;
+
+            Assert.AreEqual(false, node.IsDead, "The node is still dead, should be alive now !");
+            Assert.IsTrue(node.TrySend(new NoOpRequest(), Timeout.Infinite), "Unable to send a request throught the node after it's alive");
         }
     }
 }
