@@ -105,21 +105,33 @@ namespace Criteo.Memcache.Transport
             // keep the pending request somewhere
             var oldPending = Interlocked.Exchange(ref _pendingRequests, new RequestQueue(_queueTimeout, _requestLimit));
 
-            // restart the while thing
-            _startAttemptTimer = new Timer(_ =>
-                {
-                    try
+            try
+            {
+                // try synchronous first
+                CreateSocket();
+                Start();
+            }
+            catch (Exception e)
+            {
+                if (_transportError != null)
+                    _transportError(e);
+
+                // restart the whole thing
+                _startAttemptTimer = new Timer(_ =>
                     {
-                        CreateSocket();
-                        Start();
-                    }
-                    catch (Exception e)
-                    {
-                        if (_transportError != null)
-                            _transportError(e);
-                        _startAttemptTimer.Change(10000, Timeout.Infinite);
-                    }
-                }, null, 0, Timeout.Infinite);
+                        try
+                        {
+                            CreateSocket();
+                            Start();
+                        }
+                        catch (Exception e2)
+                        {
+                            if (_transportError != null)
+                                _transportError(e2);
+                            _startAttemptTimer.Change(10000, Timeout.Infinite);
+                        }
+                    }, null, 1000, Timeout.Infinite);
+            }
 
 
             if (oldPending != null)

@@ -80,6 +80,7 @@ namespace Criteo.Memcache.Locator
             using(var hash = Hash)
                 _lookupData = new LookupData(nodes, hash.Value);
 
+            UpdateState(null);
             _resurrectTimer = new Timer(UpdateState, null, _resurrectFreq, _resurrectFreq);
         }
 
@@ -128,7 +129,7 @@ namespace Criteo.Memcache.Locator
         {
             var keyData = Encoding.UTF8.GetBytes(key);
             using (var hash = Hash)
-                return hash.Value.ComputeHash(keyData).CopyToUInt(0);
+                return hash.Value.ComputeHash(keyData).CopyToUIntNoRevert(0);
         }
 
         public IMemcacheNode Locate(string key)
@@ -191,7 +192,7 @@ namespace Criteo.Memcache.Locator
 
             public LookupData(IList<IMemcacheNode> nodes, HashAlgorithm hash)
             {
-                int PartCount = hash.HashSize / (8 * sizeof(int)); // HashSize is in bits, uint is 4 bytes long
+                int PartCount = hash.HashSize / (8 * sizeof(uint)); // HashSize is in bits, uint is 4 bytes long
                 if (PartCount < 1) throw new ArgumentOutOfRangeException("The hash algorithm must provide at least 32 bits long hashes");
 
                 var keys = new List<uint>(nodes.Count);
@@ -214,7 +215,7 @@ namespace Criteo.Memcache.Locator
 
                         for (int p = 0; p < PartCount; p++)
                         {
-                            var key = data.CopyToUInt(p * 4);
+                            var key = data.CopyToUIntNoRevert(p * 4);
                             keys.Add(key);
                             keyToServer[key] = currentNode;
                         }

@@ -110,6 +110,12 @@ namespace Criteo.Memcache.Headers
             return value;
         }
 
+        static public unsafe uint CopyToUIntNoRevert(this byte[] data, int offset)
+        {
+            fixed(byte* dataPtr = &data[offset])
+                return ((uint*)dataPtr)[0];
+        }
+
         static public unsafe ulong CopyToULong(this byte[] data, int offset)
         {
             ulong value;
