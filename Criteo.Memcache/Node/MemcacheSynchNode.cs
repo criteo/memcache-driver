@@ -20,7 +20,7 @@ namespace Criteo.Memcache.Node
         private int _workingTransport;
         private CancellationTokenSource _tokenSource;
 
-        private static SynchornousTransportAllocator DefaultAllocator = 
+        private static SynchronousTransportAllocator DefaultAllocator = 
             (endPoint, authenticator, node, queueTimeout, pendingLimit, setupAction)
                 => new MemcacheSocketSynchronous(endPoint, authenticator, node, queueTimeout, pendingLimit, setupAction, false);
 
