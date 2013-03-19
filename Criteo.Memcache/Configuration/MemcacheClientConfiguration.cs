@@ -30,11 +30,25 @@ namespace Criteo.Memcache.Configuration
 
     public class MemcacheClientConfiguration
     {
-        public static NodeAllocator SynchronousNodeAllocator =
-            (endPoint, configuration, requeueRequest) => new MemcacheSynchNode(endPoint, configuration, requeueRequest);
+        #region factories
 
+        internal static NodeAllocator DefaultNodeFactory =
+            (endPoint, configuration, SendRequest) => new MemcacheSynchNode(endPoint, configuration, SendRequest);
+
+        public static NodeAllocator AsynchronousNodeAllocator =
+            (endPoint, configuration, requeueRequest) => new MemcacheNode(endPoint, configuration, requeueRequest);
+
+        internal static Func<INodeLocator> DefaultLocatorFactory =
+            () => new KetamaLocator();
         public static Func<string, INodeLocator> KetamaLocatorFactory =
-            HashName => new KetamaLocator(HashName);
+            hashName => new KetamaLocator(hashName);
+        public static Func<INodeLocator> RoundRobinLocatorFactory =
+            () => new RoundRobinLocator();
+
+        public static Func<string, string, string, IMemcacheAuthenticator> SaslPlainAuthenticatorFactory =
+            (zone, user, password) => new SaslPlainTextAuthenticator { Zone = zone, User = user, Password = password };
+
+        #endregion factories
 
         private IList<IPEndPoint> _nodesEndPoints = new List<IPEndPoint>();
         public IList<IPEndPoint> NodesEndPoints { get { return _nodesEndPoints;} }
@@ -65,7 +79,7 @@ namespace Criteo.Memcache.Configuration
             UnavaillablePolicy = Policy.Ignore;
             QueueFullPolicy = Policy.Ignore;
             QueueTimeout = Timeout.Infinite;
-            NodeDeadPolicy = RequeuePolicy.Requeue;
+            NodeDeadPolicy = RequeuePolicy.Ignore;
             TransportQueueLength = 0;
             TransportQueueTimeout = Timeout.Infinite;
         }

@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Criteo.Memcache.Exceptions
 {
-    public class AuthenticationException : Exception
+    internal class AuthenticationException : Exception
     {
         public AuthenticationException(string message)
             : base(message)

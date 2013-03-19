@@ -37,8 +37,6 @@ namespace Criteo.Memcache
         private IList<IMemcacheNode> _nodes;
         private MemcacheClientConfiguration _configuration;
 
-        private NodeAllocator DefaultNodeFactory =
-            (endPoint, configuration, SendRequest) => new MemcacheNode(endPoint, configuration, SendRequest);
 
         /// <summary>
         /// Raised when the server answer with a error code
@@ -98,7 +96,7 @@ namespace Criteo.Memcache
         public MemcacheClient(MemcacheClientConfiguration configuration)
         {
             _configuration = configuration;
-            _locator = configuration.NodeLocator ?? new RoundRobinLocator();
+            _locator = configuration.NodeLocator ?? MemcacheClientConfiguration.DefaultLocatorFactory();
             _nodes = new List<IMemcacheNode>(configuration.NodesEndPoints.Count);
 
             Action<IMemcacheRequest> requeueRequest;
@@ -114,7 +112,7 @@ namespace Criteo.Memcache
 
             foreach (var nodeEndPoint in configuration.NodesEndPoints)
             {
-                var node = (configuration.NodeFactory ?? DefaultNodeFactory)(nodeEndPoint, configuration, requeueRequest);
+                var node = (configuration.NodeFactory ?? MemcacheClientConfiguration.DefaultNodeFactory)(nodeEndPoint, configuration, requeueRequest);
                 _nodes.Add(node);
             }
 

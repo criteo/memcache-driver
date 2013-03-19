@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Criteo.Memcache.Exceptions
 {
-    public class MemcacheException : Exception
+    internal class MemcacheException : Exception
     {
         public MemcacheException(string message)
             : base(message)
