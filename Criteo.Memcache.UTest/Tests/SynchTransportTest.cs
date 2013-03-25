@@ -20,23 +20,17 @@ namespace Criteo.Memcache.UTest.Tests
         public void MemcacheTransportSynchronousThreadedTest()
         {
             var endPoint = new IPEndPoint(LOCALHOST, 11213);
-            using (ISynchronousTransport transport = new MemcacheSocketSynchronous(endPoint, null, null, 0, 0, _ => { }, true))
-            {
-                MemcacheSocketSynchronousTest(transport, endPoint);
-            }
+            MemcacheSocketSynchronousTest(() => new MemcacheSocketSynchronous(endPoint, null, null, 0, 0, _ => { }, true), endPoint);
         }
 
         [Test]
         public void MemcacheTransportSynchronousAsyncTest()
         {
             var endPoint = new IPEndPoint(LOCALHOST, 11214);
-            using (ISynchronousTransport transport = new MemcacheSocketSynchronous(endPoint, null, null, 0, 0, _ => { }, false))
-            {
-                MemcacheSocketSynchronousTest(transport, endPoint);
-            }
+            MemcacheSocketSynchronousTest(() => new MemcacheSocketSynchronous(endPoint, null, null, 0, 0, _ => { }, false), endPoint);
         }
 
-        public void MemcacheSocketSynchronousTest(ISynchronousTransport transport, IPEndPoint endPoint)
+        public void MemcacheSocketSynchronousTest(Func<ISynchronousTransport> transportFactory, IPEndPoint endPoint)
         {
 
             using (var serverMock = new ServerMock(endPoint))
@@ -95,21 +89,21 @@ namespace Criteo.Memcache.UTest.Tests
                     Extra = responseExtra,*/
                 };
 
-                // wait for the transport to be alive
-                Thread.Sleep(1000);
+                using (var transport = transportFactory())
+                {
+                    Assert.IsTrue(transport.TrySend(request));
 
-                Assert.IsTrue(transport.TrySend(request));
+                    Assert.IsTrue(request.Mutex.Wait(TimeSpan.FromSeconds(10)), "The request has not been completed on less than 10 sec");
 
-                Assert.IsTrue(request.Mutex.Wait(TimeSpan.FromSeconds(10)), "The request has not been completed on less than 10 sec");
+                    // and now, assert that we sent what we had to send and we received what the server sent
+                    Assert.AreEqual(requestHeader, serverMock.LastReceivedHeader, "Sent header differ from header received by the server");
+                    CollectionAssert.AreEqual(requestBody, serverMock.LastReceivedBody, "Sent body is different than received by the server");
 
-                // and now, assert that we sent what we had to send and we received what the server sent
-                Assert.AreEqual(requestHeader, serverMock.LastReceivedHeader, "Sent header differ from header received by the server");
-                CollectionAssert.AreEqual(requestBody, serverMock.LastReceivedBody, "Sent body is different than received by the server");
-
-                Assert.AreEqual(responseHeader, request.ResponseHeader, "Received header differ from header sent by the server");
-                CollectionAssert.AreEqual(responseExtra, request.Extra, "Received extra is different than sent by the server");
-                CollectionAssert.AreEqual(responseMessage, request.Message, "Received message is different than sent by the server");
-                //Thread.Sleep(1000);
+                    Assert.AreEqual(responseHeader, request.ResponseHeader, "Received header differ from header sent by the server");
+                    CollectionAssert.AreEqual(responseExtra, request.Extra, "Received extra is different than sent by the server");
+                    CollectionAssert.AreEqual(responseMessage, request.Message, "Received message is different than sent by the server");
+                    //Thread.Sleep(1000);
+                }
             }
         }
     }
