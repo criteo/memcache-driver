@@ -17,7 +17,6 @@ namespace Criteo.Memcache.Transport
 {
     internal class MemcacheSocketSynchronous : MemcacheSocketBase, ISynchronousTransport
     {
-        private Thread _receivingThread;
         private CancellationTokenSource _token;
         private ConcurrentQueue<IMemcacheRequest> _pending = new ConcurrentQueue<IMemcacheRequest>();
         private volatile bool _isAlive;
@@ -34,6 +33,8 @@ namespace Criteo.Memcache.Transport
         }
 
         #region Threaded Reads
+        private Thread _receivingThread;
+
         private void StartReceivingThread()
         {
             var buffer = new byte[MemcacheResponseHeader.SIZE];
@@ -114,20 +115,33 @@ namespace Criteo.Memcache.Transport
 
         private void ReadResponse()
         {
-            _receiveArgs.SetBuffer(0, MemcacheResponseHeader.SIZE);
-            Socket.ReceiveAsync(_receiveArgs);
+            try
+            {
+                _receiveArgs.SetBuffer(0, MemcacheResponseHeader.SIZE);
+                if (!Socket.ReceiveAsync(_receiveArgs))
+                    OnReadResponseComplete(null, _receiveArgs);
+            }
+            catch (Exception e)
+            {
+                _transportError(e);
+                Reset();
+            }
         }
 
         private void OnReadResponseComplete(object _, SocketAsyncEventArgs args)
         {
             try
             {
+                if (args.SocketError != SocketError.Success)
+                    throw new SocketException((int)args.SocketError);
+
                 // check if we read a full header, else continue
                 if (args.BytesTransferred + args.Offset < MemcacheResponseHeader.SIZE)
                 {
                     int offset = args.BytesTransferred + args.Offset;
                     args.SetBuffer(offset, MemcacheResponseHeader.SIZE - offset);
-                    Socket.ReceiveAsync(args);
+                    if (!Socket.ReceiveAsync(args))
+                        OnReadResponseComplete(_, args);
                     return;
                 }
 
@@ -165,7 +179,6 @@ namespace Criteo.Memcache.Transport
                 if (_memcacheResponse != null)
                     _memcacheResponse(header, request);
 
-                // TODO : should I keep that or the request only have to handle it ?
                 if (header.Status != Status.NoError && _memcacheError != null)
                     _memcacheError(header, request);
 

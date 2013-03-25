@@ -66,6 +66,8 @@ namespace Criteo.Memcache.Transport
 
         private int _requestLimit;
         private int _queueTimeout;
+        private int _resetPending = 0;
+        private bool _disposed = false;
 
         internal MemcacheSocketBase(EndPoint endpoint, IMemcacheAuthenticator authenticator, int queueTimeout, int pendingLimit, IMemcacheRequestsQueue queue, IMemcacheNode node)
         {
@@ -99,6 +101,13 @@ namespace Criteo.Memcache.Transport
         private Timer _startAttemptTimer;
         protected void Reset()
         {
+            if (1 != Interlocked.Increment(ref _resetPending))
+            {
+                // several reset at the same time, don't execute those after the 1st
+                Interlocked.Decrement(ref _resetPending);
+                return;
+            }
+
             // somthing goes wrong, stop to send
             ShutDown();
 
@@ -110,6 +119,10 @@ namespace Criteo.Memcache.Transport
                 // try synchronous first
                 CreateSocket();
                 Start();
+                Interlocked.Decrement(ref _resetPending);
+
+                if (_disposed)
+                    ShutDown();
             }
             catch (Exception e)
             {
@@ -118,21 +131,27 @@ namespace Criteo.Memcache.Transport
 
                 // restart the whole thing
                 _startAttemptTimer = new Timer(_ =>
-                    {
-                        try
-                        {
-                            CreateSocket();
-                            Start();
-                        }
-                        catch (Exception e2)
-                        {
-                            if (_transportError != null)
-                                _transportError(e2);
-                            _startAttemptTimer.Change(10000, Timeout.Infinite);
-                        }
-                    }, null, 1000, Timeout.Infinite);
-            }
+                {
+                    if (_disposed)
+                        return;
 
+                    try
+                    {
+                        CreateSocket();
+                        Start();
+                        Interlocked.Decrement(ref _resetPending);
+
+                        if (_disposed)
+                            ShutDown();
+                    }
+                    catch (Exception e2)
+                    {
+                        if (_transportError != null)
+                            _transportError(e2);
+                        _startAttemptTimer.Change(5000, Timeout.Infinite);
+                    }
+                }, null, 1000, Timeout.Infinite);
+            }
 
             if (oldPending != null)
             {
@@ -172,14 +191,27 @@ namespace Criteo.Memcache.Transport
             return _pendingRequests.EnqueueRequest(request, token);
         }
 
-        public void Dispose()
+        public virtual void Dispose()
         {
-            if (Socket != null)
-                Socket.Dispose();
-            if (_pendingRequests != null)
+            // block the start of any resets, then shut down
+            _disposed = true;
+            Interlocked.Increment(ref _resetPending);
+
+            try
             {
-                _pendingRequests.Dispose();
-                _pendingRequests = null;
+                ShutDown();
+            }
+            finally
+            {
+                // fail of pending requests
+                if (_pendingRequests != null)
+                {
+                    foreach (var request in _pendingRequests.Requests)
+                        request.Fail();
+
+                    _pendingRequests.Dispose();
+                    _pendingRequests = null;
+                }
             }
         }
 
