@@ -21,7 +21,8 @@ namespace Criteo.Memcache.Transport
         public MemcacheSocketAsynchronous(EndPoint endpoint, IMemcacheAuthenticator authenticator, IMemcacheRequestsQueue itemQueue, IMemcacheNode node, int queueTimeout, int pendingLimit)
             : base(endpoint, authenticator, queueTimeout, pendingLimit, itemQueue, node)
         {
-            Reset();
+            Reset(null);
+            Initialize();
         }
 
         protected override void Start()
@@ -34,9 +35,10 @@ namespace Criteo.Memcache.Transport
         {
             if (_token != null)
                 _token.Cancel();
-            if (Socket != null)
+            var socket = Socket;
+            if (socket != null)
             {
-                Socket.Dispose();
+                socket.Dispose();
                 Socket = null;
             }
         }
@@ -44,10 +46,14 @@ namespace Criteo.Memcache.Transport
         protected void StartSendingThread(CancellationTokenSource tokenSource)
         {
             var token = tokenSource.Token;
+            if (!Initialized && !Initialize())
+                throw new MemcacheException("Unable to establish connection with " + EndPoint);
+
             _sendingThread = new Thread(() =>
             {
                 while (!token.IsCancellationRequested)
                 {
+                    var socket = Socket;
                     try
                     {
                         var request = GetNextRequest();
@@ -66,7 +72,7 @@ namespace Criteo.Memcache.Transport
                         int sent = 0;
                         do
                         {
-                            sent += Socket.Send(buffer, sent, buffer.Length - sent, SocketFlags.None);
+                            sent += socket.Send(buffer, sent, buffer.Length - sent, SocketFlags.None);
                         } while (sent != buffer.Length);
                     }
                     catch (OperationCanceledException)
@@ -81,7 +87,8 @@ namespace Criteo.Memcache.Transport
                                 _transportError(e);
 
                             _sendingThread = null;
-                            Reset();
+                            Reset(socket);
+                            Initialize();
                         }
                     }
                 }
@@ -107,14 +114,16 @@ namespace Criteo.Memcache.Transport
                         if (request == null && _transportError != null)
                         {
                             _transportError(new AuthenticationException("Unable to authenticate : step required but no request from token"));
-                            Reset();
+                            Reset(Socket);
+                            Initialize();
                             return null;
                         }
                         break;
                     default:
                         if (_transportError != null)
                             _transportError(new AuthenticationException("Unable to authenticate : status " + authStatus.ToString()));
-                        Reset();
+                        Reset(Socket);
+                        Initialize();
                         return null;
                 }
             }

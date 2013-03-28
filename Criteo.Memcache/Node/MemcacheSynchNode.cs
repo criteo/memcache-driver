@@ -93,6 +93,7 @@ namespace Criteo.Memcache.Node
                                     configuration.TransportQueueLength,
                                     TransportAlive);
                 _transportList.Add(transport);
+                TransportAlive(transport);
             }
         }
 

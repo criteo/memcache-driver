@@ -63,14 +63,16 @@ namespace Criteo.Memcache.Transport
         protected EndPoint EndPoint { get; private set; }
         protected Socket Socket { get; set; }
         protected IAuthenticationToken AuthenticationToken { get; set; }
+        protected bool Disposed { get; private set; }
+        protected bool Initialized { get; set; }
 
         private int _requestLimit;
         private int _queueTimeout;
-        private int _resetPending = 0;
-        private bool _disposed = false;
 
         internal MemcacheSocketBase(EndPoint endpoint, IMemcacheAuthenticator authenticator, int queueTimeout, int pendingLimit, IMemcacheRequestsQueue queue, IMemcacheNode node)
         {
+            Disposed = false;
+            Initialized = false;
             EndPoint = endpoint;
             _authenticator = authenticator;
             _requestLimit = 1000;
@@ -99,58 +101,22 @@ namespace Criteo.Memcache.Transport
         }
 
         private Timer _startAttemptTimer;
-        protected void Reset()
+        protected void Reset(Socket socketFailing)
         {
-            if (1 != Interlocked.Increment(ref _resetPending))
+            RequestQueue oldPending = null;
+
+            lock (this)
             {
-                // several reset at the same time, don't execute those after the 1st
-                Interlocked.Decrement(ref _resetPending);
-                return;
-            }
+                if (Disposed ||
+                    (Socket != null && !object.ReferenceEquals(socketFailing, Socket)))
+                    return;
 
-            // somthing goes wrong, stop to send
-            ShutDown();
+                // somthing goes wrong, stop to send
+                ShutDown();
+                Initialized = false;
 
-            // keep the pending request somewhere
-            var oldPending = Interlocked.Exchange(ref _pendingRequests, new RequestQueue(_queueTimeout, _requestLimit));
-
-            try
-            {
-                // try synchronous first
-                CreateSocket();
-                Start();
-                Interlocked.Decrement(ref _resetPending);
-
-                if (_disposed)
-                    ShutDown();
-            }
-            catch (Exception e)
-            {
-                if (_transportError != null)
-                    _transportError(e);
-
-                // restart the whole thing
-                _startAttemptTimer = new Timer(_ =>
-                {
-                    if (_disposed)
-                        return;
-
-                    try
-                    {
-                        CreateSocket();
-                        Start();
-                        Interlocked.Decrement(ref _resetPending);
-
-                        if (_disposed)
-                            ShutDown();
-                    }
-                    catch (Exception e2)
-                    {
-                        if (_transportError != null)
-                            _transportError(e2);
-                        _startAttemptTimer.Change(5000, Timeout.Infinite);
-                    }
-                }, null, 1000, Timeout.Infinite);
+                // keep the pending request somewhere
+                oldPending = Interlocked.Exchange(ref _pendingRequests, new RequestQueue(_queueTimeout, _requestLimit));
             }
 
             if (oldPending != null)
@@ -160,6 +126,30 @@ namespace Criteo.Memcache.Transport
                         request.Fail();
                 oldPending.Dispose();
             }
+        }
+
+        protected bool Initialize()
+        {
+            try
+            {
+                lock (this)
+                {
+                    if (!Initialized && !Disposed)
+                    {
+                        CreateSocket();
+                        Start();
+
+                        Initialized = true;
+                    }
+                }
+            }
+            catch (Exception e2)
+            {
+                if (_transportError != null)
+                    _transportError(e2);
+            }
+
+            return Initialized;
         }
 
         protected IMemcacheRequest UnstackToMatch(MemcacheResponseHeader header)
@@ -194,24 +184,47 @@ namespace Criteo.Memcache.Transport
         public virtual void Dispose()
         {
             // block the start of any resets, then shut down
-            _disposed = true;
-            Interlocked.Increment(ref _resetPending);
+            lock (this)
+            {
+                Disposed = true;
+                int attempt = 0;
 
-            try
-            {
-                ShutDown();
-            }
-            finally
-            {
-                // fail of pending requests
-                if (_pendingRequests != null)
+                _startAttemptTimer = new Timer(socket =>
                 {
-                    foreach (var request in _pendingRequests.Requests)
-                        request.Fail();
+                    try
+                    {
+                        lock (this)
+                        {
+                            if (_pendingRequests.IsEmpty || ++attempt > 5)
+                            {
+                                try
+                                {
+                                    ShutDown();
+                                }
+                                finally
+                                {
+                                    // fail of pending requests
+                                    if (_pendingRequests != null)
+                                    {
+                                        foreach (var request in _pendingRequests.Requests)
+                                            request.Fail();
 
-                    _pendingRequests.Dispose();
-                    _pendingRequests = null;
-                }
+                                        _pendingRequests.Dispose();
+                                        _pendingRequests = null;
+                                    }
+                                    _startAttemptTimer.Dispose();
+                                    _startAttemptTimer = null;
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception e2)
+                    {
+                        if (_transportError != null)
+                            _transportError(e2);
+                    }
+                }, null, 1000, 1000);
+
             }
         }
 
@@ -220,6 +233,14 @@ namespace Criteo.Memcache.Transport
             private ConcurrentQueue<IMemcacheRequest> _pendingRequests;
             private SemaphoreSlim _requestLimiter = null;
             private int _timeout;
+
+            public bool IsEmpty
+            {
+                get
+                {
+                    return _pendingRequests.IsEmpty;
+                }
+            }
 
             public RequestQueue(int timeout, int limit)
             {

@@ -43,10 +43,10 @@ namespace Criteo.Memcache.UTest.Mocks
         /// <param name="e" />
         void OnAccept(object sender, SocketAsyncEventArgs e)
         {
-            var socket = sender as Socket;
             if (e.SocketError != SocketError.Success)
                 return;
 
+            var socket = sender as Socket;
             var acceptedSocket = e.AcceptSocket;
             var eventArg = new SocketAsyncEventArgs();
             eventArg.SetBuffer(new byte[MemcacheRequestHeader.SIZE], 0, MemcacheRequestHeader.SIZE);

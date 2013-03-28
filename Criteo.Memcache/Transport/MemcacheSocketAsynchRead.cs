@@ -34,8 +34,9 @@ namespace Criteo.Memcache.Transport
             Socket.ReceiveAsync(_receiveArgs);
         }
 
-        private void OnReadResponseComplete(object _, SocketAsyncEventArgs args)
+        private void OnReadResponseComplete(object sender, SocketAsyncEventArgs args)
         {
+            var socket = sender as Socket;
             try
             {
                 // check if we read a full header, else continue
@@ -43,7 +44,7 @@ namespace Criteo.Memcache.Transport
                 {
                     int offset = args.BytesTransferred + args.Offset;
                     args.SetBuffer(offset, MemcacheResponseHeader.SIZE - offset);
-                    Socket.ReceiveAsync(args);
+                    socket.ReceiveAsync(args);
                     return;
                 }
 
@@ -59,7 +60,7 @@ namespace Criteo.Memcache.Transport
                     received = 0;
                     do
                     {
-                        received += Socket.Receive(extra, received, header.ExtraLength - received, SocketFlags.None);
+                        received += socket.Receive(extra, received, header.ExtraLength - received, SocketFlags.None);
                     } while (received < header.ExtraLength);
                 }
                 int messageLength = (int)(header.TotalBodyLength - header.ExtraLength);
@@ -69,7 +70,7 @@ namespace Criteo.Memcache.Transport
                     received = 0;
                     do
                     {
-                        received += Socket.Receive(message, received, messageLength - received, SocketFlags.None);
+                        received += socket.Receive(message, received, messageLength - received, SocketFlags.None);
                     } while (received < messageLength);
                 }
 
@@ -92,7 +93,8 @@ namespace Criteo.Memcache.Transport
             {
                 if (_transportError != null)
                     _transportError(e);
-                Reset();
+                Reset(socket);
+                Initialize();
             }
         }
 

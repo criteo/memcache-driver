@@ -29,12 +29,13 @@ namespace Criteo.Memcache.Transport
             {
                 while (!token.IsCancellationRequested)
                 {
+                    var socket = Socket;
                     try
                     {
                         int received = 0;
                         do
                         {
-                            received += Socket.Receive(buffer, received, MemcacheResponseHeader.SIZE - received, SocketFlags.None);
+                            received += socket.Receive(buffer, received, MemcacheResponseHeader.SIZE - received, SocketFlags.None);
                         } while (received < MemcacheResponseHeader.SIZE);
 
                         var header = new MemcacheResponseHeader(buffer);
@@ -47,7 +48,7 @@ namespace Criteo.Memcache.Transport
                             received = 0;
                             do
                             {
-                                received += Socket.Receive(extra, received, header.ExtraLength - received, SocketFlags.None);
+                                received += socket.Receive(extra, received, header.ExtraLength - received, SocketFlags.None);
                             } while (received < header.ExtraLength);
                         }
                         byte[] message = null;
@@ -58,7 +59,7 @@ namespace Criteo.Memcache.Transport
                             received = 0;
                             do
                             {
-                                received += Socket.Receive(message, received, messageLength - received, SocketFlags.None);
+                                received += socket.Receive(message, received, messageLength - received, SocketFlags.None);
                             } while (received < messageLength);
                         }
 
@@ -80,7 +81,8 @@ namespace Criteo.Memcache.Transport
                             if (_transportError != null)
                                 _transportError(e);
 
-                            Reset();
+                            Reset(socket);
+                            Initialize();
                         }
                     }
                 }
