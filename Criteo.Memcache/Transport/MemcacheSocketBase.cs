@@ -299,5 +299,10 @@ namespace Criteo.Memcache.Transport
                     _requestLimiter.Dispose();
             }
         }
+
+
+        public abstract bool TrySend(IMemcacheRequest req);
+
+        public abstract void PlanSetup();
     }
 }

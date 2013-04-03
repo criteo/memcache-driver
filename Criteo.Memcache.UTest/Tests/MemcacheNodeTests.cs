@@ -20,46 +20,21 @@ namespace Criteo.Memcache.UTest.Tests
     public class MemcacheNodeTests
     {
         [Test]
-        public void AsyncNodeDeadDetection()
-        {
-            DeadSocketMock socketMock = null;
-            var config = new MemcacheClientConfiguration
-            {
-                DeadTimeout = TimeSpan.FromSeconds(1),
-                SocketFactory = (_, __, n, ___, ____, _____) => (socketMock = new DeadSocketMock { WaitingRequests = n as IMemcacheRequestsQueue }),
-                QueueLength = 1,
-            };
-            var node = new MemcacheNode(null, config, _ => { });
-
-            Assert.IsNotNull(socketMock, "No socket has been created by the node");
-
-            Assert.IsTrue(node.TrySend(new NoOpRequest(), Timeout.Infinite), "Unable to send a request throught the node");
-            Thread.Sleep(2000);
-
-            Assert.AreEqual(true, node.IsDead, "The node is still alive, should be dead now !");
-            Thread.Sleep(2000);
-
-            socketMock.RespondToRequest();
-
-            Assert.AreEqual(false, node.IsDead, "The node is still dead, should be alive now !");
-        }
-        
-        [Test]
         public void SyncNodeDeadDetection()
         {
-            var transportMocks = new List<SynchTransportMock>();
+            var transportMocks = new List<TransportMock>();
             var config = new MemcacheClientConfiguration
             {
                 DeadTimeout = TimeSpan.FromSeconds(1),
                 SynchornousTransportFactory = (_, __, ___, ____, _____, s) => 
                     {
-                        var transport = new SynchTransportMock { IsDead = false, Setup = s };
+                        var transport = new TransportMock { IsDead = false, Setup = s };
                         transportMocks.Add(transport);
                         return transport;
                     },
                 PoolSize = 2,
             };
-            var node = new MemcacheSynchNode(null, config, _ => { });
+            var node = new MemcacheNode(null, config, _ => { });
             CollectionAssert.IsNotEmpty(transportMocks, "No transport has been created by the node");
             
             Assert.IsTrue(node.TrySend(new NoOpRequest(), Timeout.Infinite), "Unable to send a request throught the node");

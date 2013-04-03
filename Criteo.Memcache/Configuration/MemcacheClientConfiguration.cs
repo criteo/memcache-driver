@@ -24,8 +24,7 @@ namespace Criteo.Memcache.Configuration
         Ignore,
     }
 
-    public delegate IMemcacheTransport TransportAllocator(IPEndPoint endPoint, IMemcacheAuthenticator authenticator, IMemcacheRequestsQueue queue, IMemcacheNode node, int queueTimeout, int pendingLimit);
-    public delegate ISynchronousTransport SynchronousTransportAllocator(IPEndPoint endPoint, IMemcacheAuthenticator authenticator, IMemcacheNode node, int queueTimeout, int pendingLimit, Action<ISynchronousTransport> setupAction);
+    public delegate IMemcacheTransport SynchronousTransportAllocator(IPEndPoint endPoint, IMemcacheAuthenticator authenticator, IMemcacheNode node, int queueTimeout, int pendingLimit, Action<IMemcacheTransport> setupAction);
     public delegate IMemcacheNode NodeAllocator(IPEndPoint endPoint, MemcacheClientConfiguration configuration, Action<IMemcacheRequest> requeueRequest);
 
     public class MemcacheClientConfiguration
@@ -33,10 +32,7 @@ namespace Criteo.Memcache.Configuration
         #region factories
 
         internal static NodeAllocator DefaultNodeFactory =
-            (endPoint, configuration, SendRequest) => new MemcacheSynchNode(endPoint, configuration, SendRequest);
-
-        public static NodeAllocator AsynchronousNodeAllocator =
-            (endPoint, configuration, requeueRequest) => new MemcacheNode(endPoint, configuration, requeueRequest);
+            (endPoint, configuration, SendRequest) => new MemcacheNode(endPoint, configuration, SendRequest);
 
         internal static Func<INodeLocator> DefaultLocatorFactory =
             () => new KetamaLocator();
@@ -54,7 +50,6 @@ namespace Criteo.Memcache.Configuration
         public IList<IPEndPoint> NodesEndPoints { get { return _nodesEndPoints;} }
 
         public INodeLocator NodeLocator { get; set; }
-        public TransportAllocator SocketFactory { get; set; }
         public SynchronousTransportAllocator SynchornousTransportFactory { get; set; }
         public NodeAllocator NodeFactory { get; set; }
         public IMemcacheAuthenticator Authenticator { get; set; }

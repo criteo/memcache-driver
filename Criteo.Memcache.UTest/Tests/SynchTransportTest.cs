@@ -30,7 +30,7 @@ namespace Criteo.Memcache.UTest.Tests
             MemcacheSocketSynchronousTest(() => new MemcacheSocketSynchronous(endPoint, null, null, 0, 0, _ => { }, false), endPoint);
         }
 
-        public void MemcacheSocketSynchronousTest(Func<ISynchronousTransport> transportFactory, IPEndPoint endPoint)
+        public void MemcacheSocketSynchronousTest(Func<IMemcacheTransport> transportFactory, IPEndPoint endPoint)
         {
 
             using (var serverMock = new ServerMock(endPoint))

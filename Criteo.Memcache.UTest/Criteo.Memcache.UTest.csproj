@@ -44,7 +44,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Mocks\NodeMock.cs" />
-    <Compile Include="Mocks\SynchTransportMock.cs" />
+    <Compile Include="Mocks\TransportMock.cs" />
     <Compile Include="Tests\KetamaTest.cs" />
     <Compile Include="Tests\LocatorTests.cs" />
     <Compile Include="Mocks\NodeQueueMock.cs" />
@@ -56,7 +56,6 @@
     <Compile Include="Tests\MemcacheNodeTests.cs" />
     <Compile Include="Tests\Requests\DeleteRequestTests.cs" />
     <Compile Include="Tests\Requests\GetRequestTests.cs" />
-    <Compile Include="Tests\MemcacheSocketTests.cs" />
     <Compile Include="Tests\Requests\NoOpRequestTests.cs" />
     <Compile Include="Tests\Requests\SaslPlainTextRequestTests.cs" />
     <Compile Include="Tests\Requests\SetRequestTests.cs" />

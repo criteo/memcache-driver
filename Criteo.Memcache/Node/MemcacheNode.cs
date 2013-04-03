@@ -2,46 +2,55 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Collections.Concurrent;
 using System.Net;
+using System.Collections.Concurrent;
 using System.Threading;
 
+using Criteo.Memcache.Headers;
+using Criteo.Memcache.Requests;
 using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Transport;
-using Criteo.Memcache.Requests;
-using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.Node
 {
-
-    internal class MemcacheNode : IMemcacheNode, IMemcacheRequestsQueue
+    internal class MemcacheNode : IMemcacheNode
     {
-        public bool IsDead { get; private set; }
+        private readonly BlockingCollection<IMemcacheTransport> _transportPool;
+        private readonly IList<IMemcacheTransport> _transportList;
+        private int _workingTransport;
+        private CancellationTokenSource _tokenSource;
 
-        private static TransportAllocator DefaultAllocator = 
-            (endPoint, authenticator, queue, node, queueTimeout, pendingLimit) 
-                => new MemcacheSocketThreadedRead(endPoint, queue, node, authenticator, queueTimeout, pendingLimit);
+        private static SynchronousTransportAllocator DefaultAllocator = 
+            (endPoint, authenticator, node, queueTimeout, pendingLimit, setupAction)
+                => new MemcacheSocketSynchronous(endPoint, authenticator, node, queueTimeout, pendingLimit, setupAction, false);
 
-        private BlockingCollection<IMemcacheRequest> _waitingRequests;
-        private List<IMemcacheTransport> _clients;
-        private Action<IMemcacheRequest> _requeueRequest;
-        private Timer _monitoring;
-        private bool _requestRan;
-        private int _stuckCount;
-        private MemcacheClientConfiguration _configuration;
-        private IPEndPoint _endPoint;
+        #region Events
+        public event Action<Exception> TransportError
+        {
+            add 
+            {
+                foreach(var transport in _transportList)
+                    transport.TransportError += value; 
+            }
+            remove
+            {
+                foreach (var transport in _transportList) 
+                    transport.TransportError -= value;
+            }
+        }
 
         public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError
         {
             add
             {
-                foreach (var client in _clients)
-                    client.MemcacheError += value;
+
+                foreach (var transport in _transportList)
+                    transport.MemcacheError += value;
             }
             remove
             {
-                foreach (var client in _clients)
-                    client.MemcacheError -= value;
+                foreach (var transport in _transportList)
+                    transport.MemcacheError -= value;
             }
         }
 
@@ -49,154 +58,98 @@ namespace Criteo.Memcache.Node
         {
             add
             {
-                foreach (var client in _clients)
-                    client.MemcacheResponse += value;
+                foreach (var transport in _transportList) 
+                    transport.MemcacheResponse += value;
             }
             remove
             {
-                foreach (var client in _clients)
-                    client.MemcacheResponse -= value;
+                foreach (var transport in _transportList) 
+                    transport.MemcacheResponse -= value;
             }
         }
-
-        public event Action<Exception> TransportError
-        {
-            add
-            {
-                foreach (var client in _clients)
-                    client.TransportError += value;
-            }
-            remove
-            {
-                foreach (var client in _clients)
-                    client.TransportError -= value;
-            }
-        }
+        #endregion Events
 
         public event Action<IMemcacheNode> NodeDead;
 
+        private IPEndPoint _endPoint;
         public IPEndPoint EndPoint
         {
             get { return _endPoint; }
         }
 
-        /// <summary>
-        /// The constructor
-        /// </summary>
-        /// <param name="endPoint">Ip address and port of the node</param>
-        /// <param name="configuration">Configuration object</param>
-        /// <param name="requeueRequest">Delegate used to requeue pending requests when the node deads</param>
         public MemcacheNode(IPEndPoint endPoint, MemcacheClientConfiguration configuration, Action<IMemcacheRequest> requeueRequest)
         {
-            _requeueRequest = requeueRequest;
-            _configuration = configuration;
             _endPoint = endPoint;
+            _transportList = new List<IMemcacheTransport>(configuration.PoolSize);
+            _transportPool = new BlockingCollection<IMemcacheTransport>(new ConcurrentBag<IMemcacheTransport>());
 
-            if (configuration.QueueLength > 0)
-                _waitingRequests = new BlockingCollection<IMemcacheRequest>(configuration.QueueLength);
-            else
-                _waitingRequests = new BlockingCollection<IMemcacheRequest>();
-
-            _clients = new List<IMemcacheTransport>(configuration.PoolSize);
             for (int i = 0; i < configuration.PoolSize; ++i)
             {
-                var socket = (configuration.SocketFactory ?? DefaultAllocator)
-                                (endPoint, 
-                                configuration.Authenticator, 
-                                this,
-                                this,
-                                configuration.TransportQueueTimeout, 
-                                configuration.TransportQueueLength);
-                socket.MemcacheResponse += (_, __) => _requestRan = true;
-                _clients.Add(socket);
+                var transport = (configuration.SynchornousTransportFactory ?? DefaultAllocator)
+                                    (endPoint, 
+                                    configuration.Authenticator, 
+                                    null,
+                                    configuration.TransportQueueTimeout, 
+                                    configuration.TransportQueueLength,
+                                    TransportAlive);
+                _transportList.Add(transport);
+                TransportAlive(transport);
             }
-
-            IsDead = false;
-            _requestRan = false;
-            _stuckCount = 0;
-            _monitoring = new Timer(Monitor, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         }
 
-        /// <summary>
-        /// See interface comments
-        /// </summary>
-        /// <param name="request" />
-        /// <param name="timeout" />
-        /// <returns />
+        private void TransportAlive(IMemcacheTransport transport)
+        {
+            _transportPool.Add(transport);
+            Interlocked.Increment(ref _workingTransport);
+
+            if (_tokenSource == null || _tokenSource.IsCancellationRequested)
+                _tokenSource = new CancellationTokenSource();
+        }
+
+        public bool IsDead
+        {
+            get { return _workingTransport == 0; }
+        }
+
         public bool TrySend(IMemcacheRequest request, int timeout)
         {
-            return _waitingRequests.TryAdd(request, timeout);
-        }
-
-        /// <summary>
-        /// The method executed by the monitoring timer
-        /// It checks if the node is dead when it's up, and if it's up again when it's dead
-        /// </summary>
-        /// <param name="dummy" />
-        private void Monitor(object dummy)
-        {
-            if (!IsDead)
+            IMemcacheTransport transport;
+            while (_tokenSource != null && !_tokenSource.IsCancellationRequested
+                && _transportPool.TryTake(out transport, timeout, _tokenSource.Token))
             {
-                if (!_requestRan && _waitingRequests.Count > 0)
+                if (transport.TrySend(request))
                 {
-                    // no request ran and the queue is not empty => increment the stuck counter
-                    ++_stuckCount;
-                    if (_stuckCount >= _configuration.DeadTimeout.TotalSeconds)
-                    {
-                        // we are stuck for too long time, the node is dead
-                        IsDead = true;
-                        FlushNode();
+                    // the transport sent the message, return it in the pool
+                    _transportPool.Add(transport);
+                    return true;
+                }
+                else
+                {
+                    // TODO : don't flag as dead right now, start a timer to check if all transport are dead for more than configuration.DeadTimeout seconds
 
+                    // the current transport is not working
+                    Interlocked.Decrement(ref _workingTransport);
+
+                    // let the transport plan to add it in the pool when it will be up again
+                    transport.PlanSetup();
+
+                    // no more transport ? it's dead ! (don't flag dead before SetupAction, it can synchronously increment _workingTransport)
+                    if (0 == _workingTransport)
+                    {
+                        _tokenSource.Cancel();
                         if (NodeDead != null)
                             NodeDead(this);
                     }
                 }
-                else
-                {
-                    // reset the stuck counter
-                    _stuckCount = 0;
-                }
             }
-            if (IsDead)
-            {
-                FlushNode();
 
-                var noOp = new HealthCheckRequest { Callback = _ => IsDead = false };
-                _waitingRequests.Add(noOp);
-            }
-            _requestRan = false;
-        }
-
-        /// <summary>
-        /// Flush the content of the internal queue to eventually requeue them in unother node
-        /// </summary>
-        private void FlushNode()
-        {
-            IMemcacheRequest req;
-            while (_waitingRequests.TryTake(out req))
-                if (!(req is HealthCheckRequest))
-                    _requeueRequest(req);
-        }
-
-        IMemcacheRequest IMemcacheRequestsQueue.Take()
-        {
-            return _waitingRequests.Take();
-        }
-
-        bool IMemcacheRequestsQueue.TryTake(out IMemcacheRequest request, int timeout)
-        {
-            return _waitingRequests.TryTake(out request, timeout);
-        }
-
-        public override string ToString()
-        {
-            return _endPoint.Address.ToString() + ":" + _endPoint.Port;
+            return false;
         }
 
         public void Dispose()
         {
-            foreach (var client in _clients)
-                client.Dispose();
+            foreach(var transport in _transportList)
+                transport.Dispose();
         }
     }
 }

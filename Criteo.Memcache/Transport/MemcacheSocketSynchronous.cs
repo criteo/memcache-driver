@@ -15,7 +15,7 @@ using Criteo.Memcache.Exceptions;
 
 namespace Criteo.Memcache.Transport
 {
-    internal class MemcacheSocketSynchronous : MemcacheSocketBase, ISynchronousTransport
+    internal class MemcacheSocketSynchronous : MemcacheSocketBase, IMemcacheTransport
     {
         private CancellationTokenSource _token;
         private ConcurrentQueue<IMemcacheRequest> _pending = new ConcurrentQueue<IMemcacheRequest>();
@@ -284,7 +284,7 @@ namespace Criteo.Memcache.Transport
         /// Synchronously sends the request
         /// </summary>
         /// <param name="request"></param>
-        public bool TrySend(IMemcacheRequest request)
+        public override bool TrySend(IMemcacheRequest request)
         {
             if (request == null)
                 return false;
@@ -353,7 +353,7 @@ namespace Criteo.Memcache.Transport
             }
         }
 
-        public void PlanSetup()
+        public override void PlanSetup()
         {
             if (Initialized && _setupAction != null)
                 // the transport is already up => execute now

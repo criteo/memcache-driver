@@ -52,5 +52,16 @@ namespace Criteo.Memcache.UTest.Mocks
         {
             get { return WaitingRequests; }
         }
+
+
+        public bool TrySend(IMemcacheRequest req)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void PlanSetup()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

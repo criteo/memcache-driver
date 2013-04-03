@@ -9,7 +9,7 @@ using Criteo.Memcache.Requests;
 
 namespace Criteo.Memcache.UTest.Mocks
 {
-    internal class SynchTransportMock : ISynchronousTransport
+    internal class TransportMock : IMemcacheTransport
     {
         private bool _isDead;
         public bool IsDead 
@@ -22,8 +22,8 @@ namespace Criteo.Memcache.UTest.Mocks
                 _isDead = value;
             }
         }
-        private Action<ISynchronousTransport> _setup;
-        public Action<ISynchronousTransport> Setup
+        private Action<IMemcacheTransport> _setup;
+        public Action<IMemcacheTransport> Setup
         {
             set
             {
