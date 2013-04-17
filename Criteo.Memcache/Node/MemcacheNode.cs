@@ -21,8 +21,8 @@ namespace Criteo.Memcache.Node
         private CancellationTokenSource _tokenSource;
 
         private static SynchronousTransportAllocator DefaultAllocator = 
-            (endPoint, authenticator, node, queueTimeout, pendingLimit, setupAction)
-                => new MemcacheSocketSynchronous(endPoint, authenticator, node, queueTimeout, pendingLimit, setupAction, false);
+            (endPoint, authenticator, queueTimeout, pendingLimit, setupAction)
+                => new MemcacheSocket(endPoint, authenticator, queueTimeout, pendingLimit, setupAction, false);
 
         #region Events
         public event Action<Exception> TransportError
@@ -77,7 +77,7 @@ namespace Criteo.Memcache.Node
             get { return _endPoint; }
         }
 
-        public MemcacheNode(EndPoint endPoint, MemcacheClientConfiguration configuration, Action<IMemcacheRequest> requeueRequest)
+        public MemcacheNode(EndPoint endPoint, MemcacheClientConfiguration configuration)
         {
             _endPoint = endPoint;
             _transportList = new List<IMemcacheTransport>(configuration.PoolSize);
@@ -88,7 +88,6 @@ namespace Criteo.Memcache.Node
                 var transport = (configuration.SynchornousTransportFactory ?? DefaultAllocator)
                                     (endPoint, 
                                     configuration.Authenticator, 
-                                    null,
                                     configuration.TransportQueueTimeout, 
                                     configuration.TransportQueueLength,
                                     TransportAlive);

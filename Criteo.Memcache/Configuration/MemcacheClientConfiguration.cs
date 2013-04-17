@@ -24,15 +24,15 @@ namespace Criteo.Memcache.Configuration
         Ignore,
     }
 
-    public delegate IMemcacheTransport SynchronousTransportAllocator(IPEndPoint endPoint, IMemcacheAuthenticator authenticator, IMemcacheNode node, int queueTimeout, int pendingLimit, Action<IMemcacheTransport> setupAction);
-    public delegate IMemcacheNode NodeAllocator(IPEndPoint endPoint, MemcacheClientConfiguration configuration, Action<IMemcacheRequest> requeueRequest);
+    public delegate IMemcacheTransport SynchronousTransportAllocator(EndPoint endPoint, IMemcacheAuthenticator authenticator, int queueTimeout, int pendingLimit, Action<IMemcacheTransport> setupAction);
+    public delegate IMemcacheNode NodeAllocator(IPEndPoint endPoint, MemcacheClientConfiguration configuration);
 
     public class MemcacheClientConfiguration
     {
         #region factories
 
         internal static NodeAllocator DefaultNodeFactory =
-            (endPoint, configuration, SendRequest) => new MemcacheNode(endPoint, configuration, SendRequest);
+            (endPoint, configuration) => new MemcacheNode(endPoint, configuration);
 
         internal static Func<INodeLocator> DefaultLocatorFactory =
             () => new KetamaLocator();

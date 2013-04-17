@@ -112,7 +112,7 @@ namespace Criteo.Memcache
 
             foreach (var nodeEndPoint in configuration.NodesEndPoints)
             {
-                var node = (configuration.NodeFactory ?? MemcacheClientConfiguration.DefaultNodeFactory)(nodeEndPoint, configuration, requeueRequest);
+                var node = (configuration.NodeFactory ?? MemcacheClientConfiguration.DefaultNodeFactory)(nodeEndPoint, configuration);
                 _nodes.Add(node);
             }
 
