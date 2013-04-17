@@ -99,17 +99,6 @@ namespace Criteo.Memcache
             _locator = configuration.NodeLocator ?? MemcacheClientConfiguration.DefaultLocatorFactory();
             _nodes = new List<IMemcacheNode>(configuration.NodesEndPoints.Count);
 
-            Action<IMemcacheRequest> requeueRequest;
-            switch(configuration.NodeDeadPolicy)
-            {
-                case RequeuePolicy.Requeue:
-                    requeueRequest = req => SendRequest(req);
-                    break;
-                default:
-                    requeueRequest = _ => { };
-                    break;
-            }
-
             foreach (var nodeEndPoint in configuration.NodesEndPoints)
             {
                 var node = (configuration.NodeFactory ?? MemcacheClientConfiguration.DefaultNodeFactory)(nodeEndPoint, configuration);
@@ -122,25 +111,16 @@ namespace Criteo.Memcache
         /// <summary>
         /// Sends a request with the policy defined with the configuration object
         /// </summary>
-        /// <param name="request"></param>
-        /// <returns></returns>
+        /// <param name="request" />
+        /// <returns>False if the request synchronously failed</returns>
         protected bool SendRequest(IMemcacheRequest request)
         {
             var node = _locator.Locate(request.Key);
 
             if (node == null)
-            {
-                if (_configuration.UnavaillablePolicy != Policy.Ignore)
-                    throw new MemcacheException("No nodes are available");
-                else
-                    return false;
-            }
+                return false;
 
-            var res = node.TrySend(request, _configuration.QueueTimeout);
-            if (!res && _configuration.QueueFullPolicy == Policy.Throw)
-                throw new MemcacheException("Queue is full");
-
-            return res;
+            return node.TrySend(request, _configuration.QueueTimeout);
         }
 
         /// <summary>

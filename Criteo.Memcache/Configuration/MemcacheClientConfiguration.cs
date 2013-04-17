@@ -54,8 +54,6 @@ namespace Criteo.Memcache.Configuration
         public NodeAllocator NodeFactory { get; set; }
         public IMemcacheAuthenticator Authenticator { get; set; }
 
-        public Policy UnavaillablePolicy { get; set; }
-        public Policy QueueFullPolicy { get; set; }
         public RequeuePolicy NodeDeadPolicy { get; set; }
         public int QueueTimeout { get; set; }
         public int PoolSize { get; set; }
@@ -71,8 +69,6 @@ namespace Criteo.Memcache.Configuration
             PoolSize = 2;
             DeadTimeout = TimeSpan.FromSeconds(15);
             SocketTimeout = TimeSpan.FromMilliseconds(200);
-            UnavaillablePolicy = Policy.Ignore;
-            QueueFullPolicy = Policy.Ignore;
             QueueTimeout = Timeout.Infinite;
             NodeDeadPolicy = RequeuePolicy.Ignore;
             TransportQueueLength = 0;
