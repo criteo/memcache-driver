@@ -67,8 +67,7 @@
     <Compile Include="Requests\SaslPlainRequest.cs" />
     <Compile Include="Requests\SetRequest.cs" />
     <Compile Include="Transport\IMemcacheTransport.cs" />
-    <Compile Include="Transport\MemcacheSocketBase.cs" />
-    <Compile Include="Transport\MemcacheSocketSynchronous.cs" />
+    <Compile Include="Transport\MemcacheSocket.cs" />
     <Compile Include="SynchronousProxyClient.cs" />
   </ItemGroup>
   <ItemGroup>
