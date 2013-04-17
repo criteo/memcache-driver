@@ -50,7 +50,7 @@ namespace Criteo.Memcache.Configuration
         public IList<IPEndPoint> NodesEndPoints { get { return _nodesEndPoints;} }
 
         public INodeLocator NodeLocator { get; set; }
-        public SynchronousTransportAllocator SynchornousTransportFactory { get; set; }
+        public SynchronousTransportAllocator SynchronousTransportFactory { get; set; }
         public NodeAllocator NodeFactory { get; set; }
         public IMemcacheAuthenticator Authenticator { get; set; }
 

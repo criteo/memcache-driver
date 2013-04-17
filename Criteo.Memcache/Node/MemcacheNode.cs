@@ -85,7 +85,7 @@ namespace Criteo.Memcache.Node
 
             for (int i = 0; i < configuration.PoolSize; ++i)
             {
-                var transport = (configuration.SynchornousTransportFactory ?? DefaultAllocator)
+                var transport = (configuration.SynchronousTransportFactory ?? DefaultAllocator)
                                     (endPoint, 
                                     configuration.Authenticator, 
                                     configuration.TransportQueueTimeout, 
