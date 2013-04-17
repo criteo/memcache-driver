@@ -3298,12 +3298,12 @@ namespace MemcachedTest
         public event Action<IMemcacheNode> NodeDead;
 #pragma warning restore 67
 
-        public MockNode(IPEndPoint ep)
+        public MockNode(EndPoint ep)
         {
             this.EndPoint = ep;
         }
 
-        public IPEndPoint EndPoint { get; private set; }
+        public EndPoint EndPoint { get; private set; }
 
         public bool IsDead { get { return false; } }
 

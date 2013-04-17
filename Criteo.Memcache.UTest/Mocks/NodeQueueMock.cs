@@ -35,7 +35,7 @@ namespace Criteo.Memcache.UTest.Mocks
         public event Action<IMemcacheNode> NodeDead;
 #pragma warning restore 67
 
-        public System.Net.IPEndPoint EndPoint
+        public System.Net.EndPoint EndPoint
         {
             get { throw new NotImplementedException(); }
         }

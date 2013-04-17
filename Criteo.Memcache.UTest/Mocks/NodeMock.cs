@@ -19,7 +19,7 @@ namespace Criteo.Memcache.UTest.Mocks
 #pragma warning restore 67
         public event Action<IMemcacheNode> NodeDead;
 
-        public System.Net.IPEndPoint EndPoint
+        public System.Net.EndPoint EndPoint
         {
             get;
             set;

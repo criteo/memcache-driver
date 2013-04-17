@@ -35,7 +35,7 @@ namespace Criteo.Memcache.Node
         /// <summary>
         /// The node endpoint
         /// </summary>
-        IPEndPoint EndPoint { get; }
+        EndPoint EndPoint { get; }
 
         /// <summary>
         /// Must returns true when the node is unreachable for a durable time

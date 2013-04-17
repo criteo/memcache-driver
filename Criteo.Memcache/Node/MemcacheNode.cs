@@ -71,13 +71,13 @@ namespace Criteo.Memcache.Node
 
         public event Action<IMemcacheNode> NodeDead;
 
-        private IPEndPoint _endPoint;
-        public IPEndPoint EndPoint
+        private readonly EndPoint _endPoint;
+        public EndPoint EndPoint
         {
             get { return _endPoint; }
         }
 
-        public MemcacheNode(IPEndPoint endPoint, MemcacheClientConfiguration configuration, Action<IMemcacheRequest> requeueRequest)
+        public MemcacheNode(EndPoint endPoint, MemcacheClientConfiguration configuration, Action<IMemcacheRequest> requeueRequest)
         {
             _endPoint = endPoint;
             _transportList = new List<IMemcacheTransport>(configuration.PoolSize);
