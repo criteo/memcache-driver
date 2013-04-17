@@ -98,11 +98,15 @@ namespace Criteo.Memcache.Node
 
         private void TransportAlive(IMemcacheTransport transport)
         {
-            _transportPool.Add(transport);
+            if (_tokenSource == null || _tokenSource.IsCancellationRequested)
+                lock(this)
+                    if (_tokenSource == null || _tokenSource.IsCancellationRequested)
+                        _tokenSource = new CancellationTokenSource();
+            Thread.MemoryBarrier();
+
             Interlocked.Increment(ref _workingTransport);
 
-            if (_tokenSource == null || _tokenSource.IsCancellationRequested)
-                _tokenSource = new CancellationTokenSource();
+            _transportPool.Add(transport);
         }
 
         public bool IsDead
@@ -132,7 +136,7 @@ namespace Criteo.Memcache.Node
                     // let the transport plan to add it in the pool when it will be up again
                     transport.PlanSetup();
 
-                    // no more transport ? it's dead ! (don't flag dead before SetupAction, it can synchronously increment _workingTransport)
+                    // no more transport ? it's dead ! (don't flag dead before PlanSetup, it can synchronously increment _workingTransport)
                     if (0 == _workingTransport)
                     {
                         _tokenSource.Cancel();
