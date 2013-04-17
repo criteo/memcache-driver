@@ -41,9 +41,6 @@ namespace Criteo.Memcache.Authenticators
                 {
                     stepRequest = null;
                     var status = _authenticationStatus.Task.Result;
-                    // unexpected, let's returns again the authentication request ...
-                    if(status == Status.StepRequired)
-                        stepRequest = _request;
                     return status;
                 }
                 else
