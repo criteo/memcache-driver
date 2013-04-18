@@ -33,6 +33,11 @@ namespace Criteo.Memcache.Node
         event Action<IMemcacheNode> NodeDead;
 
         /// <summary>
+        /// This event is triggered whenever the node goes alive
+        /// </summary>
+        event Action<IMemcacheNode> NodeAlive;
+
+        /// <summary>
         /// The node endpoint
         /// </summary>
         EndPoint EndPoint { get; }

@@ -18,6 +18,7 @@ namespace Criteo.Memcache.Node
         private readonly BlockingCollection<IMemcacheTransport> _transportPool;
         private readonly IList<IMemcacheTransport> _transportList;
         private int _workingTransport;
+        private bool _isAlive = false;
         private CancellationTokenSource _tokenSource;
 
         private static SynchronousTransportAllocator DefaultAllocator = 
@@ -67,9 +68,11 @@ namespace Criteo.Memcache.Node
                     transport.MemcacheResponse -= value;
             }
         }
-        #endregion Events
 
         public event Action<IMemcacheNode> NodeDead;
+
+        public event Action<IMemcacheNode> NodeAlive;
+        #endregion Events
 
         private readonly EndPoint _endPoint;
         public EndPoint EndPoint
@@ -105,13 +108,20 @@ namespace Criteo.Memcache.Node
             Thread.MemoryBarrier();
 
             Interlocked.Increment(ref _workingTransport);
+            if (!_isAlive)
+            {
+                _isAlive = true;
+                Thread.MemoryBarrier();
+                if (NodeAlive != null)
+                    NodeAlive(this);
+            }
 
             _transportPool.Add(transport);
         }
 
         public bool IsDead
         {
-            get { return _workingTransport == 0; }
+            get { return !_isAlive; }
         }
 
         public bool TrySend(IMemcacheRequest request, int timeout)
@@ -139,6 +149,7 @@ namespace Criteo.Memcache.Node
                     // no more transport ? it's dead ! (don't flag dead before PlanSetup, it can synchronously increment _workingTransport)
                     if (0 == _workingTransport)
                     {
+                        _isAlive = false;
                         _tokenSource.Cancel();
                         if (NodeDead != null)
                             NodeDead(this);

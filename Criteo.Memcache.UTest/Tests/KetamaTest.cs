@@ -3296,6 +3296,7 @@ namespace MemcachedTest
         public event Action<Criteo.Memcache.Headers.MemcacheResponseHeader, Criteo.Memcache.Requests.IMemcacheRequest> MemcacheError;
         public event Action<Criteo.Memcache.Headers.MemcacheResponseHeader, Criteo.Memcache.Requests.IMemcacheRequest> MemcacheResponse;
         public event Action<IMemcacheNode> NodeDead;
+        public event Action<IMemcacheNode> NodeAlive;
 #pragma warning restore 67
 
         public MockNode(EndPoint ep)

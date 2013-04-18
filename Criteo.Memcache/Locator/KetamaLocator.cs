@@ -61,7 +61,7 @@ namespace Criteo.Memcache.Locator
 
         private IList<IMemcacheNode> _nodes;
         private LookupData _lookupData;
-        private Timer _resurrectTimer;
+        //private Timer _resurrectTimer;
         private int _resurrectFreq;
 
         public KetamaLocator(string hashName = null, int resurectFreq = 1000)
@@ -74,14 +74,17 @@ namespace Criteo.Memcache.Locator
         public void Initialize(IList<IMemcacheNode> nodes)
         {
             _nodes = nodes;
-            foreach(var node in nodes)
+            foreach (var node in nodes)
+            {
                 node.NodeDead += _ => Reinitialize();
+                node.NodeAlive += _ => Reinitialize();
+            }
 
             using(var hash = Hash)
                 _lookupData = new LookupData(nodes, hash.Value);
 
             UpdateState(null);
-            _resurrectTimer = new Timer(UpdateState, null, _resurrectFreq, _resurrectFreq);
+            //_resurrectTimer = new Timer(UpdateState, null, _resurrectFreq, _resurrectFreq);
         }
 
         private void Reinitialize()

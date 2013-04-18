@@ -33,6 +33,7 @@ namespace Criteo.Memcache.UTest.Mocks
         public event Action<Headers.MemcacheResponseHeader, IMemcacheRequest> MemcacheError;
         public event Action<Headers.MemcacheResponseHeader, IMemcacheRequest> MemcacheResponse;
         public event Action<IMemcacheNode> NodeDead;
+        public event Action<IMemcacheNode> NodeAlive;
 #pragma warning restore 67
 
         public System.Net.EndPoint EndPoint

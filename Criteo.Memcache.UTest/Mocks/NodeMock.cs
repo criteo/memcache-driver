@@ -16,6 +16,7 @@ namespace Criteo.Memcache.UTest.Mocks
         public event Action<Exception> TransportError;
         public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError;
         public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheResponse;
+        public event Action<IMemcacheNode> NodeAlive;
 #pragma warning restore 67
         public event Action<IMemcacheNode> NodeDead;
 
