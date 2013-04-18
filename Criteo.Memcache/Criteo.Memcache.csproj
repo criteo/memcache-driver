@@ -55,7 +55,6 @@
     <Compile Include="MemcacheClient.cs" />
     <Compile Include="Configuration\MemcacheClientConfiguration.cs" />
     <Compile Include="Node\IMemcacheNode.cs" />
-    <Compile Include="Node\IMemcacheRequestsQueue.cs" />
     <Compile Include="Node\MemcacheNode.cs" />
     <Compile Include="Locator\RoundRobinLocator.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

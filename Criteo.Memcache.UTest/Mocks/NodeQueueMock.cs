@@ -9,7 +9,7 @@ using Criteo.Memcache.Requests;
 
 namespace Criteo.Memcache.UTest.Mocks
 {
-    class NodeQueueMock : IMemcacheRequestsQueue, IMemcacheNode
+    class NodeQueueMock : IMemcacheNode
     {
         BlockingCollection<IMemcacheRequest> _queue = new BlockingCollection<IMemcacheRequest>();
 
