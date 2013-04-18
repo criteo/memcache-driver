@@ -15,7 +15,7 @@ namespace Criteo.Memcache.Requests
 
         public byte[] GetQueryBuffer()
         {
-            var keyAsBytes = ASCIIEncoding.Default.GetBytes(Key);
+            var keyAsBytes = UTF8Encoding.Default.GetBytes(Key);
             if (keyAsBytes.Length > ushort.MaxValue)
                 throw new ArgumentException("The key is too long for the memcache binary protocol : " + Key);
 

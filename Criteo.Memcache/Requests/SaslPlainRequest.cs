@@ -29,7 +29,7 @@ namespace Criteo.Memcache.Requests
 
         public byte[] GetQueryBuffer()
         {
-            var key = ASCIIEncoding.Default.GetBytes(Key);
+            var key = UTF8Encoding.Default.GetBytes(Key);
             var data = Encoding.UTF8.GetBytes(Zone + "\0" + User + "\0" + Password);
 
             var header = new MemcacheRequestHeader(Opcode.StartAuth)

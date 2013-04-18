@@ -41,8 +41,8 @@ namespace Criteo.Memcache.UTest.Tests
             Status status = Status.UnknownCommand;
             var request = new SetRequest 
             { 
-                Key = @"Hello", 
-                Message = System.Text.ASCIIEncoding.Default.GetBytes(@"World"), 
+                Key = @"Hello",
+                Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"), 
                 RequestId = 0, 
                 Expire = TimeSpan.FromHours(1),
                 CallBack = (s) => status = s,
@@ -65,7 +65,7 @@ namespace Criteo.Memcache.UTest.Tests
             var request = new SetRequest
             {
                 Key = @"Hello",
-                Message = System.Text.ASCIIEncoding.Default.GetBytes(@"World"),
+                Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"),
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
                 CallBack = (s) => status = s,
