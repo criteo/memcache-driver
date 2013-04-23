@@ -494,7 +494,14 @@ namespace Criteo.Memcache.Transport
                                 Reset(_socket);
                                 return false;
                             }
-                            return SendRequest(request);
+                            if (!SendRequest(request))
+                            {
+                                if (_transportError != null)
+                                    _transportError(new AuthenticationException("Unable to authenticate : unable to send authentication request"));
+                                Reset(_socket);
+                                return false;
+                            }
+                            break;
                         default:
                             if (_transportError != null)
                                 _transportError(new AuthenticationException("Unable to authenticate : status " + authStatus.ToString()));
