@@ -72,6 +72,7 @@ namespace Criteo.Memcache.Transport
         private bool _disposed = false;
         private bool _initialized = false;
         private BlockingCollection<IMemcacheRequest> _pendingRequests;
+        private ConcurrentQueue<IMemcacheRequest> _pendingQueue;
         private Socket _socket;
         private CancellationTokenSource _token;
         private Timer _disposeAttemptTimer;
@@ -201,9 +202,10 @@ namespace Criteo.Memcache.Transport
                 _initialized = false;
 
                 // keep the pending request somewhere
+                Interlocked.Exchange(ref _pendingQueue, new ConcurrentQueue<IMemcacheRequest>());
                 var newPending = _requestLimit > 0 ?
-                    new BlockingCollection<IMemcacheRequest>(new ConcurrentQueue<IMemcacheRequest>(), _requestLimit) :
-                    new BlockingCollection<IMemcacheRequest>(new ConcurrentQueue<IMemcacheRequest>());
+                    new BlockingCollection<IMemcacheRequest>(_pendingQueue, _requestLimit) :
+                    new BlockingCollection<IMemcacheRequest>(_pendingQueue);
                 oldPending = Interlocked.Exchange(ref _pendingRequests, newPending);
             }
 
@@ -255,8 +257,18 @@ namespace Criteo.Memcache.Transport
             }
             else
             {
-                if (!_pendingRequests.TryTake(out result))
-                    throw new MemcacheException("Received a response when no request is pending");
+                // hacky case on partial response for stat command
+                if (header.Opcode == Opcode.Stat && header.TotalBodyLength != 0 && header.Status == Status.NoError)
+                {
+                    if (!_pendingQueue.TryPeek(out result))
+                        throw new MemcacheException("Received a response when no request is pending");
+                }
+                else
+                {
+                    if (!_pendingRequests.TryTake(out result))
+                        throw new MemcacheException("Received a response when no request is pending");
+                }
+
                 if (result.RequestId != header.Opaque)
                     throw new MemcacheException("Received a response that doesn't match with the sent request queue");
             }
@@ -269,70 +281,41 @@ namespace Criteo.Memcache.Transport
 
         private void StartReceivingThread()
         {
+            _receivingThread = new Thread(ReceiveJob);
+            _receivingThread.Start(_token.Token);
+        }
+
+        private void ReceiveJob(object t)
+        {
             var buffer = new byte[MemcacheResponseHeader.SIZE];
-            _receivingThread = new Thread(t =>
+            var token = (CancellationToken)t;
+            while (!token.IsCancellationRequested)
             {
-                var token = (CancellationToken)t;
-                while (!token.IsCancellationRequested)
+                var socket = _socket;
+                try
                 {
-                    var socket = _socket;
-                    try
+                    int received = 0;
+                    do
                     {
-                        int received = 0;
-                        do
-                        {
-                            received += socket.Receive(buffer, received, MemcacheResponseHeader.SIZE - received, SocketFlags.None);
-                        } while (received < MemcacheResponseHeader.SIZE);
+                        var localReceived = socket.Receive(buffer, received, MemcacheResponseHeader.SIZE - received, SocketFlags.None);
+                        if (localReceived == 0)
+                            throw new MemcacheException("The remote closed the connection unexpectedly");
+                        received += localReceived;
+                    } while (received < MemcacheResponseHeader.SIZE);
 
-                        var header = new MemcacheResponseHeader(buffer);
-
-                        // in case we have a message ! (should not happen for a set)
-                        byte[] extra = null;
-                        if (header.ExtraLength > 0)
-                        {
-                            extra = new byte[header.ExtraLength];
-                            received = 0;
-                            do
-                            {
-                                received += socket.Receive(extra, received, header.ExtraLength - received, SocketFlags.None);
-                            } while (received < header.ExtraLength);
-                        }
-                        byte[] message = null;
-                        int messageLength = (int)(header.TotalBodyLength - header.ExtraLength);
-                        if (messageLength > 0)
-                        {
-                            message = new byte[messageLength];
-                            received = 0;
-                            do
-                            {
-                                received += socket.Receive(message, received, messageLength - received, SocketFlags.None);
-                            } while (received < messageLength);
-                        }
-
-                        // should assert we have the good request
-                        var request = UnstackToMatch(header);
-
-                        if (_memcacheResponse != null)
-                            _memcacheResponse(header, request);
-                        if (header.Status != Status.NoError && _memcacheError != null)
-                            _memcacheError(header, request);
-
-                        if (request != null)
-                            request.HandleResponse(header, extra, message);
-                    }
-                    catch (Exception e)
+                    ReceiveBody(socket, buffer);
+                }
+                catch (Exception e)
+                {
+                    if (!token.IsCancellationRequested && !_disposed)
                     {
-                        if (!token.IsCancellationRequested && !_disposed)
-                        {
-                            if (_transportError != null)
-                                _transportError(e);
+                        if (_transportError != null)
+                            _transportError(e);
 
-                            Reset(socket);
-                        }
+                        Reset(socket);
                     }
                 }
-            });
-            _receivingThread.Start(_token.Token);
+            }
         }
         #endregion Threaded Reads
 
@@ -387,42 +370,7 @@ namespace Criteo.Memcache.Transport
                     return;
                 }
 
-                var header = new MemcacheResponseHeader(args.Buffer);
-
-                byte[] extra = null;
-                byte[] message = null;
-                int received;
-                // in case we have a message ! (should not happen for a set)
-                if (header.ExtraLength > 0)
-                {
-                    extra = new byte[header.ExtraLength];
-                    received = 0;
-                    do
-                    {
-                        received += socket.Receive(extra, received, header.ExtraLength - received, SocketFlags.None);
-                    } while (received < header.ExtraLength);
-                }
-                int messageLength = (int)(header.TotalBodyLength - header.ExtraLength);
-                if (header.TotalBodyLength - header.ExtraLength > 0)
-                {
-                    message = new byte[header.TotalBodyLength - header.ExtraLength];
-                    received = 0;
-                    do
-                    {
-                        received += socket.Receive(message, received, messageLength - received, SocketFlags.None);
-                    } while (received < messageLength);
-                }
-
-                // should assert we have the good request
-                var request = UnstackToMatch(header);
-                if (request != null)
-                    request.HandleResponse(header, extra, message);
-
-                if (_memcacheResponse != null)
-                    _memcacheResponse(header, request);
-
-                if (header.Status != Status.NoError && _memcacheError != null)
-                    _memcacheError(header, request);
+                ReceiveBody(socket, args.Buffer);
 
                 // loop the read on the socket
                 ReadResponse();
@@ -438,6 +386,46 @@ namespace Criteo.Memcache.Transport
             }
         }
         #endregion Async Reads
+
+        private void ReceiveBody(Socket socket, byte[] headerBytes)
+        {
+            var header = new MemcacheResponseHeader(headerBytes);
+
+            var key = Receive(socket, (int)header.KeyLength, 0);
+            var extra = Receive(socket, (int)header.ExtraLength, 0);
+            var payload = Receive(socket, (int)(header.TotalBodyLength - header.KeyLength - header.ExtraLength), 0);
+
+            // should assert we have the good request
+            var request = UnstackToMatch(header);
+
+            if (_memcacheResponse != null)
+                _memcacheResponse(header, request);
+            if (header.Status != Status.NoError && _memcacheError != null)
+                _memcacheError(header, request);
+
+            if (request != null)
+                request.HandleResponse(header, key == null ? null : UTF8Encoding.Default.GetString(key), extra, payload);
+        }
+
+        private byte[] Receive(Socket socket, int size, int offset = 0)
+        {
+            byte[] target = null;
+
+            if (size > 0)
+            {
+                target = new byte[size];
+                int received = 0;
+                do
+                {
+                    var localReceived = socket.Receive(target, offset + received, size - received, SocketFlags.None);
+                    if (localReceived == 0)
+                        throw new MemcacheException("The remote closed the connection unexpectedly");
+                    received += localReceived;
+                } while (received < size);
+            }
+            
+            return target;
+        }
 
         private void Start()
         {

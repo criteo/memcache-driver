@@ -30,7 +30,7 @@ namespace Criteo.Memcache.UTest.Mocks
         public byte[] Extra { get; private set; }
         public byte[] Message { get; private set; }
         public MemcacheResponseHeader ResponseHeader { get; private set; }
-        public void HandleResponse(MemcacheResponseHeader header, byte[] extra, byte[] message)
+        public void HandleResponse(MemcacheResponseHeader header, string key, byte[] extra, byte[] message)
         {
             ResponseHeader = header;
             Extra = extra;

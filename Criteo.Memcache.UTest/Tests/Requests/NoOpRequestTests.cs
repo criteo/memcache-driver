@@ -41,7 +41,7 @@ namespace Criteo.Memcache.UTest.Tests.Requests
             CollectionAssert.AreEqual(NOOP_QUERY, queryBuffer, "The noop query buffer is different of the expected one");
 
             var header = new MemcacheResponseHeader { Opcode = Opcode.NoOp, Status = Status.NoError };
-            Assert.DoesNotThrow(() => request.HandleResponse(header, null, null));
+            Assert.DoesNotThrow(() => request.HandleResponse(header, null, null, null));
             Assert.AreEqual(Status.NoError, status);
         }
 

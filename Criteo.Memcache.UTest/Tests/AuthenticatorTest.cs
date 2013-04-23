@@ -54,7 +54,7 @@ namespace Criteo.Memcache.UTest.Tests
                 }, buffer);
 
             // fake a call of the request
-            request.HandleResponse(new MemcacheResponseHeader { Status = Status.NoError }, null, null);
+            request.HandleResponse(new MemcacheResponseHeader { Status = Status.NoError }, null, null, null);
 
             // check it works
             Assert.AreEqual(Status.NoError, token.StepAuthenticate(out request));
@@ -83,7 +83,7 @@ namespace Criteo.Memcache.UTest.Tests
             Assert.IsNotNull(buffer);
 
             // fake a call of the request
-            request.HandleResponse(new MemcacheResponseHeader { Status = Status.StepRequired }, null, null);
+            request.HandleResponse(new MemcacheResponseHeader { Status = Status.StepRequired }, null, null, null);
 
             // check it returns the sent status
             Assert.AreEqual(Status.StepRequired, token.StepAuthenticate(out request));

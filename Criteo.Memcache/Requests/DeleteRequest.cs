@@ -35,7 +35,7 @@ namespace Criteo.Memcache.Requests
         }
 
         // nothing to do on set response
-        public void HandleResponse(MemcacheResponseHeader header, byte[] extra, byte[] message)
+        public void HandleResponse(MemcacheResponseHeader header, string key, byte[] extra, byte[] message)
         {
             if (CallBack != null)
                 CallBack(header.Status);

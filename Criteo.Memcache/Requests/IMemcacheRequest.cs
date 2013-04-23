@@ -13,7 +13,7 @@ namespace Criteo.Memcache.Requests
         string Key { get; set; }
         
         byte[] GetQueryBuffer();
-        void HandleResponse(MemcacheResponseHeader header, byte[] extra, byte[] message);
+        void HandleResponse(MemcacheResponseHeader header, string key, byte[] extra, byte[] message);
         void Fail();
     }
 }

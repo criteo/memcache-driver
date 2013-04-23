@@ -47,7 +47,7 @@ namespace Criteo.Memcache.UTest.Mocks
             }
             else
             {
-                req.HandleResponse(Response, Extra, Message);
+                req.HandleResponse(Response, null, Extra, Message);
                 return true;
             }
         }

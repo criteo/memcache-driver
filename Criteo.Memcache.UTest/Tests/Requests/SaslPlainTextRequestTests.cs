@@ -47,7 +47,7 @@ namespace Criteo.Memcache.UTest.Tests.Requests
             CollectionAssert.AreEqual(SASL_PLAIN_QUERY, queryBuffer, "The sasl plain text query buffer is different of the expected one");
 
             var header = new MemcacheResponseHeader { Opcode = Opcode.StepAuth, Status = Status.NoError };
-            Assert.DoesNotThrow(() => request.HandleResponse(header, null, null));
+            Assert.DoesNotThrow(() => request.HandleResponse(header, null, null, null));
             Assert.AreEqual(Status.NoError, status);
         }
 

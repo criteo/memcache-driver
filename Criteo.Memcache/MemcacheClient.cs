@@ -1,14 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Threading;
-using System.Threading.Tasks;
 
 using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Requests;
 using Criteo.Memcache.Node;
 using Criteo.Memcache.Locator;
 using Criteo.Memcache.Headers;
-using Criteo.Memcache.Exceptions;
 
 namespace Criteo.Memcache
 {
@@ -199,6 +198,25 @@ namespace Criteo.Memcache
         public bool Delete(string key, Action<Status> callback)
         {
             return SendRequest(new DeleteRequest { Key = key, CallBack = callback, RequestId = NextRequestId });
+        }
+
+        /// <summary>
+        /// Retrieve stats from all alive nodes
+        /// </summary>
+        /// <param name="callback"></param>
+        public void Stats(string key, Action<EndPoint, IDictionary<string, string>> callback)
+        {
+            foreach (var node in _nodes)
+            {
+                if (node.IsDead)
+                    callback(node.EndPoint, null);
+                else
+                {
+                    var localNode = node;
+                    if (!node.TrySend(new StatRequest { Key = key, Callback = r => callback(localNode.EndPoint, r), RequestId = NextRequestId }, _configuration.QueueTimeout))
+                        callback(node.EndPoint, null);
+                }
+            }
         }
 
         private int _currentRequestId = 0;

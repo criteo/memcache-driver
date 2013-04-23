@@ -47,7 +47,7 @@ namespace Criteo.Memcache.Requests
             return message;
         }
 
-        public void HandleResponse(MemcacheResponseHeader header, byte[] extra, byte[] message)
+        public void HandleResponse(MemcacheResponseHeader header, string key, byte[] extra, byte[] message)
         {
             if (Callback != null)
                 Callback(header.Status);

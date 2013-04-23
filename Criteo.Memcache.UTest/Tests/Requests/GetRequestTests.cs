@@ -51,7 +51,7 @@ namespace Criteo.Memcache.UTest.Tests
             CollectionAssert.AreEqual(GET_QUERY, queryBuffer, "The get query buffer is different of the expected one");
 
             var header = new MemcacheResponseHeader { Opcode = Opcode.Get, Status = Status.NoError };
-            Assert.DoesNotThrow(() => request.HandleResponse(header, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
+            Assert.DoesNotThrow(() => request.HandleResponse(header, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
 
             Assert.AreSame(GET_MESSAGE, message, "Sent message and the one return by the request are different");
         }
