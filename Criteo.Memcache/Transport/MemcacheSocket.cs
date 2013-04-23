@@ -207,6 +207,10 @@ namespace Criteo.Memcache.Transport
                     new BlockingCollection<IMemcacheRequest>(_pendingQueue, _requestLimit) :
                     new BlockingCollection<IMemcacheRequest>(_pendingQueue);
                 oldPending = Interlocked.Exchange(ref _pendingRequests, newPending);
+
+                // we are in a case when the previous socket failed, don't synchronously reconnect
+                if (_socket != null)
+                    _reconnectTimer.Change(0, Timeout.Infinite);
             }
 
             if (oldPending != null)
