@@ -516,19 +516,7 @@ namespace Criteo.Memcache.Transport
 
         private void TryReconnect(object dummy)
         {
-            bool reconnected = false;
-            try
-            {
-                reconnected = Initialize();
-            }
-            catch (Exception e)
-            {
-                if (_transportError != null)
-                    _transportError(e);
-                reconnected = false;
-            }
-
-            if (reconnected && _setupAction != null)
+            if (Initialize() && _setupAction != null)
                 _setupAction(this);
         }
 
