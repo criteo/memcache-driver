@@ -60,7 +60,7 @@ namespace Criteo.Memcache.UTest.Tests
                     Cas = 8,
                     DataType = 12,
                     ExtraLength = 3,
-                    KeyLength = 5,
+                    KeyLength = 0,
                     // must be the same or it will crash : TODO add a test to ensure we detect this fail
                     Opaque = requestHeader.Opaque,
                     Status = Status.UnknownCommand,
