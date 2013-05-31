@@ -455,7 +455,8 @@ namespace Criteo.Memcache.Transport
             }
             catch (AggregateException e)
             {
-                _transportError(e);
+                if (_transportError != null)
+                    _transportError(e);
             }
 
             var socket = _socket;
@@ -527,8 +528,21 @@ namespace Criteo.Memcache.Transport
             {
                 var buffer = request.GetQueryBuffer();
 
-                if (!_pendingRequests.TryAdd(request, _queueTimeout, _token.Token))
+                try
+                {
+                    if (!_pendingRequests.TryAdd(request, _queueTimeout, _token.Token))
+                    {
+                        if (_transportError != null)
+                            _transportError(new MemcacheException("Send request queue full to " + _endPoint));
+                        return false;
+                    }
+                }
+                catch (OperationCanceledException e)
+                {
+                    if (_transportError != null)
+                        _transportError(e);
                     return false;
+                }
 
                 int sent = 0;
                 do

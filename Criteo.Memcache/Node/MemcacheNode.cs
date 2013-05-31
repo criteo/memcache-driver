@@ -127,34 +127,54 @@ namespace Criteo.Memcache.Node
         public bool TrySend(IMemcacheRequest request, int timeout)
         {
             IMemcacheTransport transport;
-            while (_tokenSource != null && !_tokenSource.IsCancellationRequested
-                && _transportPool.TryTake(out transport, timeout, _tokenSource.Token))
+            try
             {
-                if (transport.TrySend(request))
+                while (_tokenSource != null && !_tokenSource.IsCancellationRequested
+                    && _transportPool.TryTake(out transport, timeout, _tokenSource.Token))
                 {
-                    // the transport sent the message, return it in the pool
-                    _transportPool.Add(transport);
-                    return true;
-                }
-                else
-                {
-                    // TODO : don't flag as dead right now, start a timer to check if all transport are dead for more than configuration.DeadTimeout seconds
-
-                    // the current transport is not working
-                    Interlocked.Decrement(ref _workingTransport);
-
-                    // let the transport plan to add it in the pool when it will be up again
-                    transport.PlanSetup();
-
-                    // no more transport ? it's dead ! (don't flag dead before PlanSetup, it can synchronously increment _workingTransport)
-                    if (0 == _workingTransport)
+                    bool sent;
+                    try
                     {
-                        _isAlive = false;
-                        _tokenSource.Cancel();
-                        if (NodeDead != null)
-                            NodeDead(this);
+                        sent = transport.TrySend(request);
+                    }
+                    catch (Exception)
+                    {
+                        // if anything happen, don't let a transport outside of the pool
+                        _transportPool.Add(transport);
+                        throw;
+                    }
+
+                    if (sent)
+                    {
+                        // the transport sent the message, return it in the pool
+                        _transportPool.Add(transport);
+                        return true;
+                    }
+                    else
+                    {
+                        // TODO : don't flag as dead right now, start a timer to check if all transport are dead for more than configuration.DeadTimeout seconds
+
+                        // the current transport is not working
+                        Interlocked.Decrement(ref _workingTransport);
+
+                        // let the transport plan to add it in the pool when it will be up again
+                        transport.PlanSetup();
+
+                        // no more transport ? it's dead ! (don't flag dead before PlanSetup, it can synchronously increment _workingTransport)
+                        if (0 == _workingTransport)
+                        {
+                            _isAlive = false;
+                            _tokenSource.Cancel();
+                            if (NodeDead != null)
+                                NodeDead(this);
+                        }
                     }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                // someone called for a cancel on the pool.TryTake and already raised the problem
+                return false;
             }
 
             return false;
