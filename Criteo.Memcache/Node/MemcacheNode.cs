@@ -137,11 +137,10 @@ namespace Criteo.Memcache.Node
                     {
                         sent = transport.TrySend(request);
                     }
-                    catch (Exception)
+                    finally
                     {
                         // if anything happen, don't let a transport outside of the pool
                         _transportPool.Add(transport);
-                        throw;
                     }
 
                     if (sent)
