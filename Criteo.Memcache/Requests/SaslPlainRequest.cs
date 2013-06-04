@@ -58,5 +58,10 @@ namespace Criteo.Memcache.Requests
             if (Callback != null)
                 Callback(Status.InternalError);
         }
+
+        public override string ToString()
+        {
+            return Opcode.StartAuth.ToString() + ";Id=" + RequestId + ";Key=" + Key;
+        }
     }
 }

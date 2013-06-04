@@ -132,15 +132,16 @@ namespace Criteo.Memcache.Node
                 while (_tokenSource != null && !_tokenSource.IsCancellationRequested
                     && _transportPool.TryTake(out transport, timeout, _tokenSource.Token))
                 {
-                    bool sent;
+                    bool sent = false;
                     try
                     {
                         sent = transport.TrySend(request);
                     }
-                    finally
+                    catch(Exception)
                     {
                         // if anything happen, don't let a transport outside of the pool
                         _transportPool.Add(transport);
+                        throw;
                     }
 
                     if (sent)

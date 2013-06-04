@@ -46,5 +46,10 @@ namespace Criteo.Memcache.Requests
             if (CallBack != null)
                 CallBack(Status.InternalError);
         }
+
+        public override string ToString()
+        {
+            return Opcode.Delete.ToString() + ";Id=" + RequestId + ";Key=" + Key;
+        }
     }
 }

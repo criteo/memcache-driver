@@ -274,7 +274,9 @@ namespace Criteo.Memcache.Transport
                 }
 
                 if (result.RequestId != header.Opaque)
-                    throw new MemcacheException("Received a response that doesn't match with the sent request queue");
+                {
+                    throw new MemcacheException("Received a response that doesn't match with the sent request queue : sent " + result.ToString() + " received " + header.ToString());
+                }
             }
 
             return result;
