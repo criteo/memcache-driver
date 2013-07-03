@@ -45,7 +45,7 @@
   <ItemGroup>
     <Compile Include="Mocks\NodeMock.cs" />
     <Compile Include="Mocks\TransportMock.cs" />
-    <Compile Include="Tests\KetamaTest.cs" />
+    <Compile Include="Tests\KetamaTests.cs" />
     <Compile Include="Tests\LocatorTests.cs" />
     <Compile Include="Mocks\NodeQueueMock.cs" />
     <Compile Include="Mocks\RequestMock.cs" />
