@@ -2,12 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 
 using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.Requests
 {
-    class SetRequest : IMemcacheRequest
+    class SetRequest : RedundantRequest, IMemcacheRequest
     {
         static private DateTime Epock = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         private const uint RawDataFlag = 0xfa52;
@@ -22,9 +23,25 @@ namespace Criteo.Memcache.Requests
         public Action<Status> CallBack { get; set; }
 
         public SetRequest()
+            : base(0)
         {
             Code = Opcode.Set;
             Flags = RawDataFlag;
+        }
+
+        public SetRequest(int replicas)
+            : base(replicas)
+        {
+            Code = Opcode.Set;
+            Flags = RawDataFlag;
+        }
+
+        public void Sent(int sentRequests)
+        {
+            if(CallCallbackOnLastSent(sentRequests) && CallBack != null)
+            {
+                CallBack(Status.InternalError);
+            }
         }
 
         public byte[] GetQueryBuffer()
@@ -57,19 +74,21 @@ namespace Criteo.Memcache.Requests
                 Message.CopyTo(buffer, 32 + keyAsBytes.Length);
 
             return buffer;
-        } 
+        }
 
         // nothing to do on set response
         public void HandleResponse(MemcacheResponseHeader header, string key, byte[] extra, byte[] message)
         {
-            if (CallBack != null)
-                CallBack(header.Status);
+            Status status = header.Status;
+            if (CallCallback(ref status) && CallBack != null)
+                CallBack(status);
         }
 
         public void Fail()
         {
-            if (CallBack != null)
-                CallBack(Status.InternalError);
+            Status status = Status.InternalError;
+            if (CallCallback(ref status) && CallBack != null)
+                CallBack(status);
         }
 
         public override string ToString()

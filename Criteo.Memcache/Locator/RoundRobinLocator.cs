@@ -18,7 +18,7 @@ namespace Criteo.Memcache.Locator
         }
 
         private int _lastPosition = 0;
-        public IMemcacheNode Locate(string key)
+        public IEnumerable<IMemcacheNode> Locate(string key)
         {
             for(int i=0; i<_nodes.Count; ++i)
             {
@@ -26,10 +26,8 @@ namespace Criteo.Memcache.Locator
                 position = position >= 0 ? position : position + _nodes.Count;
                 var selectedNode = _nodes[position];
                 if (!selectedNode.IsDead)
-                    return selectedNode;
+                    yield return selectedNode;
             }
-
-            return null;
         }
     }
 }

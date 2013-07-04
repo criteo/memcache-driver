@@ -53,6 +53,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Tests\AuthenticatorTest.cs" />
     <Compile Include="Tests\MemcacheNodeTests.cs" />
+    <Compile Include="Tests\ReplicasTests.cs" />
     <Compile Include="Tests\Requests\DeleteRequestTests.cs" />
     <Compile Include="Tests\Requests\GetRequestTests.cs" />
     <Compile Include="Tests\Requests\NoOpRequestTests.cs" />
@@ -67,6 +68,9 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="Criteo.MemcacheClient.nuspec">
+      <SubType>Designer</SubType>
+    </None>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

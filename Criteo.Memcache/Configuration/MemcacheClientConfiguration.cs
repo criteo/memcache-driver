@@ -62,6 +62,7 @@ namespace Criteo.Memcache.Configuration
         public int TransportQueueTimeout { get; set; }
         public TimeSpan DeadTimeout { get; set; }
         public TimeSpan SocketTimeout { get; set; }
+        public int Replicas { get; set; }
 
         public MemcacheClientConfiguration()
         {
@@ -73,6 +74,7 @@ namespace Criteo.Memcache.Configuration
             NodeDeadPolicy = RequeuePolicy.Ignore;
             TransportQueueLength = 0;
             TransportQueueTimeout = Timeout.Infinite;
+            Replicas = 0;
         }
     }
 }
