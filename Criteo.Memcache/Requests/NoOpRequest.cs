@@ -13,6 +13,14 @@ namespace Criteo.Memcache.Requests
         public string Key { get; set; }
         public Action<MemcacheResponseHeader> Callback { get; set; }
 
+        public int Replicas 
+        { 
+            get { return 0; }
+            private set { return;  } 
+        }
+
+        public void Sent(int sentRequests) { }
+
         public byte[] GetQueryBuffer()
         {
             var requestHeader = new MemcacheRequestHeader(Opcode.NoOp)

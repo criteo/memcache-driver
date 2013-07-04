@@ -13,6 +13,14 @@ namespace Criteo.Memcache.Requests
         public string Key { get; set; }
         public Action<IDictionary<string, string>> Callback;
 
+        public int Replicas
+        {
+            get { return 0; }
+            private set { return; }
+        }
+
+        public void Sent(int sentRequests) { }
+
         private Dictionary<string, string> _result = null;
 
         public byte[] GetQueryBuffer()

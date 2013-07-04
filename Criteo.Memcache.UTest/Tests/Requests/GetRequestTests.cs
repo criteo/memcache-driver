@@ -44,31 +44,135 @@ namespace Criteo.Memcache.UTest.Tests
         public void GetRequestTest()
         {
             byte[] message = null;
-            var request = new GetRequest { Key = @"Hello", RequestId = 0, CallBack = (s, m) => message = m };
+            var request = new GetRequest { Key = @"Hello", RequestId = 0, CallBack = (s, m) => message = m, CallBackPolicy = CallBackPolicy.AnyOK };
 
             var queryBuffer = request.GetQueryBuffer();
 
-            CollectionAssert.AreEqual(GET_QUERY, queryBuffer, "The get query buffer is different of the expected one");
+            CollectionAssert.AreEqual(GET_QUERY, queryBuffer, "The get query buffer is different from the expected one");
 
             var header = new MemcacheResponseHeader { Opcode = Opcode.Get, Status = Status.NoError };
             Assert.DoesNotThrow(() => request.HandleResponse(header, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
 
-            Assert.AreSame(GET_MESSAGE, message, "Sent message and the one return by the request are different");
+            Assert.AreSame(GET_MESSAGE, message, "Sent message and the one returned by the request are different");
         }
 
         [Test]
         public void GetRequestFailTest()
         {
             Status status = Status.UnknownCommand;
-            var request = new GetRequest { Key = @"Hello", RequestId = 0, CallBack = (s, m) => status = s };
+            byte[] message = new byte[0];
+
+            var request = new GetRequest { Key = @"Hello", RequestId = 0, CallBack = (s, m) => { message = m; status = s; }, CallBackPolicy = CallBackPolicy.AnyOK };
 
             var queryBuffer = request.GetQueryBuffer();
 
-            CollectionAssert.AreEqual(GET_QUERY, queryBuffer, "The get query buffer is different of the expected one");
+            CollectionAssert.AreEqual(GET_QUERY, queryBuffer, "The get query buffer is different from the expected one");
 
             Assert.DoesNotThrow(() => request.Fail(), "Fail should not throw an exception");
 
             Assert.AreEqual(Status.InternalError, status, "Returned status should be InternalError after a fail");
+            Assert.IsNull(message, "Returned message should be a null reference after a fail");
         }
+
+        [Test]
+        public void RedundantGetRequestTest()
+        {
+            byte[] message = null;
+            Status status = Status.UnknownCommand;
+
+            var headerOK = new MemcacheResponseHeader { Opcode = Opcode.Get, Status = Status.NoError };
+            var headerFail = new MemcacheResponseHeader { Opcode = Opcode.Get, Status = Status.KeyNotFound };
+
+            // 1. Test redundancy = 3 and all gets are successful
+
+            var request = new GetRequest(2) { Key = @"Hello", RequestId = 0, CallBack = (s, m) => { message = m; status = s; }, CallBackPolicy = CallBackPolicy.AnyOK };
+
+            var queryBuffer = request.GetQueryBuffer();
+            CollectionAssert.AreEqual(GET_QUERY, queryBuffer, "The get query buffer is different from the expected one");
+
+            Assert.DoesNotThrow(() => request.HandleResponse(headerOK, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
+            Assert.AreEqual(Status.NoError, status, "Returned status should be NoError after the first successful get");
+            Assert.AreSame(GET_MESSAGE, message, "Sent message and the one returned by the request are different");
+
+            status = Status.UnknownCommand;
+            Assert.DoesNotThrow(() => request.HandleResponse(headerOK, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
+            Assert.AreEqual(Status.UnknownCommand, status, "The callback should not be called a second time");
+
+            status = Status.UnknownCommand;
+            Assert.DoesNotThrow(() => request.HandleResponse(headerOK, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
+            Assert.AreEqual(Status.UnknownCommand, status, "The callback should not be called a second time");
+
+            // 2. Test redundancy = 3, the first get is failing
+
+            request = new GetRequest(2) { Key = @"Hello", RequestId = 0, CallBack = (s, m) => { message = m; status = s; }, CallBackPolicy = CallBackPolicy.AnyOK };
+            status = Status.UnknownCommand;
+
+            Assert.DoesNotThrow(() => request.HandleResponse(headerFail, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
+            Assert.AreEqual(Status.UnknownCommand, status, "Callback should not be called after the first failed get");
+
+            Assert.DoesNotThrow(() => request.HandleResponse(headerOK, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
+            Assert.AreEqual(Status.NoError, status, "Returned status should be NoError after the first successful get");
+            Assert.AreSame(GET_MESSAGE, message, "Sent message and the one returned by the request are different");
+
+            status = Status.UnknownCommand;
+            Assert.DoesNotThrow(() => request.HandleResponse(headerOK, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
+            Assert.AreEqual(Status.UnknownCommand, status, "The callback should not be called a second time");
+
+            // 3. Test redundancy = 3, the first and second gets are failing
+
+            request = new GetRequest(2) { Key = @"Hello", RequestId = 0, CallBack = (s, m) => { message = m; status = s; }, CallBackPolicy = CallBackPolicy.AnyOK };
+            status = Status.UnknownCommand;
+
+            Assert.DoesNotThrow(() => request.HandleResponse(headerFail, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
+            Assert.AreEqual(Status.UnknownCommand, status, "Callback should not be called after the first failed get");
+
+            Assert.DoesNotThrow(() => request.Fail(), "Handle request should not throw an exception");
+            Assert.AreEqual(Status.UnknownCommand, status, "Callback should not be called after the second failed get");
+
+            Assert.DoesNotThrow(() => request.HandleResponse(headerOK, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
+            Assert.AreEqual(Status.NoError, status, "Returned status should be NoError after the first successful get");
+            Assert.AreSame(GET_MESSAGE, message, "Sent message and the one returned by the request are different");
+
+        }
+
+        [Test]
+        public void RedundantGetRequestFailTest()
+        {
+            Status status = Status.UnknownCommand;
+
+            var headerFail = new MemcacheResponseHeader { Opcode = Opcode.Get, Status = Status.KeyNotFound };
+
+            // 1. Test redundancy = 3 and all gets are failing, the last on InternalError
+
+            var request = new GetRequest(2) { Key = @"Hello", RequestId = 0, CallBack = (s, m) => status = s, CallBackPolicy = CallBackPolicy.AnyOK };
+
+            var queryBuffer = request.GetQueryBuffer();
+            CollectionAssert.AreEqual(GET_QUERY, queryBuffer, "The get query buffer is different from the expected one");
+
+            Assert.DoesNotThrow(() => request.HandleResponse(headerFail, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
+            Assert.AreEqual(Status.UnknownCommand, status, "Callback should not be called after the first failed get");
+
+            Assert.DoesNotThrow(() => request.HandleResponse(headerFail, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
+            Assert.AreEqual(Status.UnknownCommand, status, "Callback should not be called after the second failed get");
+
+            Assert.DoesNotThrow(() => request.Fail(), "Handle request should not throw an exception");
+            Assert.AreEqual(Status.InternalError, status, "Returned status should be InternalError");
+
+            // 2. Test redundancy = 3 and all gets are failing, the last on KeyNotFound
+
+            request = new GetRequest(2) { Key = @"Hello", RequestId = 0, CallBack = (s, m) => status = s, CallBackPolicy = CallBackPolicy.AnyOK };
+            status = Status.UnknownCommand;
+
+            Assert.DoesNotThrow(() => request.Fail(), "Handle request should not throw an exception");
+            Assert.AreEqual(Status.UnknownCommand, status, "Callback should not be called after the first failed get");
+
+            Assert.DoesNotThrow(() => request.Fail(), "Handle request should not throw an exception");
+            Assert.AreEqual(Status.UnknownCommand, status, "Callback should not be called after the second failed get");
+
+            Assert.DoesNotThrow(() => request.HandleResponse(headerFail, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
+            Assert.AreEqual(Status.KeyNotFound, status, "Returned status should be KeynotFound");
+
+        }
+
     }
 }

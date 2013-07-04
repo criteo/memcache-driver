@@ -2,19 +2,32 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 
 using Criteo.Memcache.Headers;
 using Criteo.Memcache.Exceptions;
 
 namespace Criteo.Memcache.Requests
 {
-    internal class GetRequest : IMemcacheRequest
+    internal class GetRequest : RedundantRequest, IMemcacheRequest
     {
         public string Key { get; set; }
         public Action<Status, byte[]> CallBack { get; set; }
         public uint RequestId { get; set; }
         protected virtual Opcode RequestOpcode { get { return Opcode.Get; } }
         public uint Flag { get; private set; }
+
+        public GetRequest() : base(0) { }
+        public GetRequest(int replicas) : base(replicas) { }
+
+        public void Sent(int sentRequests)
+        {
+            if(CallCallbackOnLastSent(sentRequests) && CallBack != null)
+            {
+                CallBack(Status.InternalError, null);
+            }
+        }
+
 
         public byte[] GetQueryBuffer()
         {
@@ -44,17 +57,20 @@ namespace Criteo.Memcache.Requests
                 if (extra == null || extra.Length == 0)
                     throw new MemcacheException("The get command flag is not present !");
                 else if (extra.Length != 4)
-                    throw new MemcacheException("The get command flag is wrong size !");
+                    throw new MemcacheException("The get command flag is the wrong size !");
                 Flag = extra.CopyToUInt(0);
             }
-            if (CallBack != null)
-                CallBack(header.Status, message);
+
+            Status status = header.Status;
+            if (CallCallback(ref status) && CallBack != null)
+                CallBack(status, message);
         }
 
         public void Fail()
         {
-            if (CallBack != null)
-                CallBack(Status.InternalError, null);
+            Status status = Status.InternalError;
+            if (CallCallback(ref status) && CallBack != null)
+                CallBack(status, null);
         }
 
         public override string ToString()
