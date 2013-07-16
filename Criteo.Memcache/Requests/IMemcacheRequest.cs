@@ -17,7 +17,6 @@ namespace Criteo.Memcache.Requests
         int Replicas { get; }
 
         byte[] GetQueryBuffer();
-        void Sent(int sentRequests);
         void HandleResponse(MemcacheResponseHeader header, string key, byte[] extra, byte[] message);
         void Fail();
     }

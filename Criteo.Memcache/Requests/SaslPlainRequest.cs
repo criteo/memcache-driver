@@ -25,15 +25,13 @@ namespace Criteo.Memcache.Requests
         public int Replicas
         {
             get { return 0; }
-            private set { return; }
+            set { return; }
         }
 
         public string Zone { get; set; }
         public string User { get; set; }
         public string Password { get; set; }
         public Action<Status> Callback { get; set; }
-
-        public void Sent(int sentRequests) { }
 
         public byte[] GetQueryBuffer()
         {

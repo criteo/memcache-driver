@@ -57,7 +57,7 @@ namespace Criteo.Memcache.UTest.Tests
             var locator = new KetamaLocator();
             locator.Initialize(_nodes);
 
-            // Test several keys, and iterate through each key several times (to test redundancy)
+            // Test several keys, and iterate through each key several times
             for (int idx = 0; idx < _nodes.Count; ++idx)
             {
                 var nodeSet = new HashSet<IMemcacheNode>();
@@ -68,10 +68,6 @@ namespace Criteo.Memcache.UTest.Tests
                     Assert.IsNotNull(chosenNode, "KetamaLocator found no node");
                     nodeSet.Add(chosenNode);
                     nodeCount++;
-                    if (nodeCount == _nodes.Count)
-                    {
-                        break;
-                    }
                     Assert.AreEqual(nodeCount, nodeSet.Count, "For a given key, all nodes returned by the locator should be distinct");
                 }
                 Assert.AreEqual(_nodes.Count, nodeCount, "KetamaLocator did not return the maximum number of nodes available");

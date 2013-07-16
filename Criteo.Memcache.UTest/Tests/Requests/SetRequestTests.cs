@@ -87,14 +87,15 @@ namespace Criteo.Memcache.UTest.Tests
         public void RedundantSetRequestTest()
         {
             Status status = Status.UnknownCommand;
-            var request = new SetRequest(1)
+            var request = new SetRequest
             {
                 Key = @"Hello",
                 Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"),
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
                 CallBack = (s) => status = s,
-                CallBackPolicy = CallBackPolicy.AllOK
+                CallBackPolicy = CallBackPolicy.AllOK,
+                Replicas = 1,
             };
 
             var headerOK = new MemcacheResponseHeader { Opcode = Opcode.Set, Status = Status.NoError }; 
@@ -117,14 +118,15 @@ namespace Criteo.Memcache.UTest.Tests
         public void RedundantSetRequestFailTest()
         {
             Status status = Status.UnknownCommand;
-            var request = new SetRequest(1)
+            var request = new SetRequest
             {
                 Key = @"Hello",
                 Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"),
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
                 CallBack = (s) => status = s,
-                CallBackPolicy = CallBackPolicy.AllOK
+                CallBackPolicy = CallBackPolicy.AllOK,
+                Replicas = 1,
             };
 
             var headerOK = new MemcacheResponseHeader { Opcode = Opcode.Set, Status = Status.NoError };
@@ -143,14 +145,15 @@ namespace Criteo.Memcache.UTest.Tests
             // 2. First response is failing, second one is OK
 
             status = Status.UnknownCommand;
-            request = new SetRequest(1)
+            request = new SetRequest
             {
                 Key = @"Hello",
                 Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"),
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
                 CallBack = (s) => status = s,
-                CallBackPolicy = CallBackPolicy.AllOK
+                CallBackPolicy = CallBackPolicy.AllOK,
+                Replicas = 1,
             };
       
             Assert.DoesNotThrow(() => request.HandleResponse(headerFail, null, SET_EXTRA, SET_MESSAGE));

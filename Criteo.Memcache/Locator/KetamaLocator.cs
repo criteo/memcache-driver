@@ -304,19 +304,19 @@ namespace Criteo.Memcache.Locator
         /// <returns></returns>
         public static uint[] CleanRepeatedNodes(List<uint> sortedKeys, Dictionary<uint, IMemcacheNode> keyToServer)
         {
-            int L = sortedKeys.Count;
+            int Length = sortedKeys.Count;
 
-            if (L == 0)
+            if (Length == 0)
             {
                 return new uint[0];
             }
-            
-            Stack<uint> keyStack = new Stack<uint>(L);
+
+            Stack<uint> keyStack = new Stack<uint>(Length);
             uint previousKey = sortedKeys[0];
             IMemcacheNode previousNode = keyToServer[previousKey];
 
             // Traverse the list of keys backwards
-            for (int idx = L - 1; idx >= 0; idx--)
+            for (int idx = Length - 1; idx >= 0; idx--)
             {
                 uint currentKey = sortedKeys[idx];
                 IMemcacheNode currentNode = keyToServer[currentKey];

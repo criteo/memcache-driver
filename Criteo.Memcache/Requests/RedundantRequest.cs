@@ -14,69 +14,56 @@ namespace Criteo.Memcache.Requests
     /// </summary>
     class RedundantRequest
     {
-        private int _receivedAnswers = 0;
-        private bool _ignoreNextResponses = false;
+        private int _receivedResponses = 0;         // Either a fail-to-send, a response from the node, or a transport fail.
+        private int _ignoreNextResponses = 0;       // Integer used as a boolean: 0 --> false, !=0 --> true
 
         public CallBackPolicy CallBackPolicy { get; set; }
-        public int Replicas { get; private set; }
-
-        public RedundantRequest(int replicas)
-        {
-            Replicas = replicas;
-        }
+        public int Replicas { get; set; }
 
         /// <summary>
-        /// This function should be called after the last request has been sent to the nodes. It indicates the total
-        /// nummber of requests actually sent. In the (rare) event when sentRequests is smaller than Replicas+1, and
-        /// HandleReponse() has already been called for all sent requests, this function will call the callback (if
-        /// not already done) with an InternalError status, to finalize the Command.
+        /// This function will return true if the callback associated with the request must be called, and
+        /// false otherwise. It must be called on receiving a response from a node, or failing to receive it.
         /// </summary>
-        /// <param name="sentRequests">nummber of requests actually sent</param>
+        /// <param name="resp_status"></param>
         /// <returns></returns>
-        protected bool CallCallbackOnLastSent(int sentRequests)
+        protected bool CallCallback(Status resp_status)
         {
-            if (sentRequests >= 1)
-            {
-                lock (this)
-                {
-                    if (sentRequests < Replicas + 1 && !_ignoreNextResponses)
-                    {
-                        _ignoreNextResponses = true;
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
+            int receivedResponses = Interlocked.Increment(ref _receivedResponses);
 
-        protected bool CallCallback(ref Status resp_status)
-        {
-            lock (this)
+            if (_ignoreNextResponses != 0)
             {
-                _receivedAnswers++;
-                if (_ignoreNextResponses)
-                {
-                    return false;
-                }
-                if (_receivedAnswers >= Replicas + 1)
-                {
-                    // Last answer has been received. We must call the callback.
-                    _ignoreNextResponses = true;
-                    return true;
-                }
-                switch (CallBackPolicy)
-                {
-                    case CallBackPolicy.AnyOK:
-                        _ignoreNextResponses = (resp_status == Status.NoError);
-                        break;
-                    case CallBackPolicy.AllOK:
-                        _ignoreNextResponses = (resp_status != Status.NoError);
-                        break;
-                    default:
-                        break;
-                }
-                return _ignoreNextResponses;
+                return false;
             }
+
+            // When the last answer is received we must call the callback.
+            if (receivedResponses >= Replicas + 1 &&
+                0 == Interlocked.CompareExchange(ref _ignoreNextResponses, 1, 0))   // If _ignoreNextResponses was 0 (false), then switch it to 1 (true) and return true.
+            {
+                return true;
+            }
+
+            // Otherwise the condition to call the callback depends on the callback policy
+            bool ignoreNextResponses;
+            switch (CallBackPolicy)
+            {
+                case CallBackPolicy.AnyOK:
+                    ignoreNextResponses = (resp_status == Status.NoError);
+                    break;
+                case CallBackPolicy.AllOK:
+                    ignoreNextResponses = (resp_status != Status.NoError);
+                    break;
+                default:
+                    ignoreNextResponses = false;
+                    break;
+            }
+            
+            if (ignoreNextResponses && 
+                0 == Interlocked.CompareExchange(ref _ignoreNextResponses, 1, 0))   // If _ignoreNextResponses was 0 (false), then switch it to 1 (true) and return true.
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 }

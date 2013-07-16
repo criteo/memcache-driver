@@ -16,10 +16,8 @@ namespace Criteo.Memcache.Requests
         public int Replicas
         {
             get { return 0; }
-            private set { return; }
+            set { return; }
         }
-
-        public void Sent(int sentRequests) { }
 
         private Dictionary<string, string> _result = null;
 

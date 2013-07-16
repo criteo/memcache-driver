@@ -85,7 +85,7 @@ namespace Criteo.Memcache.UTest.Tests
 
             // 1. Test redundancy = 3 and all gets are successful
 
-            var request = new GetRequest(2) { Key = @"Hello", RequestId = 0, CallBack = (s, m) => { message = m; status = s; }, CallBackPolicy = CallBackPolicy.AnyOK };
+            var request = new GetRequest { Key = @"Hello", RequestId = 0, CallBack = (s, m) => { message = m; status = s; }, CallBackPolicy = CallBackPolicy.AnyOK, Replicas = 2 };
 
             var queryBuffer = request.GetQueryBuffer();
             CollectionAssert.AreEqual(GET_QUERY, queryBuffer, "The get query buffer is different from the expected one");
@@ -104,7 +104,7 @@ namespace Criteo.Memcache.UTest.Tests
 
             // 2. Test redundancy = 3, the first get is failing
 
-            request = new GetRequest(2) { Key = @"Hello", RequestId = 0, CallBack = (s, m) => { message = m; status = s; }, CallBackPolicy = CallBackPolicy.AnyOK };
+            request = new GetRequest { Key = @"Hello", RequestId = 0, CallBack = (s, m) => { message = m; status = s; }, CallBackPolicy = CallBackPolicy.AnyOK, Replicas = 2 };
             status = Status.UnknownCommand;
 
             Assert.DoesNotThrow(() => request.HandleResponse(headerFail, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
@@ -120,7 +120,7 @@ namespace Criteo.Memcache.UTest.Tests
 
             // 3. Test redundancy = 3, the first and second gets are failing
 
-            request = new GetRequest(2) { Key = @"Hello", RequestId = 0, CallBack = (s, m) => { message = m; status = s; }, CallBackPolicy = CallBackPolicy.AnyOK };
+            request = new GetRequest { Key = @"Hello", RequestId = 0, CallBack = (s, m) => { message = m; status = s; }, CallBackPolicy = CallBackPolicy.AnyOK, Replicas = 2 };
             status = Status.UnknownCommand;
 
             Assert.DoesNotThrow(() => request.HandleResponse(headerFail, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
@@ -144,7 +144,7 @@ namespace Criteo.Memcache.UTest.Tests
 
             // 1. Test redundancy = 3 and all gets are failing, the last on InternalError
 
-            var request = new GetRequest(2) { Key = @"Hello", RequestId = 0, CallBack = (s, m) => status = s, CallBackPolicy = CallBackPolicy.AnyOK };
+            var request = new GetRequest { Key = @"Hello", RequestId = 0, CallBack = (s, m) => status = s, CallBackPolicy = CallBackPolicy.AnyOK, Replicas = 2 };
 
             var queryBuffer = request.GetQueryBuffer();
             CollectionAssert.AreEqual(GET_QUERY, queryBuffer, "The get query buffer is different from the expected one");
@@ -160,7 +160,7 @@ namespace Criteo.Memcache.UTest.Tests
 
             // 2. Test redundancy = 3 and all gets are failing, the last on KeyNotFound
 
-            request = new GetRequest(2) { Key = @"Hello", RequestId = 0, CallBack = (s, m) => status = s, CallBackPolicy = CallBackPolicy.AnyOK };
+            request = new GetRequest { Key = @"Hello", RequestId = 0, CallBack = (s, m) => status = s, CallBackPolicy = CallBackPolicy.AnyOK, Replicas = 2 };
             status = Status.UnknownCommand;
 
             Assert.DoesNotThrow(() => request.Fail(), "Handle request should not throw an exception");

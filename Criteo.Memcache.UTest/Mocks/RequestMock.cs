@@ -17,10 +17,8 @@ namespace Criteo.Memcache.UTest.Mocks
         public int Replicas
         {
             get { return 0; }
-            private set { return; }
+            set { return; }
         }
-
-        public void Sent(int sentRequests) { }
 
         public ManualResetEventSlim Mutex { get; private set; }
 
