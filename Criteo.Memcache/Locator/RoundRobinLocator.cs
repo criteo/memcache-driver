@@ -20,13 +20,17 @@ namespace Criteo.Memcache.Locator
         private int _lastPosition = 0;
         public IEnumerable<IMemcacheNode> Locate(string key)
         {
-            for(int i=0; i<_nodes.Count; ++i)
-            {
-                var position = Interlocked.Increment(ref _lastPosition) % _nodes.Count;
-                position = position >= 0 ? position : position + _nodes.Count;
+            int position = Interlocked.Increment(ref _lastPosition) % _nodes.Count;
+            position = position >= 0 ? position : position + _nodes.Count;
+
+            for(int i = 0; i < _nodes.Count; ++i)
+            {            
                 var selectedNode = _nodes[position];
                 if (!selectedNode.IsDead)
                     yield return selectedNode;
+                position++;
+                if (position >= _nodes.Count)
+                    position = 0; 
             }
         }
     }

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading;
 
 using Criteo.Memcache.Headers;
 
@@ -13,17 +12,6 @@ namespace Criteo.Memcache.Requests
         public string Key { get; set; }
         public uint RequestId { get; set; }
         public Action<Status> CallBack { get; set; }
-
-        public DeleteRequest() : base(0) { }
-        public DeleteRequest(int replicas) : base(replicas) { }
-
-        public void Sent(int sentRequests)
-        {
-            if(CallCallbackOnLastSent(sentRequests) && CallBack != null)
-            {
-                CallBack(Status.InternalError);
-            }
-        }
 
         public byte[] GetQueryBuffer()
         {
@@ -49,16 +37,14 @@ namespace Criteo.Memcache.Requests
         // nothing to do on set response
         public void HandleResponse(MemcacheResponseHeader header, string key, byte[] extra, byte[] message)
         {
-            Status status = header.Status;
-            if (CallCallback(ref status) && CallBack != null)
-                CallBack(status);
+            if (CallCallback(header.Status) && CallBack != null)
+                CallBack(header.Status);
         }
 
         public void Fail()
         {
-            Status status = Status.InternalError;
-            if (CallCallback(ref status) && CallBack != null)
-                CallBack(status);
+            if (CallCallback(Status.InternalError) && CallBack != null)
+                CallBack(Status.InternalError);
         }
 
         public override string ToString()

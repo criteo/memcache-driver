@@ -28,14 +28,18 @@ namespace Criteo.Memcache
     }
 
     /// <summary>
-    /// The policy for redundant requests (ADD/SET/ADD/REPLACE/DELETE) can be:
-    /// AnyOK: Call the callback with an OK status as soon as the first Status.NoError response is received, or with
-    ///        the last failed status if all responses are fails.
-    /// AllOK: Call the callback with an OK status if all responses are OK, or with the first received failed status 
+    /// The callback policy for redundant requests (ADD/SET/ADD/REPLACE/DELETE).
     /// </summary>
     public enum CallBackPolicy
     {
+        /// <summary>
+        /// Call the callback with an OK status as soon as the first Status.NoError response is received, or with
+        /// the last failed status if all responses are fails.
+        /// </summary>
         AnyOK,
+        /// <summary>
+        /// Call the callback with an OK status if all responses are OK, or with the first received failed status
+        /// </summary>
         AllOK,
     };
 
@@ -120,32 +124,48 @@ namespace Criteo.Memcache
         }
 
         /// <summary>
-        /// Sends a request with the policy defined with the configuration object, to multiple nodes if necessary
-        /// according to the redundancy setting in the request.
+        /// Sends a request with the policy defined with the configuration object, to multiple nodes if the replicas setting
+        /// is different from zero.
         /// </summary>
         /// <param name="request">A memcache request derived from RedundantRequest</param>
-        /// <returns>False if the request could not be sent to any node. In that case, the callback will not be called.</returns>
+        /// <returns>
+        /// True if the request was sent to at least one node. The caller will receive a callback (if not null).
+        /// False if the request could not be sent to any node. In that case, the callback will not be called.
+        /// </returns>
         protected bool SendRequest(IMemcacheRequest request)
         {
-            int countSentRequests = 0;
-            bool returnStatus = false;
+            int countTrySends = 0; 
+            int countTrySendsOK = 0;
 
             foreach (var node in _locator.Locate(request.Key))
-            {
+            {           
+                countTrySends++;
                 if (node.TrySend(request, _configuration.QueueTimeout))
                 {
-                    returnStatus = true;
-                    countSentRequests++;
-                    if (countSentRequests > request.Replicas)
-                    {
-                        break;
-                    }
+                    countTrySendsOK++;
+                }
+
+                // Break after trying to send the request to replicas+1 nodes
+                if (countTrySends > request.Replicas)
+                {
+                    break;
                 }
             }
 
-            request.Sent(countSentRequests);
-
-            return returnStatus;
+            if (countTrySendsOK == 0)
+            {
+                // The callback will not be called
+                return false;
+            }
+            else
+            {
+                // Call Fail() on the request as many times as node.TrySend returned false
+                for (; countTrySendsOK < countTrySends; countTrySendsOK++)
+                {
+                    request.Fail();
+                }
+                return true;
+            }
         }
 
         /// <summary>
@@ -194,11 +214,11 @@ namespace Criteo.Memcache
             switch (mode)
             {
                 case StoreMode.Set:
-                    return SendRequest(new SetRequest(_configuration.Replicas) { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy });
+                    return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy, Replicas = _configuration.Replicas });
                 case StoreMode.Replace:
-                    return SendRequest(new SetRequest(_configuration.Replicas) { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy, Code = Opcode.Replace });
+                    return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy, Replicas = _configuration.Replicas, Code = Opcode.Replace });
                 case StoreMode.Add:
-                    return SendRequest(new SetRequest(_configuration.Replicas) { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy, Code = Opcode.Add });
+                    return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy, Replicas = _configuration.Replicas, Code = Opcode.Add });
                 default:
                     return false;
             }
@@ -212,7 +232,7 @@ namespace Criteo.Memcache
         /// <returns></returns>
         public bool Get(string key, Action<Status, byte[]> callback, CallBackPolicy callbackPolicy = CallBackPolicy.AnyOK)
         {
-            return SendRequest(new GetRequest(_configuration.Replicas) { Key = key, CallBack = callback, CallBackPolicy = callbackPolicy, RequestId = NextRequestId });
+            return SendRequest(new GetRequest { Key = key, CallBack = callback, CallBackPolicy = callbackPolicy, RequestId = NextRequestId, Replicas = _configuration.Replicas });
         }
 
         /// <summary>
@@ -223,7 +243,7 @@ namespace Criteo.Memcache
         /// <returns></returns>
         public bool Delete(string key, Action<Status> callback, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
         {
-            return SendRequest(new DeleteRequest(_configuration.Replicas) { Key = key, CallBack = callback, CallBackPolicy = callbackPolicy, RequestId = NextRequestId });
+            return SendRequest(new DeleteRequest { Key = key, CallBack = callback, CallBackPolicy = callbackPolicy, RequestId = NextRequestId, Replicas = _configuration.Replicas });
         }
 
         /// <summary>
