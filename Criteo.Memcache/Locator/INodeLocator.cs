@@ -19,6 +19,6 @@ namespace Criteo.Memcache.Locator
         /// </summary>
         /// <param name="key"></param>
         /// <returns></returns>
-        IEnumerable<IMemcacheNode> Locate(string key);
+        IMemcacheNode Locate(string key);
     }
 }

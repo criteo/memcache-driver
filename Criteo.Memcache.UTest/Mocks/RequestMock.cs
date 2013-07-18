@@ -14,12 +14,6 @@ namespace Criteo.Memcache.UTest.Mocks
         public uint RequestId { get; set; }
         public string Key { get; set; }
 
-        public int Replicas
-        {
-            get { return 0; }
-            set { return; }
-        }
-
         public ManualResetEventSlim Mutex { get; private set; }
 
         public byte[] QueryBuffer { get; set; }

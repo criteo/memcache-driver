@@ -7,7 +7,7 @@ using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.Requests
 {
-    class SetRequest : RedundantRequest, IMemcacheRequest
+    class SetRequest : IMemcacheRequest
     {
         static private DateTime Epock = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         private const uint RawDataFlag = 0xfa52;
@@ -57,18 +57,18 @@ namespace Criteo.Memcache.Requests
                 Message.CopyTo(buffer, 32 + keyAsBytes.Length);
 
             return buffer;
-        }
+        } 
 
         // nothing to do on set response
         public void HandleResponse(MemcacheResponseHeader header, string key, byte[] extra, byte[] message)
         {
-            if (CallCallback(header.Status) && CallBack != null)
+            if (CallBack != null)
                 CallBack(header.Status);
         }
 
         public void Fail()
         {
-            if (CallCallback(Status.InternalError) && CallBack != null)
+            if (CallBack != null)
                 CallBack(Status.InternalError);
         }
 

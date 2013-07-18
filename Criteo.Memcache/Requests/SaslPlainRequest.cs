@@ -22,12 +22,6 @@ namespace Criteo.Memcache.Requests
             set { return; }
         }
 
-        public int Replicas
-        {
-            get { return 0; }
-            set { return; }
-        }
-
         public string Zone { get; set; }
         public string User { get; set; }
         public string Password { get; set; }

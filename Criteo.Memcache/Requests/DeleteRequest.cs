@@ -7,7 +7,7 @@ using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.Requests
 {
-    class DeleteRequest : RedundantRequest, IMemcacheRequest
+    class DeleteRequest : IMemcacheRequest
     {
         public string Key { get; set; }
         public uint RequestId { get; set; }
@@ -37,13 +37,13 @@ namespace Criteo.Memcache.Requests
         // nothing to do on set response
         public void HandleResponse(MemcacheResponseHeader header, string key, byte[] extra, byte[] message)
         {
-            if (CallCallback(header.Status) && CallBack != null)
+            if (CallBack != null)
                 CallBack(header.Status);
         }
 
         public void Fail()
         {
-            if (CallCallback(Status.InternalError) && CallBack != null)
+            if (CallBack != null)
                 CallBack(Status.InternalError);
         }
 

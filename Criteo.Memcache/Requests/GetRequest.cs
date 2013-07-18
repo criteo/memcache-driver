@@ -8,7 +8,7 @@ using Criteo.Memcache.Exceptions;
 
 namespace Criteo.Memcache.Requests
 {
-    internal class GetRequest : RedundantRequest, IMemcacheRequest
+    internal class GetRequest : IMemcacheRequest
     {
         public string Key { get; set; }
         public Action<Status, byte[]> CallBack { get; set; }
@@ -44,17 +44,16 @@ namespace Criteo.Memcache.Requests
                 if (extra == null || extra.Length == 0)
                     throw new MemcacheException("The get command flag is not present !");
                 else if (extra.Length != 4)
-                    throw new MemcacheException("The get command flag is the wrong size !");
+                    throw new MemcacheException("The get command flag is wrong size !");
                 Flag = extra.CopyToUInt(0);
             }
-
-            if (CallCallback(header.Status) && CallBack != null)
+            if (CallBack != null)
                 CallBack(header.Status, message);
         }
 
         public void Fail()
         {
-            if (CallCallback(Status.InternalError) && CallBack != null)
+            if (CallBack != null)
                 CallBack(Status.InternalError, null);
         }
 

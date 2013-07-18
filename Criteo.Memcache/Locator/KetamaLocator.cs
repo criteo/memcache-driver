@@ -1,5 +1,4 @@
 ﻿using System;
-using System.IO;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Linq;
@@ -136,7 +135,7 @@ namespace Criteo.Memcache.Locator
                 return hash.Value.ComputeHash(keyData).CopyToUIntNoRevert(0);
         }
 
-        public IEnumerable<IMemcacheNode> Locate(string key)
+        public IMemcacheNode Locate(string key)
         {
             if (key == null) throw new ArgumentNullException("key");
 
@@ -144,91 +143,42 @@ namespace Criteo.Memcache.Locator
 
             switch (ld.nodes.Length)
             {
-                case 0: 
-                    yield break;
-                case 1: 
-                    var first_node = ld.nodes[0]; 
-                    if(!first_node.IsDead)
-                        yield return first_node;
-                    yield break;
+                case 0: return null;
+                case 1: var tmp = ld.nodes[0]; return tmp.IsDead ? null : tmp;
             }
 
-            // Return alive nodes only.
-            foreach(var ret_node in LocateNode(ld, this.GetKeyHash(key)))
-            {
-                if (ret_node != null && !ret_node.IsDead)
-                {
-                    yield return ret_node;
-                }
-            }
+            var retval = LocateNode(ld, this.GetKeyHash(key));
+
+            return retval.IsDead ? null : retval;
         }
 
-        /// <summary>
-        /// Enumerate server nodes in the order they appear in the consistent hashing table.
-        /// </summary>
-        /// <param name="ld">Consistent hashing lookup table</param>
-        /// <param name="itemKeyHash">Hash key used to identify the first server node to be returned by the function</param>
-        /// <returns></returns>
-        private static IEnumerable<IMemcacheNode> LocateNode(LookupData ld, uint itemKeyHash)
+        private static IMemcacheNode LocateNode(LookupData ld, uint itemKeyHash)
         {
             // get the index of the server assigned to this hash
-            int foundIndex = Array.BinarySearch<uint>(ld.sortedKeys, itemKeyHash);
-            IMemcacheNode node1 = null;
-            IMemcacheNode node2 = null;
-            HashSet<IMemcacheNode> usedNodes = null;
+            int foundIndex = Array.BinarySearch<uint>(ld.keys, itemKeyHash);
 
             // no exact match
             if (foundIndex < 0)
             {
-                // this is the next greater index in the list
+                // this is the nearest server in the list
                 foundIndex = ~foundIndex;
 
-                if (foundIndex >= ld.sortedKeys.Length)
+                if (foundIndex == 0)
+                {
+                    // it's smaller than everything, so use the last server (with the highest key)
+                    foundIndex = ld.keys.Length - 1;
+                }
+                else if (foundIndex >= ld.keys.Length)
                 {
                     // the key was larger than all server keys, so return the first server
                     foundIndex = 0;
                 }
             }
 
-            // Paranoid check
-            if (foundIndex < 0 || foundIndex >= ld.sortedKeys.Length)
-                yield break;
-
-            // Return distinct nodes. Exit after a complete loop over the keys.
-            int startingIndex = foundIndex;
-            do
-            {
-                IMemcacheNode node = ld.keyToServer[ld.sortedKeys[foundIndex]];
-                if (node1 == null)
-                {
-                    node1 = node;
-                    yield return node1;
-                }
-                else if (node2 == null)
-                {
-                    // Because the list of keys is filtered with function CleanRepeatedNodes, we have node2 != node1
-                    node2 = node;
-                    yield return node2;
-                }
-                else
-                {
-                    if (usedNodes == null)
-                    {
-                        usedNodes = new HashSet<IMemcacheNode>() { node1, node2 };
-                    }
-                    if (!usedNodes.Contains(node))
-                    {
-                        usedNodes.Add(node);
-                        yield return node;
-                    }
-                }
-                
-                foundIndex++;
-                if (foundIndex >= ld.sortedKeys.Length)
-                {
-                    foundIndex = 0;
-                }
-            } while (foundIndex != startingIndex);
+            if (foundIndex < 0 || foundIndex > ld.keys.Length)
+                return null;
+            
+            return ld.keyToServer[ld.keys[foundIndex]];
         }
 
         /// <summary>
@@ -237,10 +187,9 @@ namespace Criteo.Memcache.Locator
         /// </summary>
         private class LookupData
         {
-            // holds all server nodes. Order and size of this array is not consistent with array sortedKeys.
             public IMemcacheNode[] nodes;
             // holds all server keys for mapping an item key to the server consistently
-            public uint[] sortedKeys;
+            public uint[] keys;
             // used to lookup a server based on its key
             public Dictionary<uint, IMemcacheNode> keyToServer;
 
@@ -277,10 +226,11 @@ namespace Criteo.Memcache.Locator
                 }
                 keys.Sort();
 
-                this.sortedKeys = CleanRepeatedNodes(keys, keyToServer);
+                this.keys = keys.ToArray();
                 this.nodes = nodes.ToArray();
             }
         }
+
         /// <summary>
         /// A fast comparer for dictionaries indexed by UInt. Faster than using Comparer.Default
         /// </summary>
@@ -295,46 +245,6 @@ namespace Criteo.Memcache.Locator
             {
                 return value.GetHashCode();
             }
-        }
-
-        /// <summary>
-        /// This function gets rid of successive keys that reference the same node.
-        /// This is a slight performance improvement for the LocateNode function.
-        /// </summary>
-        /// <returns></returns>
-        public static uint[] CleanRepeatedNodes(List<uint> sortedKeys, Dictionary<uint, IMemcacheNode> keyToServer)
-        {
-            int Length = sortedKeys.Count;
-
-            if (Length == 0)
-            {
-                return new uint[0];
-            }
-
-            Stack<uint> keyStack = new Stack<uint>(Length);
-            uint previousKey = sortedKeys[0];
-            IMemcacheNode previousNode = keyToServer[previousKey];
-
-            // Traverse the list of keys backwards
-            for (int idx = Length - 1; idx >= 0; idx--)
-            {
-                uint currentKey = sortedKeys[idx];
-                IMemcacheNode currentNode = keyToServer[currentKey];
-                if (currentNode != previousNode)
-                {
-                    keyStack.Push(currentKey);
-                    previousNode = currentNode;
-                }
-                previousKey = currentKey;
-            }
-
-            // Treat the case where all keys point to the same node
-            if (keyStack.Count == 0)
-            {
-                keyStack.Push(sortedKeys[0]);
-            }
-
-            return keyStack.ToArray();
         }
     }
 }

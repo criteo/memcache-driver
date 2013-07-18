@@ -28,22 +28,6 @@ namespace Criteo.Memcache
     }
 
     /// <summary>
-    /// The callback policy for redundant requests (ADD/SET/ADD/REPLACE/DELETE).
-    /// </summary>
-    public enum CallBackPolicy
-    {
-        /// <summary>
-        /// Call the callback with an OK status as soon as the first Status.NoError response is received, or with
-        /// the last failed status if all responses are fails.
-        /// </summary>
-        AnyOK,
-        /// <summary>
-        /// Call the callback with an OK status if all responses are OK, or with the first received failed status
-        /// </summary>
-        AllOK,
-    };
-
-    /// <summary>
     /// The main class of the library
     /// </summary>
     public class MemcacheClient : IDisposable
@@ -124,48 +108,18 @@ namespace Criteo.Memcache
         }
 
         /// <summary>
-        /// Sends a request with the policy defined with the configuration object, to multiple nodes if the replicas setting
-        /// is different from zero.
+        /// Sends a request with the policy defined with the configuration object
         /// </summary>
-        /// <param name="request">A memcache request derived from RedundantRequest</param>
-        /// <returns>
-        /// True if the request was sent to at least one node. The caller will receive a callback (if not null).
-        /// False if the request could not be sent to any node. In that case, the callback will not be called.
-        /// </returns>
+        /// <param name="request" />
+        /// <returns>False if the request synchronously failed</returns>
         protected bool SendRequest(IMemcacheRequest request)
         {
-            int countTrySends = 0; 
-            int countTrySendsOK = 0;
+            var node = _locator.Locate(request.Key);
 
-            foreach (var node in _locator.Locate(request.Key))
-            {           
-                countTrySends++;
-                if (node.TrySend(request, _configuration.QueueTimeout))
-                {
-                    countTrySendsOK++;
-                }
-
-                // Break after trying to send the request to replicas+1 nodes
-                if (countTrySends > request.Replicas)
-                {
-                    break;
-                }
-            }
-
-            if (countTrySendsOK == 0)
-            {
-                // The callback will not be called
+            if (node == null)
                 return false;
-            }
-            else
-            {
-                // Call Fail() on the request as many times as node.TrySend returned false
-                for (; countTrySendsOK < countTrySends; countTrySendsOK++)
-                {
-                    request.Fail();
-                }
-                return true;
-            }
+
+            return node.TrySend(request, _configuration.QueueTimeout);
         }
 
         /// <summary>
@@ -176,9 +130,9 @@ namespace Criteo.Memcache
         /// <param name="expiration" />
         /// <param name="callback">Will be called after the memcached respond</param>
         /// <returns></returns>
-        public bool Set(string key, byte[] message, TimeSpan expiration, Action<Status> callback = null, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
+        public bool Set(string key, byte[] message, TimeSpan expiration, Action<Status> callback = null)
         {
-            return Store(StoreMode.Set, key, message, expiration, callback, callbackPolicy);
+            return Store(StoreMode.Set, key, message, expiration, callback);
         }
 
         /// <summary>
@@ -190,9 +144,9 @@ namespace Criteo.Memcache
         /// <param name="expiration" />
         /// <param name="callback">Will be called after the memcached respond</param>
         /// <returns></returns>
-        public bool Update(string key, byte[] message, TimeSpan expiration, Action<Status> callback = null, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
+        public bool Update(string key, byte[] message, TimeSpan expiration, Action<Status> callback = null)
         {
-            return Store(StoreMode.Replace, key, message, expiration, callback, callbackPolicy);
+            return Store(StoreMode.Replace, key, message, expiration, callback);
         }
 
         /// <summary>
@@ -204,21 +158,21 @@ namespace Criteo.Memcache
         /// <param name="expiration" />
         /// <param name="callback">Will be called after the memcached respond</param>
         /// <returns></returns>
-        public bool Add(string key, byte[] message, TimeSpan expiration, Action<Status> callback = null, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
+        public bool Add(string key, byte[] message, TimeSpan expiration, Action<Status> callback = null)
         {
-            return Store(StoreMode.Add, key, message, expiration, callback, callbackPolicy);
+            return Store(StoreMode.Add, key, message, expiration, callback);
         }
 
-        public bool Store(StoreMode mode, string key, byte[] message, TimeSpan expiration, Action<Status> callback = null, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
+        public bool Store(StoreMode mode, string key, byte[] message, TimeSpan expiration, Action<Status> callback = null)
         {
             switch (mode)
             {
                 case StoreMode.Set:
-                    return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy, Replicas = _configuration.Replicas });
+                    return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback });
                 case StoreMode.Replace:
-                    return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy, Replicas = _configuration.Replicas, Code = Opcode.Replace });
+                    return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, Code = Opcode.Replace});
                 case StoreMode.Add:
-                    return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy, Replicas = _configuration.Replicas, Code = Opcode.Add });
+                    return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, Code = Opcode.Add });
                 default:
                     return false;
             }
@@ -230,9 +184,9 @@ namespace Criteo.Memcache
         /// <param name="key" />
         /// <param name="callback">Will be called after the memcached respond</param>
         /// <returns></returns>
-        public bool Get(string key, Action<Status, byte[]> callback, CallBackPolicy callbackPolicy = CallBackPolicy.AnyOK)
+        public bool Get(string key, Action<Status, byte[]> callback)
         {
-            return SendRequest(new GetRequest { Key = key, CallBack = callback, CallBackPolicy = callbackPolicy, RequestId = NextRequestId, Replicas = _configuration.Replicas });
+            return SendRequest(new GetRequest { Key = key, CallBack = callback, RequestId = NextRequestId });
         }
 
         /// <summary>
@@ -241,9 +195,9 @@ namespace Criteo.Memcache
         /// <param name="key" />
         /// <param name="callback">Will be called after the memcached respond</param>
         /// <returns></returns>
-        public bool Delete(string key, Action<Status> callback, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
+        public bool Delete(string key, Action<Status> callback)
         {
-            return SendRequest(new DeleteRequest { Key = key, CallBack = callback, CallBackPolicy = callbackPolicy, RequestId = NextRequestId, Replicas = _configuration.Replicas });
+            return SendRequest(new DeleteRequest { Key = key, CallBack = callback, RequestId = NextRequestId });
         }
 
         /// <summary>

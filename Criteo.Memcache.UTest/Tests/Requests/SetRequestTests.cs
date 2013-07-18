@@ -46,13 +46,12 @@ namespace Criteo.Memcache.UTest.Tests
                 RequestId = 0, 
                 Expire = TimeSpan.FromHours(1),
                 CallBack = (s) => status = s,
-                CallBackPolicy = CallBackPolicy.AllOK
             };
 
             Assert.AreEqual(Opcode.Set, request.Code);
 
             var queryBuffer = request.GetQueryBuffer();
-            CollectionAssert.AreEqual(SET_QUERY, queryBuffer, "The set query buffer is different from the expected one");
+            CollectionAssert.AreEqual(SET_QUERY, queryBuffer, "The set query buffer is different of the expected one");
 
             var header = new MemcacheResponseHeader { Opcode = Opcode.Set, Status = Status.NoError };
             Assert.DoesNotThrow(() => request.HandleResponse(header, null, SET_EXTRA, SET_MESSAGE));
@@ -70,98 +69,13 @@ namespace Criteo.Memcache.UTest.Tests
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
                 CallBack = (s) => status = s,
-                CallBackPolicy = CallBackPolicy.AllOK
             };
 
             var queryBuffer = request.GetQueryBuffer();
-            CollectionAssert.AreEqual(SET_QUERY, queryBuffer, "The set query buffer is different from the expected one");
+            CollectionAssert.AreEqual(SET_QUERY, queryBuffer, "The set query buffer is different of the expected one");
 
             Assert.DoesNotThrow(() => request.Fail());
             Assert.AreEqual(Status.InternalError, status, "The status sent by a fail should be InternalError");
         }
-
-        /// <summary>
-        /// Test Set request with redundancy = 2
-        /// </summary>
-        [Test]
-        public void RedundantSetRequestTest()
-        {
-            Status status = Status.UnknownCommand;
-            var request = new SetRequest
-            {
-                Key = @"Hello",
-                Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"),
-                RequestId = 0,
-                Expire = TimeSpan.FromHours(1),
-                CallBack = (s) => status = s,
-                CallBackPolicy = CallBackPolicy.AllOK,
-                Replicas = 1,
-            };
-
-            var headerOK = new MemcacheResponseHeader { Opcode = Opcode.Set, Status = Status.NoError }; 
-            
-            Assert.AreEqual(Opcode.Set, request.Code);
-
-            var queryBuffer = request.GetQueryBuffer();
-            CollectionAssert.AreEqual(SET_QUERY, queryBuffer, "The set query buffer is different from the expected one");
-
-            Assert.DoesNotThrow(() => request.HandleResponse(headerOK, null, SET_EXTRA, SET_MESSAGE));
-            Assert.AreEqual(Status.UnknownCommand, status, "Callback should not be called on the first OK response");
-            Assert.DoesNotThrow(() => request.HandleResponse(headerOK, null, SET_EXTRA, SET_MESSAGE)); 
-            Assert.AreEqual(Status.NoError, status, "Callback should be called with status OK");
-        }
-
-        /// <summary>
-        /// Test Set request with redundancy = 2
-        /// </summary>
-        [Test]
-        public void RedundantSetRequestFailTest()
-        {
-            Status status = Status.UnknownCommand;
-            var request = new SetRequest
-            {
-                Key = @"Hello",
-                Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"),
-                RequestId = 0,
-                Expire = TimeSpan.FromHours(1),
-                CallBack = (s) => status = s,
-                CallBackPolicy = CallBackPolicy.AllOK,
-                Replicas = 1,
-            };
-
-            var headerOK = new MemcacheResponseHeader { Opcode = Opcode.Set, Status = Status.NoError };
-            var headerFail = new MemcacheResponseHeader { Opcode = Opcode.Set, Status = Status.OutOfMemory };
-
-            var queryBuffer = request.GetQueryBuffer();
-            CollectionAssert.AreEqual(SET_QUERY, queryBuffer, "The set query buffer is different from the expected one");
-
-            // 1. First reponse is OK, second is failing
-
-            Assert.DoesNotThrow(() => request.HandleResponse(headerOK, null, SET_EXTRA, SET_MESSAGE));
-            Assert.AreEqual(Status.UnknownCommand, status, "Callback should not be called on the first OK response");
-            Assert.DoesNotThrow(() => request.Fail());
-            Assert.AreEqual(Status.InternalError, status, "The status sent by a fail should be InternalError");
-
-            // 2. First response is failing, second one is OK
-
-            status = Status.UnknownCommand;
-            request = new SetRequest
-            {
-                Key = @"Hello",
-                Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"),
-                RequestId = 0,
-                Expire = TimeSpan.FromHours(1),
-                CallBack = (s) => status = s,
-                CallBackPolicy = CallBackPolicy.AllOK,
-                Replicas = 1,
-            };
-      
-            Assert.DoesNotThrow(() => request.HandleResponse(headerFail, null, SET_EXTRA, SET_MESSAGE));
-            Assert.AreEqual(Status.OutOfMemory, status, "Callback should be called on the first failed response");
-            status = Status.UnknownCommand;
-            Assert.DoesNotThrow(() => request.HandleResponse(headerOK, null, SET_EXTRA, SET_MESSAGE));
-            Assert.AreEqual(Status.UnknownCommand, status, "Callback should not be called on the responses following a fail");
-        }
-
     }
 }
