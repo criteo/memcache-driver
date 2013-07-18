@@ -44,7 +44,6 @@ namespace Criteo.Memcache.Node
         {
             add
             {
-
                 foreach (var transport in _transportList)
                     transport.MemcacheError += value;
             }

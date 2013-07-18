@@ -361,7 +361,7 @@ namespace Criteo.Memcache.Transport
             try
             {
                 // if the socket has been disposed, don't raise an error
-                if (args.SocketError == SocketError.OperationAborted)
+                if (args.SocketError == SocketError.OperationAborted || args.SocketError == SocketError.ConnectionAborted)
                     return;
                 if (args.SocketError != SocketError.Success)
                     throw new SocketException((int)args.SocketError);
@@ -491,25 +491,12 @@ namespace Criteo.Memcache.Transport
                             break;
                         case Status.StepRequired:
                             if (request == null)
-                            {
-                                if (_transportError != null)
-                                    _transportError(new AuthenticationException("Unable to authenticate : step required but no request from token"));
-                                Reset(_socket);
-                                return false;
-                            }
+                                throw new AuthenticationException("Unable to authenticate : step required but no request from token");
                             if (!SendRequest(request))
-                            {
-                                if (_transportError != null)
-                                    _transportError(new AuthenticationException("Unable to authenticate : unable to send authentication request"));
-                                Reset(_socket);
-                                return false;
-                            }
+                                throw new AuthenticationException("Unable to authenticate : unable to send authentication request");
                             break;
                         default:
-                            if (_transportError != null)
-                                _transportError(new AuthenticationException("Unable to authenticate : status " + authStatus.ToString()));
-                            Reset(_socket);
-                            return false;
+                            throw new AuthenticationException("Unable to authenticate : status " + authStatus.ToString());
                     }
                 }
             }
