@@ -19,8 +19,6 @@ namespace Criteo.Memcache.UTest.Mocks
         public MemcacheResponseHeader ResponseHeader { private get; set; }
         public byte[] ResponseBody { private get; set; }
 
-        private SocketAsyncEventArgs _acceptEventArgs;
-
         /// <summary>
         /// Start and listen ongoing TCP connections
         /// </summary>
@@ -30,10 +28,16 @@ namespace Criteo.Memcache.UTest.Mocks
             _socket = new Socket(endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             _socket.Bind(endPoint);
             _socket.Listen((int)SocketOptionName.MaxConnections);
-            _acceptEventArgs = new SocketAsyncEventArgs();
-            _acceptEventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnAccept);
-            if (!_socket.AcceptAsync(_acceptEventArgs))
+            var acceptEventArgs = GetAcceptEventArgs();
+            if (!_socket.AcceptAsync(acceptEventArgs))
                 throw new Exception("Unable to listen on port " + endPoint.Port);
+        }
+
+        private SocketAsyncEventArgs GetAcceptEventArgs()
+        {
+            var acceptEventArgs = new SocketAsyncEventArgs();
+            acceptEventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnAccept);
+            return acceptEventArgs;
         }
 
         /// <summary>
@@ -53,7 +57,10 @@ namespace Criteo.Memcache.UTest.Mocks
             eventArg.Completed += new EventHandler<SocketAsyncEventArgs>(OnReceive);
             acceptedSocket.ReceiveAsync(eventArg);
 
-            //socket.AcceptAsync(e);
+
+            var acceptEventArgs = GetAcceptEventArgs();
+            if (!_socket.AcceptAsync(e))
+                throw new Exception("Unable to accept further connections");
         }
 
         /// <summary>

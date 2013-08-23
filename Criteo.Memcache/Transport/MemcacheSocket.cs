@@ -69,8 +69,8 @@ namespace Criteo.Memcache.Transport
         private readonly Action<MemcacheSocket> _setupAction;
         private readonly Timer _reconnectTimer;
 
-        private bool _disposed = false;
-        private bool _initialized = false;
+        private volatile bool _disposed = false;
+        private volatile bool _initialized = false;
         private BlockingCollection<IMemcacheRequest> _pendingRequests;
         private ConcurrentQueue<IMemcacheRequest> _pendingQueue;
         private Socket _socket;
@@ -275,6 +275,7 @@ namespace Criteo.Memcache.Transport
 
                 if (result.RequestId != header.Opaque)
                 {
+                    result.Fail();
                     throw new MemcacheException("Received a response that doesn't match with the sent request queue : sent " + result.ToString() + " received " + header.ToString());
                 }
             }
@@ -318,7 +319,8 @@ namespace Criteo.Memcache.Transport
                         if (_transportError != null)
                             _transportError(e);
 
-                        Reset(socket);
+                        socket.Disconnect(false);
+                        //Reset(socket);
                     }
                 }
             }
@@ -350,7 +352,8 @@ namespace Criteo.Memcache.Transport
                 {
                     if (_transportError != null)
                         _transportError(e);
-                    Reset(socket);
+                    socket.Disconnect(false);
+                    //Reset(socket);
                 }
             }
         }
@@ -387,7 +390,8 @@ namespace Criteo.Memcache.Transport
                 {
                     if (_transportError != null)
                         _transportError(e);
-                    Reset(socket);
+                    socket.Disconnect(false);
+                    //Reset(socket);
                 }
             }
         }
@@ -506,8 +510,11 @@ namespace Criteo.Memcache.Transport
 
         private void TryReconnect(object dummy)
         {
-            if (Initialize() && _setupAction != null)
-                _setupAction(this);
+            lock (this)
+            {
+                if (Initialize() && _setupAction != null)
+                    _setupAction(this);
+            }
         }
 
         private bool SendRequest(IMemcacheRequest request)

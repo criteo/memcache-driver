@@ -131,41 +131,44 @@ namespace Criteo.Memcache.Node
                 while (_tokenSource != null && !_tokenSource.IsCancellationRequested
                     && _transportPool.TryTake(out transport, timeout, _tokenSource.Token))
                 {
-                    bool sent = false;
-                    try
+                    lock (transport)
                     {
-                        sent = transport.TrySend(request);
-                    }
-                    catch(Exception)
-                    {
-                        // if anything happen, don't let a transport outside of the pool
-                        _transportPool.Add(transport);
-                        throw;
-                    }
-
-                    if (sent)
-                    {
-                        // the transport sent the message, return it in the pool
-                        _transportPool.Add(transport);
-                        return true;
-                    }
-                    else
-                    {
-                        // TODO : don't flag as dead right now, start a timer to check if all transport are dead for more than configuration.DeadTimeout seconds
-
-                        // the current transport is not working
-                        Interlocked.Decrement(ref _workingTransport);
-
-                        // let the transport plan to add it in the pool when it will be up again
-                        transport.PlanSetup();
-
-                        // no more transport ? it's dead ! (don't flag dead before PlanSetup, it can synchronously increment _workingTransport)
-                        if (0 == _workingTransport)
+                        bool sent = false;
+                        try
                         {
-                            _isAlive = false;
-                            _tokenSource.Cancel();
-                            if (NodeDead != null)
-                                NodeDead(this);
+                            sent = transport.TrySend(request);
+                        }
+                        catch (Exception)
+                        {
+                            // if anything happen, don't let a transport outside of the pool
+                            _transportPool.Add(transport);
+                            throw;
+                        }
+
+                        if (sent)
+                        {
+                            // the transport sent the message, return it in the pool
+                            _transportPool.Add(transport);
+                            return true;
+                        }
+                        else
+                        {
+                            // TODO : don't flag as dead right now, start a timer to check if all transport are dead for more than configuration.DeadTimeout seconds
+
+                            // the current transport is not working
+                            Interlocked.Decrement(ref _workingTransport);
+
+                            // let the transport plan to add it in the pool when it will be up again
+                            transport.PlanSetup();
+
+                            // no more transport ? it's dead ! (don't flag dead before PlanSetup, it can synchronously increment _workingTransport)
+                            if (0 == _workingTransport)
+                            {
+                                _isAlive = false;
+                                _tokenSource.Cancel();
+                                if (NodeDead != null)
+                                    NodeDead(this);
+                            }
                         }
                     }
                 }
@@ -184,5 +187,8 @@ namespace Criteo.Memcache.Node
             foreach(var transport in _transportList)
                 transport.Dispose();
         }
+
+        // for testing purpose only !!!
+        internal int PoolSize { get { return _transportPool.Count; } }
     }
 }

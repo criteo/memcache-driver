@@ -32,7 +32,6 @@ namespace Criteo.Memcache.UTest.Tests
 
         public void MemcacheSocketSynchronousTest(Func<IMemcacheTransport> transportFactory, IPEndPoint endPoint)
         {
-
             using (var serverMock = new ServerMock(endPoint))
             {
                 // random header
