@@ -59,7 +59,7 @@ namespace Criteo.Memcache.UTest.Mocks
 
 
             var acceptEventArgs = GetAcceptEventArgs();
-            if (!_socket.AcceptAsync(e))
+            if (!_socket.AcceptAsync(acceptEventArgs))
                 throw new Exception("Unable to accept further connections");
         }
 

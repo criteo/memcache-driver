@@ -20,14 +20,14 @@ namespace Criteo.Memcache.UTest.Tests
         public void MemcacheTransportSynchronousThreadedTest()
         {
             var endPoint = new IPEndPoint(LOCALHOST, 11213);
-            MemcacheSocketSynchronousTest(() => new MemcacheSocket(endPoint, null, 0, 0, _ => { }, true), endPoint);
+            MemcacheSocketSynchronousTest(() => new MemcacheSocket(endPoint, null, 0, 0, _ => { }, true, false), endPoint);
         }
 
         [Test]
         public void MemcacheTransportSynchronousAsyncTest()
         {
             var endPoint = new IPEndPoint(LOCALHOST, 11214);
-            MemcacheSocketSynchronousTest(() => new MemcacheSocket(endPoint, null, 0, 0, _ => { }, false), endPoint);
+            MemcacheSocketSynchronousTest(() => new MemcacheSocket(endPoint, null, 0, 0, _ => { }, false, false), endPoint);
         }
 
         public void MemcacheSocketSynchronousTest(Func<IMemcacheTransport> transportFactory, IPEndPoint endPoint)

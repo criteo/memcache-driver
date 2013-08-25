@@ -38,5 +38,7 @@ namespace Criteo.Memcache.Transport
         /// (used to put it back in a pool after a failure)
         /// </summary>
         void PlanSetup();
+
+        bool IsAlive { get; }
     }
 }

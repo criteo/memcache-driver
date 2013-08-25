@@ -11,37 +11,25 @@ namespace Criteo.Memcache.UTest.Mocks
 {
     internal class TransportMock : IMemcacheTransport
     {
-        private bool _isDead;
-        public bool IsDead 
+        private bool _isAlive;
+        public bool IsAlive
         {
-            get { return _isDead; }
+            get { return _isAlive; }
             set 
             {
-                if (_isDead && !value && _setup != null)
-                    _setup(this);
-                _isDead = value;
+                if (!_isAlive && value && Setup != null)
+                    Setup(this);
+                _isAlive = value;
             }
         }
-        private Action<IMemcacheTransport> _setup;
-        public Action<IMemcacheTransport> Setup
-        {
-            set
-            {
-                if (value != null)
-                {
-                    _setup = value;
-                    if (!_isDead)
-                        _setup(this);
-                }
-            }
-        }
+        public Action<IMemcacheTransport> Setup;
         public MemcacheResponseHeader Response { private get; set; }
         public byte[] Extra { private get; set; }
         public byte[] Message { private get; set; }
 
         public bool TrySend(IMemcacheRequest req)
         {
-            if (IsDead)
+            if (!IsAlive)
             {
                 return false;
             }
@@ -54,8 +42,8 @@ namespace Criteo.Memcache.UTest.Mocks
 
         public void PlanSetup()
         {
-            if (!IsDead && _setup != null)
-                _setup(this);
+            if (IsAlive && Setup != null)
+                Setup(this);
         }
 
         public void Kill()

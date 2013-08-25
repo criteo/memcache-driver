@@ -24,13 +24,14 @@ namespace Criteo.Memcache.UTest.Tests
         [Test]
         public void SyncNodeDeadDetection()
         {
+            bool aliveness = true;
             var transportMocks = new List<TransportMock>();
             var config = new MemcacheClientConfiguration
             {
                 DeadTimeout = TimeSpan.FromSeconds(1),
-                SynchronousTransportFactory = (_, __, ___, ____, s) => 
+                SynchronousTransportFactory = (_, __, ___, ____, s, _____) => 
                     {
-                        var transport = new TransportMock { IsDead = false, Setup = s };
+                        var transport = new TransportMock { IsAlive = aliveness, Setup = s };
                         transportMocks.Add(transport);
                         return transport;
                     },
@@ -41,15 +42,17 @@ namespace Criteo.Memcache.UTest.Tests
             
             Assert.IsTrue(node.TrySend(new NoOpRequest(), Timeout.Infinite), "Unable to send a request throught the node");
 
+            // creation of new transport will set them as dead
+            aliveness = false;
             foreach (var transport in transportMocks)
-                transport.IsDead = true;
+                transport.IsAlive = false;
 
             Assert.IsFalse(node.TrySend(new NoOpRequest(), Timeout.Infinite), "The node did not failed with all transport deads");
 
             foreach (var transport in transportMocks)
-                transport.IsDead = false;
+                transport.IsAlive = true;
 
-            Assert.AreEqual(false, node.IsDead, "The node is still dead, should be alive now !");
+            Assert.IsFalse(node.IsDead, "The node is still dead, should be alive now !");
             Assert.IsTrue(node.TrySend(new NoOpRequest(), Timeout.Infinite), "Unable to send a request throught the node after it's alive");
         }
 
@@ -73,9 +76,10 @@ namespace Criteo.Memcache.UTest.Tests
 
                 Exception expectedException = null;
                 node.TransportError += e => { expectedException = e; Console.WriteLine(e); };
-                bool nodeAlive = true;
-                node.NodeAlive += t => nodeAlive = true;
-                node.NodeDead += t => nodeAlive = false;
+                int nodeAliveCount = 0;
+                node.NodeAlive += t => ++nodeAliveCount;
+                int nodeDeadCount = 0;
+                node.NodeDead += t => ++nodeDeadCount;
 
                 var mutex = new ManualResetEventSlim(false);
                 Status receivedStatus = Status.NoError;
@@ -87,17 +91,19 @@ namespace Criteo.Memcache.UTest.Tests
                         Expire = TimeSpan.FromSeconds(1),
                         Key = @"Key", 
                         Message = new byte[] { 0, 1, 2, 3, 4 }, 
-                        CallBack = s => 
-                        { 
+                        CallBack = s =>
+                        {
                             receivedStatus = s;
                             mutex.Set();
-                        }, 
+                        },
                     }, 1000);
                 Assert.IsTrue(mutex.Wait(1000), @"The message has not been received after 1 second");
+                // must wait before the next test because the TransportError event is fired after the callback call
+                Thread.Sleep(100);
                 Assert.IsNotNull(expectedException, @"A bad response has not triggered a transport error");
                 Assert.AreEqual(Status.InternalError, receivedStatus, @"A bad response has not sent an InternalError to the request callback");
                 Assert.AreEqual(1, node.PoolSize, @"A node contains more than the pool size sockets");
-                Assert.IsTrue(nodeAlive, @"The node has been detected has dead before a new send has been made");
+                Assert.AreEqual(0, nodeDeadCount, @"The node has been detected has dead before a new send has been made");
 
                 serverMock.ResponseHeader = new MemcacheResponseHeader
                 {
@@ -129,8 +135,10 @@ namespace Criteo.Memcache.UTest.Tests
                     }, 1000);
                 Assert.IsFalse(result, @"The node has been able to send a new request after a disconnection");
                 Assert.AreEqual(Status.InternalError, receivedStatus, @"The send operation should have detected that the socket is dead");
-                Assert.IsFalse(nodeAlive, @"The node has been detected has alive but should be seen has dead");
-                Thread.Sleep(1500);
+                Assert.AreEqual(1, nodeDeadCount, @"The node not has been detected has dead");
+
+                // wait for the transport to connect
+                Thread.Sleep(100);
 
                 mutex.Reset();
                 result = node.TrySend(
@@ -149,9 +157,9 @@ namespace Criteo.Memcache.UTest.Tests
                     }, 1000);
 
                 Assert.IsTrue(result, @"The node has not been able to send a new request after a disconnection");
-                Assert.IsTrue(mutex.Wait(1000000), @"The message has not been received after 1 second, case after reconnection");
+                Assert.IsTrue(mutex.Wait(1000), @"The message has not been received after 1 second, case after reconnection");
                 Assert.AreEqual(Status.NoError, receivedStatus, @"The response after a reconnection is still not NoError");
-                Assert.IsTrue(nodeAlive, @"The node has been detected has dead after reconnection complete");
+                Assert.AreEqual(1, nodeAliveCount, @"The node has not been detected has alive after reconnection complete");
             }
         }
     }
