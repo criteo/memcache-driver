@@ -23,7 +23,7 @@ namespace Criteo.Memcache.Node
 
         private static SynchronousTransportAllocator DefaultAllocator = 
             (endPoint, authenticator, queueTimeout, pendingLimit, setupAction, autoConnect)
-                => new MemcacheSocket(endPoint, authenticator, queueTimeout, pendingLimit, setupAction, false, autoConnect);
+                => new MemcacheSocket(endPoint, authenticator, queueTimeout, pendingLimit, setupAction, autoConnect);
 
         #region Events
         private void OnTransportError(Exception e)
@@ -56,13 +56,20 @@ namespace Criteo.Memcache.Node
             transport.MemcacheError += OnMemcacheError;
             transport.MemcacheResponse += OnMemcacheResponse;
             transport.TransportError += OnTransportError;
+            transport.TransportDead += OnTransportDead;
         }
 
-        private void UnregisterEvents(IMemcacheTransport transport)
+        private void OnTransportDead(IMemcacheTransport transort)
         {
-            transport.MemcacheError -= OnMemcacheError;
-            transport.MemcacheResponse -= OnMemcacheResponse;
-            transport.TransportError -= OnTransportError;
+            lock (this)
+            {
+                if (0 == Interlocked.Decrement(ref _workingTransport))
+                {
+                    _isAlive = false;
+                    if (NodeDead != null)
+                        NodeDead(this);
+                }
+            }
         }
         #endregion Events
 
@@ -70,13 +77,13 @@ namespace Criteo.Memcache.Node
         public EndPoint EndPoint
         {
             get { return _endPoint; }
-        }
+        }   
 
         public MemcacheNode(EndPoint endPoint, MemcacheClientConfiguration configuration)
         {
             _configuration = configuration;
             _endPoint = endPoint;
-            _transportPool = new BlockingCollection<IMemcacheTransport>(new ConcurrentBag<IMemcacheTransport>());
+            _transportPool = new BlockingCollection<IMemcacheTransport>();
 
             for (int i = 0; i < configuration.PoolSize; ++i)
             {
@@ -85,30 +92,34 @@ namespace Criteo.Memcache.Node
                                     configuration.Authenticator, 
                                     configuration.TransportQueueTimeout, 
                                     configuration.TransportQueueLength,
-                                    TransportAlive,
+                                    TransportAvailable,
                                     false);
-                RegisterEvents(transport);
-                TransportAlive(transport);
+                TransportAvailable(transport);
             }
         }
 
 
-        private void TransportAlive(IMemcacheTransport transport)
+        private void TransportAvailable(IMemcacheTransport transport)
         {
             if (_tokenSource == null || _tokenSource.IsCancellationRequested)
                 lock (this)
                     if (_tokenSource == null || _tokenSource.IsCancellationRequested)
                         _tokenSource = new CancellationTokenSource();
 
-            Interlocked.Increment(ref _workingTransport);
-            if (!_isAlive)
-                lock (this)
-                    if (!_isAlive)
-                    {
-                        _isAlive = true;
-                        if (NodeAlive != null)
-                            NodeAlive(this);
-                    }
+            if (!transport.Registered)
+            {
+                RegisterEvents(transport);
+
+                Interlocked.Increment(ref _workingTransport);
+                if (!_isAlive)
+                    lock (this)
+                        if (!_isAlive)
+                        {
+                            _isAlive = true;
+                            if (NodeAlive != null)
+                                NodeAlive(this);
+                        }
+            }
 
             _transportPool.Add(transport);
         }
@@ -130,52 +141,15 @@ namespace Criteo.Memcache.Node
                     try
                     {
                         sent = transport.TrySend(request);
+
+                        if (sent)
+                            return true;
                     }
                     catch (Exception)
                     {
                         // if anything happen, don't let a transport outside of the pool
                         _transportPool.Add(transport);
                         throw;
-                    }
-
-                    if (transport.IsAlive)
-                    {
-                        // the transport sent the message, return it in the pool
-                        _transportPool.Add(transport);
-                        return sent;
-                    }
-                    else
-                    {
-                        // TODO : don't flag as dead right now, start a timer to check if all transport are dead for more than configuration.DeadTimeout seconds
-
-                        lock (this)
-                        {
-                            // the current transport is not working
-                            var workingCount = Interlocked.Decrement(ref _workingTransport);
-
-                            // no more transport ? it's dead ! (don't flag dead before PlanSetup, it can synchronously increment _workingTransport)
-                            if (0 == workingCount)
-                            {
-                                _isAlive = false;
-                                _tokenSource.Cancel();
-                                if (NodeDead != null)
-                                    NodeDead(this);
-                            }
-                        }
-
-                        // shoot the dead transport
-                        UnregisterEvents(transport);
-                        transport.Dispose();
-
-                        // then create a fresh new one
-                        var newTransport = (_configuration.SynchronousTransportFactory ?? DefaultAllocator)
-                                    (_endPoint,
-                                    _configuration.Authenticator,
-                                    _configuration.TransportQueueTimeout,
-                                    _configuration.TransportQueueLength,
-                                    TransportAlive,
-                                    true);
-                        RegisterEvents(newTransport);
                     }
                 }
             }

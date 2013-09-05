@@ -26,6 +26,10 @@ namespace Criteo.Memcache.Transport
         /// </summary>
         event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheResponse;
 
+        event Action<IMemcacheTransport> TransportDead;
+
+        bool Registered { get; }
+
         /// <summary>
         /// Sends the request
         /// </summary>
