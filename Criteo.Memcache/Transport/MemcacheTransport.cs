@@ -119,7 +119,7 @@ namespace Criteo.Memcache.Transport
         {
             // block the start of any resets, then shut down
             if (!_disposed)
-                lock(this)
+                lock (this)
                     if (!_disposed)
                     {
                         if (TransportDead != null)
@@ -245,13 +245,15 @@ namespace Criteo.Memcache.Transport
             catch (Exception e)
             {
                 if (!_disposed)
-                {
-                    if (TransportError != null)
-                        TransportError(e);
-                    socket.Disconnect(false);
-                    // don't wait for the error raised by new send to fail pending requests
-                    FailPending();
-                }
+                    lock (this)
+                        if (!_disposed)
+                        {
+                            if (TransportError != null)
+                                TransportError(e);
+                            socket.Disconnect(false);
+                            // don't wait for the error raised by new send to fail pending requests
+                            FailPending();
+                        }
             }
         }
 
@@ -281,13 +283,15 @@ namespace Criteo.Memcache.Transport
             catch (Exception e)
             {
                 if (!_disposed)
-                {
-                    if (TransportError != null)
-                        TransportError(e);
-                    socket.Disconnect(false);
-                    // don't wait for the error raised by new send to fail pending requests
-                    FailPending();
-                }
+                    lock (this)
+                        if (!_disposed)
+                        {
+                            if (TransportError != null)
+                                TransportError(e);
+                            socket.Disconnect(false);
+                            // don't wait for the error raised by new send to fail pending requests
+                            FailPending();
+                        }
             }
         }
         #endregion Async Reads
@@ -318,13 +322,15 @@ namespace Criteo.Memcache.Transport
             catch (Exception e)
             {
                 if (!_disposed)
-                {
-                    if (TransportError != null)
-                        TransportError(e);
-                    socket.Disconnect(false);
-                    // don't wait for the error raised by new send to fail pending requests
-                    FailPending();
-                }
+                    lock (this)
+                        if (!_disposed)
+                        {
+                            if (TransportError != null)
+                                TransportError(e);
+                            socket.Disconnect(false);
+                            // don't wait for the error raised by new send to fail pending requests
+                            FailPending();
+                        }
             }
         }
 
@@ -371,7 +377,7 @@ namespace Criteo.Memcache.Transport
             catch (Exception e)
             {
                 if (!_disposed)
-                    lock(this)
+                    lock (this)
                         if (!_disposed)
                         {
                             if (TransportError != null)
@@ -474,7 +480,7 @@ namespace Criteo.Memcache.Transport
             catch (Exception e)
             {
                 if (!_disposed)
-                    lock(this)
+                    lock (this)
                         if (!_disposed)
                         {
                             if (TransportError != null)
@@ -517,16 +523,19 @@ namespace Criteo.Memcache.Transport
             }
             catch (Exception e)
             {
+
                 if (!_disposed)
-                {
-                    if (TransportError != null)
-                        TransportError(e);
+                    lock (this)
+                        if (!_disposed)
+                        {
+                            if (TransportError != null)
+                                TransportError(e);
 
-                    new MemcacheTransport(_endPoint, _authenticator, _queueTimeout, _pendingLimit, _setupAction, true);
+                            new MemcacheTransport(_endPoint, _authenticator, _queueTimeout, _pendingLimit, _setupAction, true);
 
-                    FailPending();
-                    Dispose();
-                }
+                            FailPending();
+                            Dispose();
+                        }
             }
         }
 
