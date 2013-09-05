@@ -1,6 +1,6 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Criteo.Memcache", "Criteo.Memcache\Criteo.Memcache.csproj", "{2243F9C2-EEDB-440E-B246-68E5925799D9}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Criteo.Memcache.UTest", "Criteo.Memcache.UTest\Criteo.Memcache.UTest.csproj", "{5E07B081-70B6-4217-A8DB-004464F37782}"

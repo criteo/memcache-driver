@@ -59,7 +59,7 @@
     <Compile Include="Tests\Requests\NoOpRequestTests.cs" />
     <Compile Include="Tests\Requests\SaslPlainTextRequestTests.cs" />
     <Compile Include="Tests\Requests\SetRequestTests.cs" />
-    <Compile Include="Tests\SynchTransportTest.cs" />
+    <Compile Include="Tests\TransportTest.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Criteo.Memcache\Criteo.Memcache.csproj">
@@ -68,9 +68,6 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Criteo.MemcacheClient.nuspec">
-      <SubType>Designer</SubType>
-    </None>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

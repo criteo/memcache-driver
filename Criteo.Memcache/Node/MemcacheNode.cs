@@ -21,9 +21,9 @@ namespace Criteo.Memcache.Node
         private volatile CancellationTokenSource _tokenSource;
         private MemcacheClientConfiguration _configuration;
 
-        private static SynchronousTransportAllocator DefaultAllocator = 
+        private static TransportAllocator DefaultAllocator = 
             (endPoint, authenticator, queueTimeout, pendingLimit, setupAction, autoConnect)
-                => new MemcacheSocket(endPoint, authenticator, queueTimeout, pendingLimit, setupAction, autoConnect);
+                => new MemcacheTransport(endPoint, authenticator, queueTimeout, pendingLimit, setupAction, autoConnect);
 
         #region Events
         private void OnTransportError(Exception e)
@@ -68,6 +68,9 @@ namespace Criteo.Memcache.Node
                     _isAlive = false;
                     if (NodeDead != null)
                         NodeDead(this);
+
+                    if(_tokenSource != null)
+                        _tokenSource.Cancel();
                 }
             }
         }
@@ -83,11 +86,11 @@ namespace Criteo.Memcache.Node
         {
             _configuration = configuration;
             _endPoint = endPoint;
-            _transportPool = new BlockingCollection<IMemcacheTransport>();
+            _transportPool = new BlockingCollection<IMemcacheTransport>(new ConcurrentQueue<IMemcacheTransport>());
 
             for (int i = 0; i < configuration.PoolSize; ++i)
             {
-                var transport = (configuration.SynchronousTransportFactory ?? DefaultAllocator)
+                var transport = (configuration.TransportFactory ?? DefaultAllocator)
                                     (endPoint, 
                                     configuration.Authenticator, 
                                     configuration.TransportQueueTimeout, 
@@ -134,7 +137,9 @@ namespace Criteo.Memcache.Node
             IMemcacheTransport transport;
             try
             {
+                int tries = 0;
                 while (_tokenSource != null && !_tokenSource.IsCancellationRequested
+                    && ++tries <= _configuration.PoolSize
                     && _transportPool.TryTake(out transport, timeout, _tokenSource.Token))
                 {
                     bool sent = false;

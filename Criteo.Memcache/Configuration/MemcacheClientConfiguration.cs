@@ -24,7 +24,7 @@ namespace Criteo.Memcache.Configuration
         Ignore,
     }
 
-    public delegate IMemcacheTransport SynchronousTransportAllocator(EndPoint endPoint, IMemcacheAuthenticator authenticator, int queueTimeout, int pendingLimit, Action<IMemcacheTransport> setupAction, bool autoConnect);
+    public delegate IMemcacheTransport TransportAllocator(EndPoint endPoint, IMemcacheAuthenticator authenticator, int queueTimeout, int pendingLimit, Action<IMemcacheTransport> setupAction, bool autoConnect);
     public delegate IMemcacheNode NodeAllocator(IPEndPoint endPoint, MemcacheClientConfiguration configuration);
 
     public class MemcacheClientConfiguration
@@ -50,7 +50,7 @@ namespace Criteo.Memcache.Configuration
         public IList<IPEndPoint> NodesEndPoints { get { return _nodesEndPoints;} }
 
         public INodeLocator NodeLocator { get; set; }
-        public SynchronousTransportAllocator SynchronousTransportFactory { get; set; }
+        public TransportAllocator TransportFactory { get; set; }
         public NodeAllocator NodeFactory { get; set; }
         public IMemcacheAuthenticator Authenticator { get; set; }
 
