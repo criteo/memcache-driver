@@ -69,7 +69,7 @@ namespace Criteo.Memcache.Node
                     if (NodeDead != null)
                         NodeDead(this);
 
-                    if(_tokenSource != null)
+                    if(!_tokenSource.IsCancellationRequested)
                         _tokenSource.Cancel();
                 }
             }
@@ -86,6 +86,7 @@ namespace Criteo.Memcache.Node
         {
             _configuration = configuration;
             _endPoint = endPoint;
+            _tokenSource = new CancellationTokenSource();
             _transportPool = new BlockingCollection<IMemcacheTransport>(new ConcurrentQueue<IMemcacheTransport>());
 
             for (int i = 0; i < configuration.PoolSize; ++i)
@@ -104,11 +105,6 @@ namespace Criteo.Memcache.Node
 
         private void TransportAvailable(IMemcacheTransport transport)
         {
-            if (_tokenSource == null || _tokenSource.IsCancellationRequested)
-                lock (this)
-                    if (_tokenSource == null || _tokenSource.IsCancellationRequested)
-                        _tokenSource = new CancellationTokenSource();
-
             if (!transport.Registered)
             {
                 RegisterEvents(transport);
@@ -121,6 +117,7 @@ namespace Criteo.Memcache.Node
                             _isAlive = true;
                             if (NodeAlive != null)
                                 NodeAlive(this);
+                            _tokenSource = new CancellationTokenSource();
                         }
             }
 
@@ -138,7 +135,7 @@ namespace Criteo.Memcache.Node
             try
             {
                 int tries = 0;
-                while (_tokenSource != null && !_tokenSource.IsCancellationRequested
+                while (!_tokenSource.IsCancellationRequested
                     && ++tries <= _configuration.PoolSize
                     && _transportPool.TryTake(out transport, timeout, _tokenSource.Token))
                 {
