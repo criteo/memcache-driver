@@ -97,11 +97,20 @@ namespace Criteo.Memcache.UTest.Tests
                             mutex.Set();
                         },
                     }, 1000);
-                Assert.IsTrue(mutex.Wait(1000), @"The message has not been received after 1 second");
                 // must wait before the next test because the TransportError event is fired after the callback call
+
+                // Expected result :
+                // * The callback must have been called before 1 sec
+                // * The failure callback must have been called, so the received status must be InternalError
+                // * An MemcacheException should have been raised by the receive due to the bad response
+                // * The node should have exaclty one transport in its pool
+                //      more mean that we added it twice after a failure, less means we didn't putted it back in the pool
+                // * The node should not be seen has dead yet
+
+                Assert.IsTrue(mutex.Wait(1000), @"The message has not been received after 1 second");
                 Thread.Sleep(100);
-                Assert.IsNotNull(expectedException, @"A bad response has not triggered a transport error");
                 Assert.AreEqual(Status.InternalError, receivedStatus, @"A bad response has not sent an InternalError to the request callback");
+                Assert.IsInstanceOf<Memcache.Exceptions.MemcacheException>(expectedException, @"A bad response has not triggered a transport error");
                 Assert.AreEqual(1, node.PoolSize, @"A node contains more than the pool size sockets");
                 Assert.AreEqual(0, nodeDeadCount, @"The node has been detected has dead before a new send has been made");
 
@@ -118,6 +127,7 @@ namespace Criteo.Memcache.UTest.Tests
                     TotalBodyLength = 0,
                 };
                 serverMock.ResponseBody = null;
+                expectedException = null;
 
                 var result = node.TrySend(
                     new SetRequest
@@ -133,13 +143,20 @@ namespace Criteo.Memcache.UTest.Tests
                             mutex.Set();
                         },
                     }, 1000);
-                Assert.IsFalse(result, @"The node has been able to send a new request after a disconnection");
+
+                // Expected result :
+                // * An SocketException should have been raised by the send, since the previous receice has disconnected the socket
+                // * The return must be true, because the request have been enqueued before the transport seen the socket died
+                // * The failure callback must have been called, so the received status must be InternalError
+
+                Assert.IsTrue(result, @"The first failed request should not see a false return");
                 Assert.AreEqual(Status.InternalError, receivedStatus, @"The send operation should have detected that the socket is dead");
-                //Assert.AreEqual(1, nodeDeadCount, @"The node not has been detected has dead");
+                Assert.IsInstanceOf<System.Net.Sockets.SocketException>(expectedException, @"A bad response has not triggered a transport error");
 
                 // wait for the transport to connect
                 Thread.Sleep(100);
 
+                expectedException = null;
                 mutex.Reset();
                 result = node.TrySend(
                     new SetRequest
@@ -156,10 +173,15 @@ namespace Criteo.Memcache.UTest.Tests
                         },
                     }, 1000);
 
+                // Expected result : everything should works fine now
+                // * The return must be true, because the new transport should be available now
+                // * No exception should have been raised
+                // * The callback must have been called and with a NoError status
+
                 Assert.IsTrue(result, @"The node has not been able to send a new request after a disconnection");
                 Assert.IsTrue(mutex.Wait(1000), @"The message has not been received after 1 second, case after reconnection");
                 Assert.AreEqual(Status.NoError, receivedStatus, @"The response after a reconnection is still not NoError");
-                //Assert.AreEqual(1, nodeAliveCount, @"The node has not been detected has alive after reconnection complete");
+                Assert.IsNull(expectedException, "The request shouldn't have thrown an exception");
             }
         }
     }

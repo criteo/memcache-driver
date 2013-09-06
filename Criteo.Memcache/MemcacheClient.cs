@@ -236,6 +236,28 @@ namespace Criteo.Memcache
         }
 
         /// <summary>
+        /// Fetch the value for the given key
+        /// and prolongs it to the given TTL
+        /// </summary>
+        /// <param name="key" />
+        /// <param name="expire" />
+        /// <param name="callback">Will be called after the memcached respond</param>
+        /// <returns></returns>
+        public bool GetAndTouch(string key, TimeSpan expire, Action<Status, byte[]> callback, CallBackPolicy callbackPolicy = CallBackPolicy.AnyOK)
+        {
+            return SendRequest(new GetRequest 
+                { 
+                    RequestOpcode = Opcode.GAT, 
+                    Expire = expire, 
+                    Key = key, 
+                    CallBack = callback, 
+                    CallBackPolicy = callbackPolicy, 
+                    RequestId = NextRequestId, 
+                    Replicas = _configuration.Replicas 
+                });
+        }
+
+        /// <summary>
         /// Delete the entry associated with the given key
         /// </summary>
         /// <param name="key" />
@@ -244,6 +266,21 @@ namespace Criteo.Memcache
         public bool Delete(string key, Action<Status> callback, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
         {
             return SendRequest(new DeleteRequest { Key = key, CallBack = callback, CallBackPolicy = callbackPolicy, RequestId = NextRequestId, Replicas = _configuration.Replicas });
+        }
+
+        public void Ping(Action<EndPoint, Status> callback)
+        {
+            foreach (var node in _nodes)
+            {
+                if (node.IsDead)
+                    callback(node.EndPoint, Status.InternalError);
+                else
+                {
+                    var localNode = node;
+                    if (!node.TrySend(new NoOpRequest { Key = string.Empty, Callback = r => callback(localNode.EndPoint, r.Status), RequestId = NextRequestId }, _configuration.QueueTimeout))
+                        callback(node.EndPoint, Status.InternalError);
+                }
+            }
         }
 
         /// <summary>

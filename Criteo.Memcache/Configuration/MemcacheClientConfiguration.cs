@@ -26,6 +26,7 @@ namespace Criteo.Memcache.Configuration
 
     public delegate IMemcacheTransport TransportAllocator(EndPoint endPoint, IMemcacheAuthenticator authenticator, int queueTimeout, int pendingLimit, Action<IMemcacheTransport> setupAction, bool autoConnect);
     public delegate IMemcacheNode NodeAllocator(IPEndPoint endPoint, MemcacheClientConfiguration configuration);
+    public delegate IMemcacheAuthenticator AuthenticatorAllocator(string zone, string user, string password);
 
     public class MemcacheClientConfiguration
     {
@@ -41,7 +42,7 @@ namespace Criteo.Memcache.Configuration
         public static Func<INodeLocator> RoundRobinLocatorFactory =
             () => new RoundRobinLocator();
 
-        public static Func<string, string, string, IMemcacheAuthenticator> SaslPlainAuthenticatorFactory =
+        public static AuthenticatorAllocator SaslPlainAuthenticatorFactory =
             (zone, user, password) => new SaslPlainTextAuthenticator { Zone = zone, User = user, Password = password };
 
         #endregion factories
