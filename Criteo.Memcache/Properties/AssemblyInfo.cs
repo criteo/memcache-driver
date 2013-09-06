@@ -43,7 +43,7 @@ namespace Criteo.Memcache
 {
     internal static class Version
     {
-        internal const string VERSION = "0.7.0";
+        internal const string VERSION = "0.8.0";
         internal const string ASSEMBLY_VERSION = VERSION;
         internal const string ASSEMBLY_FILE_VERSION = VERSION;
         internal const string ASSEMBLY_INFORMATIONAL_VERSION = VERSION;

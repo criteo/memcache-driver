@@ -9,7 +9,7 @@
     <projectUrl>https://gitorious/scalability/criteo-memcache-client</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>$description$</description>
-    <releaseNotes>Pre-Alpha version, very unstable !</releaseNotes>
+    <releaseNotes>Beta version</releaseNotes>
     <copyright>Copyright 2012</copyright>
     <tags>memcache couchbase</tags>
   </metadata>
