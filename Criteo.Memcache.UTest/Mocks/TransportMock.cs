@@ -51,12 +51,6 @@ namespace Criteo.Memcache.UTest.Mocks
             }
         }
 
-        public void PlanSetup()
-        {
-            if (IsAlive && Setup != null)
-                Setup(this);
-        }
-
         public void Kill()
         {
         }

@@ -32,6 +32,7 @@ namespace Criteo.Memcache.Transport
         private readonly EndPoint _endPoint;
         private readonly IMemcacheAuthenticator _authenticator;
         private readonly Action<MemcacheTransport> _setupAction;
+        private Action<MemcacheTransport> _transportAvailable;
         private readonly Timer _connectTimer;
 
         private volatile bool _disposed = false;
@@ -101,16 +102,6 @@ namespace Criteo.Memcache.Transport
                 return false;
 
             return SendRequest(request);
-        }
-
-        /// <summary>
-        /// Program a call to the setup action when the transport will be up again
-        /// </summary>
-        public void PlanSetup()
-        {
-            if (_initialized && _setupAction != null)
-                // the transport is already up => execute now
-                _setupAction(this);
         }
 
         /// <summary>
@@ -186,6 +177,7 @@ namespace Criteo.Memcache.Transport
                         CreateSocket();
                         Start();
 
+                        _transportAvailable = _setupAction;
                         _initialized = true;
                     }
                 }
@@ -471,8 +463,8 @@ namespace Criteo.Memcache.Transport
 
         private void TryConnect(object dummy)
         {
-            if (Initialize() && _setupAction != null)
-                _setupAction(this);
+            if (Initialize() && _transportAvailable != null)
+                _transportAvailable(this);
         }
 
 
@@ -529,7 +521,8 @@ namespace Criteo.Memcache.Transport
                     return;
                 }
 
-                _setupAction(this);
+                if (_transportAvailable != null)
+                    _transportAvailable(this);
             }
             catch (Exception e)
             {
@@ -551,22 +544,20 @@ namespace Criteo.Memcache.Transport
 
         private bool SendRequest(IMemcacheRequest request)
         {
+            byte[] buffer;
             try
             {
-                var buffer = request.GetQueryBuffer();
+                buffer = request.GetQueryBuffer();
 
                 if (!_pendingRequests.TryAdd(request, _queueTimeout, _token.Token))
                 {
                     if (TransportError != null)
                         TransportError(new MemcacheException("Send request queue full to " + _endPoint));
 
-                    _setupAction(this);
+                    if (_transportAvailable != null)
+                        _transportAvailable(this);
                     return false;
                 }
-
-                SendAsynch(buffer, 0, buffer.Length);
-
-                return true;
             }
             catch (OperationCanceledException e)
             {
@@ -579,9 +570,14 @@ namespace Criteo.Memcache.Transport
                 if (TransportError != null)
                     TransportError(e);
 
-                _setupAction(this);
+                if (_transportAvailable != null)
+                    _transportAvailable(this);
                 return false;
             }
+
+            SendAsynch(buffer, 0, buffer.Length);
+
+            return true;
         }
 
         public bool Registered { get { return TransportDead != null; } }

@@ -139,20 +139,10 @@ namespace Criteo.Memcache.Node
                     && ++tries <= _configuration.PoolSize
                     && _transportPool.TryTake(out transport, timeout, _tokenSource.Token))
                 {
-                    bool sent = false;
-                    try
-                    {
-                        sent = transport.TrySend(request);
+                    bool sent = transport.TrySend(request);
 
-                        if (sent)
-                            return true;
-                    }
-                    catch (Exception)
-                    {
-                        // if anything happen, don't let a transport outside of the pool
-                        _transportPool.Add(transport);
-                        throw;
-                    }
+                    if (sent)
+                        return true;
                 }
             }
             catch (OperationCanceledException)

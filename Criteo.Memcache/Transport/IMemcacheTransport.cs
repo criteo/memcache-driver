@@ -37,12 +37,6 @@ namespace Criteo.Memcache.Transport
         /// <returns>false if the request has synchronously failed (then it won't call any callback)</returns>
         bool TrySend(IMemcacheRequest req);
 
-        /// <summary>
-        /// Asks the transport to call for the setup action when ready to work
-        /// (used to put it back in a pool after a failure)
-        /// </summary>
-        void PlanSetup();
-
         bool IsAlive { get; }
     }
 }

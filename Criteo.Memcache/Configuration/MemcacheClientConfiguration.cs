@@ -42,7 +42,7 @@ namespace Criteo.Memcache.Configuration
         public static Func<INodeLocator> RoundRobinLocatorFactory =
             () => new RoundRobinLocator();
 
-        public static AuthenticatorAllocator SaslPlainAuthenticatorFactory =
+        public static Func<string, string, string, IMemcacheAuthenticator> SaslPlainAuthenticatorFactory =
             (zone, user, password) => new SaslPlainTextAuthenticator { Zone = zone, User = user, Password = password };
 
         #endregion factories
