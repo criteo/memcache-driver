@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Net;
 using System.Collections.Concurrent;
 using System.Threading;
@@ -102,7 +99,6 @@ namespace Criteo.Memcache.Node
             }
         }
 
-
         private void TransportAvailable(IMemcacheTransport transport)
         {
             if (!transport.Registered)
@@ -163,5 +159,10 @@ namespace Criteo.Memcache.Node
 
         // for testing purpose only !!!
         internal int PoolSize { get { return _transportPool.Count; } }
+
+        public override string ToString()
+        {
+            return "MemcacheNode " + EndPoint;
+        }
     }
 }

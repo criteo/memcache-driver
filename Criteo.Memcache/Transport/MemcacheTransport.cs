@@ -1,13 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.Concurrent;
-using System.Linq;
 using System.Text;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 
-using Criteo.Memcache.Node;
 using Criteo.Memcache.Requests;
 using Criteo.Memcache.Authenticators;
 using Criteo.Memcache.Headers;
@@ -25,8 +22,8 @@ namespace Criteo.Memcache.Transport
         #endregion Event
 
         private readonly int _queueTimeout;
-        // TODO : add me in the Conf
         private readonly int _pendingLimit;
+        // TODO : add me in the Conf
         private readonly int _windowSize = 2 << 15;
         // END TODO
         private readonly EndPoint _endPoint;
@@ -42,8 +39,8 @@ namespace Criteo.Memcache.Transport
         private Socket _socket;
         private CancellationTokenSource _token;
 
-        private SocketAsyncEventArgs _sendAsycnhEvtArgs;
-        private SocketAsyncEventArgs _receiveHeaderAsycnhEvtArgs;
+        private SocketAsyncEventArgs _sendAsynchEvtArgs;
+        private SocketAsyncEventArgs _receiveHeaderAsynchEvtArgs;
         private SocketAsyncEventArgs _receiveBodyAsynchEvtArgs;
 
         private MemcacheResponseHeader _currentResponse;
@@ -57,9 +54,10 @@ namespace Criteo.Memcache.Transport
         /// <param name="authenticator">Object that ables to Sasl authenticate the socket</param>
         /// <param name="queueTimeout" />
         /// <param name="pendingLimit" />
-        /// <param name="setupAction">Delegate to call when the transport is alive</param>
-        /// <param name="threaded">If true use a thread to synchronously receive on the socket else use the asynchronous API</param>
-        public MemcacheTransport(EndPoint endpoint, IMemcacheAuthenticator authenticator, int queueTimeout, int pendingLimit, Action<MemcacheTransport> setupAction, bool planToConnect)
+        /// <param name="tranportAvailable">Delegate to call when the transport is alive</param>
+        /// <param name="planToConnect">If true, connects in a timer started immedialty then call the transportAvailable
+        /// else will connect synchronously at the first requests</param>
+        public MemcacheTransport(EndPoint endpoint, IMemcacheAuthenticator authenticator, int queueTimeout, int pendingLimit, Action<MemcacheTransport> tranportAvailable, bool planToConnect)
         {
             IsAlive = false;
             _endPoint = endpoint;
@@ -75,12 +73,12 @@ namespace Criteo.Memcache.Transport
                 new BlockingCollection<IMemcacheRequest>(_pendingQueue, _pendingLimit) :
                 new BlockingCollection<IMemcacheRequest>(_pendingQueue);
 
-            _sendAsycnhEvtArgs = new SocketAsyncEventArgs();
-            _sendAsycnhEvtArgs.Completed += OnSendRequestComplete;
+            _sendAsynchEvtArgs = new SocketAsyncEventArgs();
+            _sendAsynchEvtArgs.Completed += OnSendRequestComplete;
 
-            _receiveHeaderAsycnhEvtArgs = new SocketAsyncEventArgs();
-            _receiveHeaderAsycnhEvtArgs.SetBuffer(new byte[MemcacheResponseHeader.SIZE], 0, MemcacheResponseHeader.SIZE);
-            _receiveHeaderAsycnhEvtArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnReadResponseComplete);
+            _receiveHeaderAsynchEvtArgs = new SocketAsyncEventArgs();
+            _receiveHeaderAsynchEvtArgs.SetBuffer(new byte[MemcacheResponseHeader.SIZE], 0, MemcacheResponseHeader.SIZE);
+            _receiveHeaderAsynchEvtArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnReadResponseComplete);
 
             _receiveBodyAsynchEvtArgs = new SocketAsyncEventArgs();
             _receiveBodyAsynchEvtArgs.Completed += OnReceiveBodyComplete;
@@ -232,9 +230,9 @@ namespace Criteo.Memcache.Transport
             var socket = _socket;
             try
             {
-                _receiveHeaderAsycnhEvtArgs.SetBuffer(0, MemcacheResponseHeader.SIZE);
-                if (!socket.ReceiveAsync(_receiveHeaderAsycnhEvtArgs))
-                    OnReadResponseComplete(socket, _receiveHeaderAsycnhEvtArgs);
+                _receiveHeaderAsynchEvtArgs.SetBuffer(0, MemcacheResponseHeader.SIZE);
+                if (!socket.ReceiveAsync(_receiveHeaderAsynchEvtArgs))
+                    OnReadResponseComplete(socket, _receiveHeaderAsynchEvtArgs);
             }
             catch (Exception e)
             {
@@ -420,8 +418,8 @@ namespace Criteo.Memcache.Transport
             if (socket != null)
                 socket.Dispose();
 
-            if (_receiveHeaderAsycnhEvtArgs != null)
-                _receiveHeaderAsycnhEvtArgs.Dispose();
+            if (_receiveHeaderAsynchEvtArgs != null)
+                _receiveHeaderAsynchEvtArgs.Dispose();
 
             FailPending();
         }
@@ -472,10 +470,12 @@ namespace Criteo.Memcache.Transport
         {
             try
             {
-                _sendAsycnhEvtArgs.SetBuffer(buffer, offset, count);
-                if (!_socket.SendAsync(_sendAsycnhEvtArgs))
+                _sendAsynchEvtArgs.UserToken = callAvailable;
+
+                _sendAsynchEvtArgs.SetBuffer(buffer, offset, count);
+                if (!_socket.SendAsync(_sendAsynchEvtArgs))
                 {
-                    OnSendRequestComplete(_socket, _sendAsycnhEvtArgs);
+                    OnSendRequestComplete(_socket, _sendAsynchEvtArgs);
                     return false;
                 }
             }
@@ -575,11 +575,16 @@ namespace Criteo.Memcache.Transport
                 return false;
             }
 
-            SendAsynch(buffer, 0, buffer.Length);
+            SendAsynch(buffer, 0, buffer.Length, callAvailable);
 
             return true;
         }
 
         public bool Registered { get { return TransportDead != null; } }
+
+        public override string ToString()
+        {
+            return "MemcacheTransport " + _endPoint + " " + GetHashCode();
+        }
     }
 }
