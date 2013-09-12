@@ -28,8 +28,7 @@ namespace Criteo.Memcache.Transport
         // END TODO
         private readonly EndPoint _endPoint;
         private readonly IMemcacheAuthenticator _authenticator;
-        private readonly Action<MemcacheTransport> _setupAction;
-        private Action<MemcacheTransport> _transportAvailable;
+        private readonly Action<MemcacheTransport> _transportAvailable;
         private readonly Timer _connectTimer;
 
         private volatile bool _disposed = false;
@@ -63,7 +62,7 @@ namespace Criteo.Memcache.Transport
             _endPoint = endpoint;
             _authenticator = authenticator;
             _queueTimeout = queueTimeout;
-            _setupAction = setupAction;
+            _transportAvailable = tranportAvailable;
             _connectTimer = new Timer(TryConnect);
             _initialized = false;
             _pendingLimit = pendingLimit;
@@ -175,7 +174,6 @@ namespace Criteo.Memcache.Transport
                         CreateSocket();
                         Start();
 
-                        _transportAvailable = _setupAction;
                         _initialized = true;
                     }
                 }
@@ -186,9 +184,11 @@ namespace Criteo.Memcache.Transport
                     TransportError(e2);
 
                 _connectTimer.Change(1000, Timeout.Infinite);
+
+                return false;
             }
 
-            return _initialized;
+            return true;
         }
 
         private IMemcacheRequest UnstackToMatch(MemcacheResponseHeader header)
@@ -432,6 +432,7 @@ namespace Criteo.Memcache.Transport
 
             if (_authenticator != null)
             {
+                var mre = new ManualResetEventSlim();
                 var authenticationToken = _authenticator.CreateToken();
                 while (authenticationToken != null && !authDone)
                 {
@@ -447,13 +448,14 @@ namespace Criteo.Memcache.Transport
                         case Status.StepRequired:
                             if (request == null)
                                 throw new AuthenticationException("Unable to authenticate : step required but no request from token");
-                            if (!SendRequest(request))
+                            if (!SendRequest(request, mre))
                                 throw new AuthenticationException("Unable to authenticate : unable to send authentication request");
                             break;
                         default:
                             throw new AuthenticationException("Unable to authenticate : status " + authStatus.ToString());
                     }
                 }
+                mre.Wait();
             }
 
             return true;
@@ -466,7 +468,7 @@ namespace Criteo.Memcache.Transport
         }
 
 
-        private bool SendAsynch(byte[] buffer, int offset, int count)
+        private bool SendAsynch(byte[] buffer, int offset, int count, ManualResetEventSlim callAvailable)
         {
             try
             {
@@ -488,7 +490,7 @@ namespace Criteo.Memcache.Transport
                             if (TransportError != null)
                                 TransportError(e);
 
-                            new MemcacheTransport(_endPoint, _authenticator, _queueTimeout, _pendingLimit, _setupAction, true);
+                            new MemcacheTransport(_endPoint, _authenticator, _queueTimeout, _pendingLimit, _transportAvailable, true);
 
                             Dispose();
                         }
@@ -521,12 +523,13 @@ namespace Criteo.Memcache.Transport
                     return;
                 }
 
-                if (_transportAvailable != null)
+                if (args.UserToken == null)
                     _transportAvailable(this);
+                else
+                    (args.UserToken as ManualResetEventSlim).Set();
             }
             catch (Exception e)
             {
-
                 if (!_disposed)
                     lock (this)
                         if (!_disposed)
@@ -534,7 +537,7 @@ namespace Criteo.Memcache.Transport
                             if (TransportError != null)
                                 TransportError(e);
 
-                            new MemcacheTransport(_endPoint, _authenticator, _queueTimeout, _pendingLimit, _setupAction, true);
+                            new MemcacheTransport(_endPoint, _authenticator, _queueTimeout, _pendingLimit, _transportAvailable, true);
 
                             FailPending();
                             Dispose();
@@ -542,7 +545,7 @@ namespace Criteo.Memcache.Transport
             }
         }
 
-        private bool SendRequest(IMemcacheRequest request)
+        private bool SendRequest(IMemcacheRequest request, ManualResetEventSlim callAvailable = null)
         {
             byte[] buffer;
             try
