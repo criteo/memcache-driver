@@ -26,27 +26,27 @@ namespace Criteo.Memcache.Node
                 => new MemcacheTransport(endPoint, authenticator, queueTimeout, pendingLimit, setupAction, autoConnect);
 
         #region Events
+        public event Action<Exception> TransportError;
         private void OnTransportError(Exception e)
         {
             if (TransportError != null)
                 TransportError(e);
         }
-        public event Action<Exception> TransportError;
 
+        public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError;
         private void OnMemcacheError(MemcacheResponseHeader h, IMemcacheRequest e)
         {
             if (MemcacheError != null)
                 MemcacheError(h, e);
         }
-        public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError;
 
+        public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheResponse;
         private void OnMemcacheResponse(MemcacheResponseHeader h, IMemcacheRequest e)
         {
             if (MemcacheResponse != null)
                 MemcacheResponse(h, e);
         }
-        public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheResponse;
-
+        
         public event Action<IMemcacheNode> NodeDead;
 
         public event Action<IMemcacheNode> NodeAlive;

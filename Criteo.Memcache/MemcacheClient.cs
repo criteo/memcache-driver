@@ -52,56 +52,41 @@ namespace Criteo.Memcache
         private IList<IMemcacheNode> _nodes;
         private MemcacheClientConfiguration _configuration;
 
-
         /// <summary>
         /// Raised when the server answer with a error code
         /// </summary>
-        public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError
+        public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError;
+        private void OnMemcacheError(MemcacheResponseHeader header, IMemcacheRequest request)
         {
-            add
-            {
-                foreach (var node in _nodes)
-                    node.MemcacheError += value;
-            }
-            remove
-            {
-                foreach (var node in _nodes)
-                    node.MemcacheError -= value;
-            }
+            if (MemcacheError != null)
+                MemcacheError(header, request);
         }
 
         /// <summary>
         /// Raised when the transport layer fails
         /// </summary>
-        public event Action<Exception> TransportError
+        public event Action<Exception> TransportError;
+        private void OnTransportError(Exception e)
         {
-            add
-            {
-                foreach (var node in _nodes)
-                    node.TransportError += value;
-            }
-            remove
-            {
-                foreach (var node in _nodes)
-                    node.TransportError -= value;
-            }
+            if (TransportError != null)
+                TransportError(e);
         }
 
         /// <summary>
         /// Raised when a node seems unreachable
         /// </summary>
-        public event Action<IMemcacheNode> NodeError
+        public event Action<IMemcacheNode> NodeError;
+        private void OnNodeError(IMemcacheNode node)
         {
-            add
-            {
-                foreach (var node in _nodes)
-                    node.NodeDead += value;
-            }
-            remove
-            {
-                foreach (var node in _nodes)
-                    node.NodeDead -= value;
-            }
+            if (NodeError != null)
+                NodeError(node);
+        }
+
+        private void RegisterEvents(IMemcacheNode node)
+        {
+            node.MemcacheError += OnMemcacheError;
+            node.TransportError += OnTransportError;
+            node.NodeDead += NodeError;
         }
 
         /// <summary>
@@ -118,6 +103,7 @@ namespace Criteo.Memcache
             {
                 var node = (configuration.NodeFactory ?? MemcacheClientConfiguration.DefaultNodeFactory)(nodeEndPoint, configuration);
                 _nodes.Add(node);
+                RegisterEvents(node);
             }
 
             _locator.Initialize(_nodes);
