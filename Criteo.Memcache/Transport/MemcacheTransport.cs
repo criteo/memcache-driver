@@ -227,25 +227,15 @@ namespace Criteo.Memcache.Transport
 
         private void ReadResponse()
         {
-            var socket = _socket;
             try
             {
                 _receiveHeaderAsynchEvtArgs.SetBuffer(0, MemcacheResponseHeader.SIZE);
-                if (!socket.ReceiveAsync(_receiveHeaderAsynchEvtArgs))
-                    OnReadResponseComplete(socket, _receiveHeaderAsynchEvtArgs);
+                if (!_socket.ReceiveAsync(_receiveHeaderAsynchEvtArgs))
+                    OnReadResponseComplete(_socket, _receiveHeaderAsynchEvtArgs);
             }
             catch (Exception e)
             {
-                if (!_disposed)
-                    lock (this)
-                        if (!_disposed)
-                        {
-                            if (TransportError != null)
-                                TransportError(e);
-                            socket.Disconnect(false);
-                            // don't wait for the error raised by new send to fail pending requests
-                            FailPending();
-                        }
+                TransportFailureOnReceive(e);
             }
         }
 
@@ -274,16 +264,7 @@ namespace Criteo.Memcache.Transport
             }
             catch (Exception e)
             {
-                if (!_disposed)
-                    lock (this)
-                        if (!_disposed)
-                        {
-                            if (TransportError != null)
-                                TransportError(e);
-                            socket.Disconnect(false);
-                            // don't wait for the error raised by new send to fail pending requests
-                            FailPending();
-                        }
+                TransportFailureOnReceive(e);
             }
         }
         #endregion Async Reads
@@ -304,16 +285,7 @@ namespace Criteo.Memcache.Transport
             }
             catch (Exception e)
             {
-                if (!_disposed)
-                    lock (this)
-                        if (!_disposed)
-                        {
-                            if (TransportError != null)
-                                TransportError(e);
-                            socket.Disconnect(false);
-                            // don't wait for the error raised by new send to fail pending requests
-                            FailPending();
-                        }
+                TransportFailureOnReceive(e);
             }
         }
 
@@ -376,17 +348,22 @@ namespace Criteo.Memcache.Transport
             }
             catch (Exception e)
             {
-                if (!_disposed)
-                    lock (this)
-                        if (!_disposed)
-                        {
-                            if (TransportError != null)
-                                TransportError(e);
-                            socket.Disconnect(false);
-                            // don't wait for the error raised by new send to fail pending requests
-                            FailPending();
-                        }
+                TransportFailureOnReceive(e);
             }
+        }
+
+        private void TransportFailureOnReceive(Exception e)
+        {
+            if (!_disposed)
+                lock (this)
+                    if (!_disposed)
+                    {
+                        if (TransportError != null)
+                            TransportError(e);
+                        _socket.Disconnect(false);
+
+                        FailPending();
+                    }
         }
 
         private void Start()
@@ -470,31 +447,12 @@ namespace Criteo.Memcache.Transport
 
         private bool SendAsynch(byte[] buffer, int offset, int count, ManualResetEventSlim callAvailable)
         {
-            try
+            _sendAsynchEvtArgs.UserToken = callAvailable;
+
+            _sendAsynchEvtArgs.SetBuffer(buffer, offset, count);
+            if (!_socket.SendAsync(_sendAsynchEvtArgs))
             {
-                _sendAsynchEvtArgs.UserToken = callAvailable;
-
-                _sendAsynchEvtArgs.SetBuffer(buffer, offset, count);
-                if (!_socket.SendAsync(_sendAsynchEvtArgs))
-                {
-                    OnSendRequestComplete(_socket, _sendAsynchEvtArgs);
-                    return false;
-                }
-            }
-            catch (Exception e)
-            {
-                if (!_disposed)
-                    lock (this)
-                        if (!_disposed)
-                        {
-                            if (TransportError != null)
-                                TransportError(e);
-
-                            new MemcacheTransport(_endPoint, _authenticator, _queueTimeout, _pendingLimit, _transportAvailable, true);
-
-                            Dispose();
-                        }
-
+                OnSendRequestComplete(_socket, _sendAsynchEvtArgs);
                 return false;
             }
 
@@ -507,9 +465,6 @@ namespace Criteo.Memcache.Transport
             {
                 var socket = (Socket)sender;
 
-                // if the socket has been disposed, don't raise an error
-                if (args.SocketError == SocketError.OperationAborted || args.SocketError == SocketError.ConnectionAborted)
-                    return;
                 if (args.SocketError != SocketError.Success)
                     throw new SocketException((int)args.SocketError);
 
@@ -530,18 +485,7 @@ namespace Criteo.Memcache.Transport
             }
             catch (Exception e)
             {
-                if (!_disposed)
-                    lock (this)
-                        if (!_disposed)
-                        {
-                            if (TransportError != null)
-                                TransportError(e);
-
-                            new MemcacheTransport(_endPoint, _authenticator, _queueTimeout, _pendingLimit, _transportAvailable, true);
-
-                            FailPending();
-                            Dispose();
-                        }
+                TransportFailureOnSend(e);
             }
         }
 
@@ -561,26 +505,32 @@ namespace Criteo.Memcache.Transport
                         _transportAvailable(this);
                     return false;
                 }
-            }
-            catch (OperationCanceledException e)
-            {
-                if (TransportError != null)
-                    TransportError(e);
-                return false;
+
+                SendAsynch(buffer, 0, buffer.Length, callAvailable);
             }
             catch (Exception e)
             {
-                if (TransportError != null)
-                    TransportError(e);
-
-                if (_transportAvailable != null)
-                    _transportAvailable(this);
+                TransportFailureOnSend(e);
                 return false;
             }
 
-            SendAsynch(buffer, 0, buffer.Length, callAvailable);
-
             return true;
+        }
+
+        private void TransportFailureOnSend(Exception e)
+        {
+            if (!_disposed)
+                lock (this)
+                    if (!_disposed)
+                    {
+                        if (TransportError != null)
+                            TransportError(e);
+
+                        new MemcacheTransport(_endPoint, _authenticator, _queueTimeout, _pendingLimit, _transportAvailable, true);
+
+                        FailPending();
+                        Dispose();
+                    }
         }
 
         public bool Registered { get { return TransportDead != null; } }
