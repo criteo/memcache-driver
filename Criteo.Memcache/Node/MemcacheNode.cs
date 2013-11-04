@@ -18,12 +18,14 @@ namespace Criteo.Memcache.Node
         private volatile CancellationTokenSource _tokenSource;
         private MemcacheClientConfiguration _configuration;
 
-        private static TransportAllocator DefaultAllocator = 
+        private static TransportAllocator DefaultAllocator =
             (endPoint, authenticator, queueTimeout, pendingLimit, setupAction, autoConnect)
                 => new MemcacheTransport(endPoint, authenticator, queueTimeout, pendingLimit, setupAction, autoConnect);
 
         #region Events
+
         public event Action<Exception> TransportError;
+
         private void OnTransportError(Exception e)
         {
             if (TransportError != null)
@@ -31,6 +33,7 @@ namespace Criteo.Memcache.Node
         }
 
         public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError;
+
         private void OnMemcacheError(MemcacheResponseHeader h, IMemcacheRequest e)
         {
             if (MemcacheError != null)
@@ -38,12 +41,13 @@ namespace Criteo.Memcache.Node
         }
 
         public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheResponse;
+
         private void OnMemcacheResponse(MemcacheResponseHeader h, IMemcacheRequest e)
         {
             if (MemcacheResponse != null)
                 MemcacheResponse(h, e);
         }
-        
+
         public event Action<IMemcacheNode> NodeDead;
 
         public event Action<IMemcacheNode> NodeAlive;
@@ -71,13 +75,15 @@ namespace Criteo.Memcache.Node
                 }
             }
         }
+
         #endregion Events
 
         private readonly EndPoint _endPoint;
+
         public EndPoint EndPoint
         {
             get { return _endPoint; }
-        }   
+        }
 
         public MemcacheNode(EndPoint endPoint, MemcacheClientConfiguration configuration)
         {
@@ -89,9 +95,9 @@ namespace Criteo.Memcache.Node
             for (int i = 0; i < configuration.PoolSize; ++i)
             {
                 var transport = (configuration.TransportFactory ?? DefaultAllocator)
-                                    (endPoint, 
-                                    configuration.Authenticator, 
-                                    configuration.TransportQueueTimeout, 
+                                    (endPoint,
+                                    configuration.Authenticator,
+                                    configuration.TransportQueueTimeout,
                                     configuration.TransportQueueLength,
                                     TransportAvailable,
                                     false);
@@ -101,23 +107,31 @@ namespace Criteo.Memcache.Node
 
         private void TransportAvailable(IMemcacheTransport transport)
         {
-            if (!transport.Registered)
+            try
             {
-                RegisterEvents(transport);
+                if (!transport.Registered)
+                {
+                    RegisterEvents(transport);
 
-                Interlocked.Increment(ref _workingTransport);
-                if (!_isAlive)
-                    lock (this)
-                        if (!_isAlive)
-                        {
-                            _isAlive = true;
-                            if (NodeAlive != null)
-                                NodeAlive(this);
-                            _tokenSource = new CancellationTokenSource();
-                        }
+                    Interlocked.Increment(ref _workingTransport);
+                    if (!_isAlive)
+                        lock (this)
+                            if (!_isAlive)
+                            {
+                                _isAlive = true;
+                                if (NodeAlive != null)
+                                    NodeAlive(this);
+                                _tokenSource = new CancellationTokenSource();
+                            }
+                }
+
+                _transportPool.Add(transport);
             }
-
-            _transportPool.Add(transport);
+            catch (Exception e)
+            {
+                if (TransportError != null)
+                    TransportError(e);
+            }
         }
 
         public bool IsDead

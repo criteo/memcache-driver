@@ -15,20 +15,30 @@ namespace Criteo.Memcache.Transport
     internal class MemcacheTransport : IMemcacheTransport
     {
         #region Events
+
         public event Action<Exception> TransportError;
+
         public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError;
+
         public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheResponse;
+
         public event Action<IMemcacheTransport> TransportDead;
-        #endregion Event
+
+        #endregion Events
 
         private readonly int _queueTimeout;
         private readonly int _pendingLimit;
+
         // TODO : add me in the Conf
         private readonly int _windowSize = 2 << 15;
+
         // END TODO
         private readonly EndPoint _endPoint;
+
         private readonly IMemcacheAuthenticator _authenticator;
         private readonly Action<MemcacheTransport> _transportAvailable;
+
+        private const int CONNECT_TIMER_PERIOD_MS = 1000;
         private readonly Timer _connectTimer;
 
         private volatile bool _disposed = false;
@@ -183,7 +193,7 @@ namespace Criteo.Memcache.Transport
                 if (TransportError != null)
                     TransportError(e2);
 
-                _connectTimer.Change(1000, Timeout.Infinite);
+                _connectTimer.Change(CONNECT_TIMER_PERIOD_MS, Timeout.Infinite);
 
                 return false;
             }
@@ -267,9 +277,11 @@ namespace Criteo.Memcache.Transport
                 TransportFailureOnReceive(e);
             }
         }
-        #endregion Async Reads
+
+        #endregion Reads
 
         private static ArraySegment<byte> EmptySegment = new ArraySegment<byte>(new byte[0]);
+
         private void ReceiveBody(Socket socket, byte[] headerBytes)
         {
             _currentResponse = new MemcacheResponseHeader(headerBytes);
@@ -422,12 +434,14 @@ namespace Criteo.Memcache.Transport
                             authenticationToken = null;
                             authDone = true;
                             break;
+
                         case Status.StepRequired:
                             if (request == null)
                                 throw new AuthenticationException("Unable to authenticate : step required but no request from token");
                             if (!SendRequest(request, mre))
                                 throw new AuthenticationException("Unable to authenticate : unable to send authentication request");
                             break;
+
                         default:
                             throw new AuthenticationException("Unable to authenticate : status " + authStatus.ToString());
                     }
@@ -440,8 +454,18 @@ namespace Criteo.Memcache.Transport
 
         private void TryConnect(object dummy)
         {
-            if (Initialize() && _transportAvailable != null)
-                _transportAvailable(this);
+            try
+            {
+                if (Initialize() && _transportAvailable != null)
+                    _transportAvailable(this);
+            }
+            catch (Exception e)
+            {
+                if (TransportError != null)
+                    TransportError(e);
+
+                _connectTimer.Change(CONNECT_TIMER_PERIOD_MS, Timeout.Infinite);
+            }
         }
 
 
