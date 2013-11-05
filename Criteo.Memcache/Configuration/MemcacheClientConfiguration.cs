@@ -22,9 +22,9 @@ namespace Criteo.Memcache.Configuration
         Ignore,
     }
 
-    public delegate IMemcacheTransport TransportAllocator(EndPoint endPoint, MemcacheClientConfiguration clientConfig, Action<IMemcacheTransport> registerEvents, Action<IMemcacheTransport> transportAvailable, bool autoConnect);
+    public delegate IMemcacheTransport TransportAllocator(EndPoint endPoint, MemcacheClientConfiguration clientConfig, Action<IMemcacheTransport> registerEvents, Action<IMemcacheTransport> transportAvailable, bool autoConnect, IOngoingDispose ongoingDispose);
 
-    public delegate IMemcacheNode NodeAllocator(IPEndPoint endPoint, MemcacheClientConfiguration configuration);
+    public delegate IMemcacheNode NodeAllocator(IPEndPoint endPoint, MemcacheClientConfiguration configuration, IOngoingDispose ongoingDispose);
 
     public delegate IMemcacheAuthenticator AuthenticatorAllocator(string zone, string user, string password);
 
@@ -33,7 +33,7 @@ namespace Criteo.Memcache.Configuration
         #region factories
 
         internal static NodeAllocator DefaultNodeFactory =
-            (endPoint, configuration) => new MemcacheNode(endPoint, configuration);
+            (endPoint, configuration, dispose) => new MemcacheNode(endPoint, configuration, dispose);
 
         internal static Func<INodeLocator> DefaultLocatorFactory =
             () => new KetamaLocator();
@@ -63,6 +63,7 @@ namespace Criteo.Memcache.Configuration
         public int QueueLength { get; set; }
         public int TransportQueueLength { get; set; }       // Zero for unbounded queue size
         public int TransportQueueTimeout { get; set; }
+        public TimeSpan TransportConnectTimerPeriod { get; set; }
         public TimeSpan DeadTimeout { get; set; }
         public TimeSpan SocketTimeout { get; set; }
         public int Replicas { get; set; }
@@ -77,6 +78,7 @@ namespace Criteo.Memcache.Configuration
             NodeDeadPolicy = RequeuePolicy.Ignore;
             TransportQueueLength = 0;
             TransportQueueTimeout = Timeout.Infinite;
+            TransportConnectTimerPeriod = TimeSpan.FromMilliseconds(1000);
             Replicas = 0;
         }
     }

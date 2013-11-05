@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Threading;
 
+using Criteo.Memcache;
 using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Headers;
 using Criteo.Memcache.Requests;
@@ -17,6 +18,8 @@ namespace Criteo.Memcache.Node
         private volatile bool _isAlive = false;
         private volatile CancellationTokenSource _tokenSource;
         private MemcacheClientConfiguration _configuration;
+        private IOngoingDispose _clientDispose;
+        private bool _ongoingNodeDispose = false;
 
         #region Events
 
@@ -83,13 +86,14 @@ namespace Criteo.Memcache.Node
             get { return _endPoint; }
         }
 
-        public MemcacheNode(EndPoint endPoint, MemcacheClientConfiguration configuration)
+        public MemcacheNode(EndPoint endPoint, MemcacheClientConfiguration configuration, IOngoingDispose clientDispose)
         {
             if (configuration == null)
                 throw new ArgumentException("Client config should not be null");
 
             _configuration = configuration;
             _endPoint = endPoint;
+            _clientDispose = clientDispose;
             _tokenSource = new CancellationTokenSource();
             _transportPool = new BlockingCollection<IMemcacheTransport>(new ConcurrentStack<IMemcacheTransport>());
 
@@ -100,7 +104,8 @@ namespace Criteo.Memcache.Node
                                     configuration,
                                     RegisterEvents,
                                     TransportAvailable,
-                                    false);
+                                    false,
+                                    clientDispose);
                 TransportAvailable(transport);
             }
         }
@@ -124,7 +129,11 @@ namespace Criteo.Memcache.Node
                             }
                 }
 
-                _transportPool.Add(transport);
+                // Add the transport to the pool, unless the node is disposing of the pool
+                if (!_ongoingNodeDispose)
+                    _transportPool.Add(transport);
+                else
+                    transport.Dispose();
             }
             catch (Exception e)
             {
@@ -166,8 +175,13 @@ namespace Criteo.Memcache.Node
         public void Dispose()
         {
             IMemcacheTransport transport;
+
+            _ongoingNodeDispose = true;
+
             while(_transportPool.TryTake(out transport))
                 transport.Dispose();
+
+            _transportPool.Dispose();
         }
 
         // for testing purpose only !!!

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 
@@ -79,7 +80,7 @@ namespace Criteo.Memcache.UTest.Tests
                     Extra = responseExtra,*/
                 };
 
-                using (var transport = new MemcacheTransport(endPoint, new MemcacheClientConfiguration(), _ => { }, _ => { }, false))
+                using (var transport = new MemcacheTransport(endPoint, new MemcacheClientConfiguration(), _ => { }, _ => { }, false, null))
                 {
                     Assert.IsTrue(transport.TrySend(request));
 
@@ -106,7 +107,7 @@ namespace Criteo.Memcache.UTest.Tests
             int transportAvailablized = 0;
 
             using (var serverMock = new ServerMock())
-            using (var transportToTest = new MemcacheTransport(serverMock.ListenEndPoint, config, t => { }, t => Interlocked.Increment(ref transportAvailablized), false))
+            using (var transportToTest = new MemcacheTransport(serverMock.ListenEndPoint, config, t => { }, t => Interlocked.Increment(ref transportAvailablized), false, null))
             {
                 var requestHeader = new MemcacheResponseHeader
                 {
@@ -166,7 +167,7 @@ namespace Criteo.Memcache.UTest.Tests
             using (var serverMock = new ServerMock())
             using (var transport = new MemcacheTransport(serverMock.ListenEndPoint, config,
                 t => {},
-                t => {}, false))
+                t => {}, false, null))
             {
                 var mutex = new ManualResetEventSlim();
                 new MemcacheResponseHeader
@@ -182,6 +183,127 @@ namespace Criteo.Memcache.UTest.Tests
                 Assert.IsTrue(mutex.Wait(1000), "No response retrived on authenticated transport");
                 Assert.AreEqual(Status.NoError, responseStatus, "The response returned on error");
             }
+        }
+
+        // Test that when a client is disposed, the associated Transports are also disposed
+        [TestCase(1, 1)]
+        [TestCase(4, 3)]
+        public void MemcacheTransportDisposeBasicTest(int nbOfNodes, int nbOfTransportsPerNode)
+        {
+            int createdTransports = 0;
+            int disposedTransports = 0;
+
+            // Memcache client config
+            var config = new MemcacheClientConfiguration
+            {
+                DeadTimeout = TimeSpan.FromSeconds(1),
+                TransportConnectTimerPeriod = TimeSpan.FromMilliseconds(100),
+                TransportFactory = (_, __, ___, ____, _____, ______) =>
+                {
+                    return new MemcacheTransportForTest(_, __, ___, ____, _____, ______, () => { createdTransports++; }, () => { disposedTransports++; });
+                },
+                PoolSize = nbOfTransportsPerNode,
+            };
+
+            var serverMocks = new List<ServerMock>(nbOfNodes);
+            try
+            {
+                for (int p = 0; p < nbOfNodes; p++)
+                {
+                    var serverMock = new ServerMock();
+                    config.NodesEndPoints.Add(serverMock.ListenEndPoint as IPEndPoint);
+                    serverMocks.Add(serverMock);
+                }
+
+                // Create Memcache client
+                var memcacheClient = new MemcacheClient(config);
+
+                // Test the number of transports that have been created
+                Assert.AreEqual(nbOfNodes * nbOfTransportsPerNode, createdTransports, "Expected number of transports = number of nodes * poolSize");
+
+                // Dispose the client and test that the number of transports is back to zero
+                memcacheClient.Dispose();
+                Assert.AreEqual(createdTransports, disposedTransports, "Expected all the transports to be disposed");
+            }
+            finally
+            {
+                foreach (var mock in serverMocks)
+                {
+                    mock.Dispose();
+                }
+            }
+        }
+
+        // Test that when a client is disposed, the associated Transports are also disposed, but in a trickier case:
+        // The client is disposed when one of the transports is not in the pool: for example, when the transport is
+        // is disconnected from the server and trying to reconnect.
+        [Test]
+        public void MemcacheTransportDisposeTransportNotInPoolTest()
+        {
+            int createdTransports = 0;
+            int disposedTransports = 0;
+            var mutex1 = new ManualResetEventSlim(false);
+            var mutex2 = new ManualResetEventSlim(false);
+            Status returnStatus = Status.NoError;
+
+            // Memcache client config
+            var config = new MemcacheClientConfiguration
+            {
+                DeadTimeout = TimeSpan.FromSeconds(1),
+                TransportConnectTimerPeriod = TimeSpan.FromMilliseconds(100),
+                TransportFactory = (_, __, ___, ____, _____, ______) =>
+                {
+                    return new MemcacheTransportForTest(_, __, ___, ____, _____, ______, () => { createdTransports++; }, () => { disposedTransports++; mutex1.Set(); });
+                },
+                PoolSize = 1,
+            };
+
+            MemcacheClient memcacheClient;
+            using (var serverMock = new ServerMock())
+            {
+                config.NodesEndPoints.Add(serverMock.ListenEndPoint as IPEndPoint);
+                serverMock.ResponseBody = new byte[24];
+
+                // Create Memcache client
+                memcacheClient = new MemcacheClient(config);
+
+                // Test the number of transports that have been created
+                Assert.AreEqual(1, createdTransports);
+
+                // Do a get to initialize the transport
+
+                Assert.IsTrue(memcacheClient.Get("whatever", (s, o) => { returnStatus = s; mutex2.Set(); }));
+                Assert.IsTrue(mutex2.Wait(1000), "Timeout on the get request");
+                Assert.AreEqual(Status.InternalError, returnStatus);
+                mutex2.Reset();
+            }
+
+            // Wait for the ServerMock to be fully disposed
+            Thread.Sleep(100);
+
+            // Attempt to send a request to take the transport out of the pool
+            Assert.IsTrue(memcacheClient.Get("whatever", (s, o) => { returnStatus = s; mutex2.Set(); }));
+            Assert.IsTrue(mutex2.Wait(1000), "Timeout on the get request");
+            Assert.AreEqual(Status.InternalError, returnStatus);
+            mutex2.Reset();
+
+
+            // The initial transport should now be disposed, a new transport has been allocated and
+            // is periodically trying to reconnect
+            Assert.AreEqual(1, disposedTransports, "Expected the initial transport to be disposed");
+            Assert.AreEqual(2, createdTransports, "Expected a new transport to be created to replace the disposed one");
+
+            mutex1.Reset();
+
+            // Dispose the client
+            memcacheClient.Dispose();
+
+            // Wait enough time for the reconnect timer to fire at least once
+            Assert.IsTrue(mutex1.Wait(4000), "MemcacheTransport was not disposed before the timeout");
+
+            // Check that all transports have been disposed
+            Assert.AreEqual(2, disposedTransports);
+            Assert.AreEqual(createdTransports, disposedTransports);
         }
     }
 }

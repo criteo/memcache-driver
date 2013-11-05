@@ -17,10 +17,12 @@ namespace Criteo.Memcache
         /// Creates or replace an already existing value
         /// </summary>
         Set,
+
         /// <summary>
         /// Fails with status KeyNotFound if not present
         /// </summary>
         Replace,
+
         /// <summary>
         /// Fails with status KeyExists if already present
         /// </summary>
@@ -37,6 +39,7 @@ namespace Criteo.Memcache
         /// the last failed status if all responses are fails.
         /// </summary>
         AnyOK,
+
         /// <summary>
         /// Call the callback with an OK status if all responses are OK, or with the first received failed status
         /// </summary>
@@ -46,7 +49,7 @@ namespace Criteo.Memcache
     /// <summary>
     /// The main class of the library
     /// </summary>
-    public class MemcacheClient : IDisposable
+    public class MemcacheClient : IDisposable, IOngoingDispose
     {
         private INodeLocator _locator;
         private IList<IMemcacheNode> _nodes;
@@ -56,6 +59,7 @@ namespace Criteo.Memcache
         /// Raised when the server answer with a error code
         /// </summary>
         public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError;
+
         private void OnMemcacheError(MemcacheResponseHeader header, IMemcacheRequest request)
         {
             if (MemcacheError != null)
@@ -66,6 +70,7 @@ namespace Criteo.Memcache
         /// Raised when the transport layer fails
         /// </summary>
         public event Action<Exception> TransportError;
+
         private void OnTransportError(Exception e)
         {
             if (TransportError != null)
@@ -76,6 +81,7 @@ namespace Criteo.Memcache
         /// Raised when a node seems unreachable
         /// </summary>
         public event Action<IMemcacheNode> NodeError;
+
         private void OnNodeError(IMemcacheNode node)
         {
             if (NodeError != null)
@@ -98,13 +104,15 @@ namespace Criteo.Memcache
             if (configuration == null)
                 throw new ArgumentException("Client config should not be null");
 
+            OngoingDispose = false;
+
             _configuration = configuration;
             _locator = configuration.NodeLocator ?? MemcacheClientConfiguration.DefaultLocatorFactory();
             _nodes = new List<IMemcacheNode>(configuration.NodesEndPoints.Count);
 
             foreach (var nodeEndPoint in configuration.NodesEndPoints)
             {
-                var node = (configuration.NodeFactory ?? MemcacheClientConfiguration.DefaultNodeFactory)(nodeEndPoint, configuration);
+                var node = (configuration.NodeFactory ?? MemcacheClientConfiguration.DefaultNodeFactory)(nodeEndPoint, configuration, this);
                 _nodes.Add(node);
                 RegisterEvents(node);
             }
@@ -204,10 +212,13 @@ namespace Criteo.Memcache
             {
                 case StoreMode.Set:
                     return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy, Replicas = _configuration.Replicas });
+
                 case StoreMode.Replace:
                     return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy, Replicas = _configuration.Replicas, RequestOpcode = Opcode.Replace });
+
                 case StoreMode.Add:
                     return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy, Replicas = _configuration.Replicas, RequestOpcode = Opcode.Add });
+
                 default:
                     return false;
             }
@@ -292,6 +303,7 @@ namespace Criteo.Memcache
         }
 
         private int _currentRequestId = 0;
+
         protected uint NextRequestId
         {
             get
@@ -300,10 +312,22 @@ namespace Criteo.Memcache
             }
         }
 
+        #region IDisposable
+
         public void Dispose()
         {
+            OngoingDispose = true;
+
             foreach (var node in _nodes)
                 node.Dispose();
         }
+
+        #endregion IDisposable
+
+        #region IOngoingDispose
+
+        public bool OngoingDispose { get; private set; }
+
+        #endregion IOngoingDispose
     }
 }

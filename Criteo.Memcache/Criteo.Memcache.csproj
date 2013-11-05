@@ -54,6 +54,7 @@
     <Compile Include="Locator\KetamaLocator.cs" />
     <Compile Include="MemcacheClient.cs" />
     <Compile Include="Configuration\MemcacheClientConfiguration.cs" />
+    <Compile Include="IOngoingDispose.cs" />
     <Compile Include="Node\IMemcacheNode.cs" />
     <Compile Include="Node\MemcacheNode.cs" />
     <Compile Include="Locator\RoundRobinLocator.cs" />

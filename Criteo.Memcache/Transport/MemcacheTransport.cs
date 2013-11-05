@@ -27,15 +27,15 @@ namespace Criteo.Memcache.Transport
         #endregion Events
 
         // TODO : add me in the Conf
-        private readonly int _windowSize = 2 << 15;     // END TODO
+        private readonly int _windowSize = 2 << 15;
 
         private readonly EndPoint _endPoint;
         private readonly MemcacheClientConfiguration _clientConfig;
 
         private readonly Action<IMemcacheTransport> _registerEvents;
         private readonly Action<IMemcacheTransport> _transportAvailable;
+        private readonly IOngoingDispose _nodeDispose;
 
-        private const int CONNECT_TIMER_PERIOD_MS = 1000;
         private readonly Timer _connectTimer;
 
         private volatile bool _disposed = false;
@@ -59,8 +59,8 @@ namespace Criteo.Memcache.Transport
 
         // Default transport allocator
         public static TransportAllocator DefaultAllocator =
-            (endPoint, config, register, available, autoConnect)
-                => new MemcacheTransport(endPoint, config, register, available, autoConnect);
+            (endPoint, config, register, available, autoConnect,dispose)
+                => new MemcacheTransport(endPoint, config, register, available, autoConnect, dispose);
 
         /// <summary>
         /// Ctor, intialize things ...
@@ -71,7 +71,8 @@ namespace Criteo.Memcache.Transport
         /// <param name="tranportAvailable">Delegate to call when the transport is alive</param>
         /// <param name="planToConnect">If true, connect in a timer handler started immediately and call transportAvailable.
         ///                             Otherwise, the transport will connect synchronously at the first request</param>
-        public MemcacheTransport(EndPoint endpoint, MemcacheClientConfiguration clientConfig, Action<IMemcacheTransport> registerEvents, Action<IMemcacheTransport> transportAvailable, bool planToConnect)
+        /// <param name="nodeDispose">Interface to check if the node is being disposed"</param>
+        public MemcacheTransport(EndPoint endpoint, MemcacheClientConfiguration clientConfig, Action<IMemcacheTransport> registerEvents, Action<IMemcacheTransport> transportAvailable, bool planToConnect, IOngoingDispose nodeDispose)
         {
             if (clientConfig == null)
                 throw new ArgumentException("Client config should not be null");
@@ -81,6 +82,7 @@ namespace Criteo.Memcache.Transport
             _clientConfig = clientConfig;
             _registerEvents = registerEvents;
             _transportAvailable = transportAvailable;
+            _nodeDispose = nodeDispose;
 
             _connectTimer = new Timer(TryConnect);
             _initialized = false;
@@ -163,7 +165,6 @@ namespace Criteo.Memcache.Transport
             var socket = new Socket(_endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             socket.Connect(_endPoint);
 
-            // Set me in conf
             socket.ReceiveBufferSize = _windowSize;
             socket.SendBufferSize = _windowSize;
 
@@ -199,7 +200,7 @@ namespace Criteo.Memcache.Transport
                 if (TransportError != null)
                     TransportError(e2);
 
-                _connectTimer.Change(CONNECT_TIMER_PERIOD_MS, Timeout.Infinite);
+                _connectTimer.Change(Convert.ToInt32(_clientConfig.TransportConnectTimerPeriod.TotalMilliseconds), Timeout.Infinite);
 
                 return false;
             }
@@ -477,18 +478,26 @@ namespace Criteo.Memcache.Transport
         {
             try
             {
-                if (Initialize() && _transportAvailable != null)
-                    _transportAvailable(this);
+                // If the node has been disposed, dispose this transport, which will terminate the reconnect timer.
+                if (_nodeDispose != null &&
+                    _nodeDispose.OngoingDispose)
+                {
+                    Dispose();
+                }
+                // Else, try to connect and register the transport on the node in case of success
+                else if (Initialize())
+                {
+                    TransportAvailable();
+                }
             }
             catch (Exception e)
             {
                 if (TransportError != null)
                     TransportError(e);
 
-                _connectTimer.Change(CONNECT_TIMER_PERIOD_MS, Timeout.Infinite);
+                _connectTimer.Change(Convert.ToInt32(_clientConfig.TransportConnectTimerPeriod.TotalMilliseconds), Timeout.Infinite);
             }
         }
-
 
         private bool SendAsynch(byte[] buffer, int offset, int count, ManualResetEventSlim callAvailable)
         {
@@ -524,10 +533,7 @@ namespace Criteo.Memcache.Transport
                 }
 
                 if (args.UserToken == null)
-                {
-                    if (_transportAvailable != null)
-                        _transportAvailable(this);
-                }
+                    TransportAvailable();
                 else
                     (args.UserToken as ManualResetEventSlim).Set();
             }
@@ -570,6 +576,14 @@ namespace Criteo.Memcache.Transport
             return true;
         }
 
+        // Register the transport on the node.
+        // The caller must catch exceptions and possibly, check the node's IOngoingDispose interface beforehand
+        private void TransportAvailable()
+        {
+            if (_transportAvailable != null)
+                _transportAvailable(this);
+        }
+
         private void TransportFailureOnSend(Exception e)
         {
             if (!_disposed)
@@ -579,8 +593,12 @@ namespace Criteo.Memcache.Transport
                         if (TransportError != null)
                             TransportError(e);
 
-                        // Allocate a new transport
-                        var newTransport =  (_clientConfig.TransportFactory ?? DefaultAllocator)(_endPoint, _clientConfig, _registerEvents, _transportAvailable, true);
+                        // If the node hasn't been disposed, allocate a new transport that will attempt to reconnect
+                        if (!(_nodeDispose != null &&
+                              _nodeDispose.OngoingDispose == true))
+                        {
+                            var newTransport =  (_clientConfig.TransportFactory ?? DefaultAllocator)(_endPoint, _clientConfig, _registerEvents, _transportAvailable, true, _nodeDispose);
+                        }
 
                         // Dispose this transport
                         FailPending();
