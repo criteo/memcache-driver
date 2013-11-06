@@ -24,8 +24,10 @@ namespace Criteo.Memcache.Configuration
         Ignore,
     }
 
-    public delegate IMemcacheTransport TransportAllocator(EndPoint endPoint, IMemcacheAuthenticator authenticator, int queueTimeout, int pendingLimit, Action<IMemcacheTransport> setupAction, bool autoConnect);
+    public delegate IMemcacheTransport TransportAllocator(EndPoint endPoint, MemcacheClientConfiguration clientConfig, Action<IMemcacheTransport> registerEvents, Action<IMemcacheTransport> transportAvailable, bool autoConnect);
+
     public delegate IMemcacheNode NodeAllocator(IPEndPoint endPoint, MemcacheClientConfiguration configuration);
+
     public delegate IMemcacheAuthenticator AuthenticatorAllocator(string zone, string user, string password);
 
     public class MemcacheClientConfiguration
@@ -37,8 +39,10 @@ namespace Criteo.Memcache.Configuration
 
         internal static Func<INodeLocator> DefaultLocatorFactory =
             () => new KetamaLocator();
+
         public static Func<string, INodeLocator> KetamaLocatorFactory =
             hashName => new KetamaLocator(hashName);
+
         public static Func<INodeLocator> RoundRobinLocatorFactory =
             () => new RoundRobinLocator();
 
@@ -59,7 +63,7 @@ namespace Criteo.Memcache.Configuration
         public int QueueTimeout { get; set; }
         public int PoolSize { get; set; }
         public int QueueLength { get; set; }
-        public int TransportQueueLength { get; set; }
+        public int TransportQueueLength { get; set; }       // Zero for unbounded queue size
         public int TransportQueueTimeout { get; set; }
         public TimeSpan DeadTimeout { get; set; }
         public TimeSpan SocketTimeout { get; set; }

@@ -28,7 +28,9 @@ namespace Criteo.Memcache.Transport
 
         event Action<IMemcacheTransport> TransportDead;
 
-        bool Registered { get; }
+        // The Registered property is set to true by the memcache node
+        // when it acknowledges the transport is a working transport.
+        bool Registered { get; set; }
 
         /// <summary>
         /// Sends the request

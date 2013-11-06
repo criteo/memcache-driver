@@ -18,10 +18,6 @@ namespace Criteo.Memcache.Node
         private volatile CancellationTokenSource _tokenSource;
         private MemcacheClientConfiguration _configuration;
 
-        private static TransportAllocator DefaultAllocator =
-            (endPoint, authenticator, queueTimeout, pendingLimit, setupAction, autoConnect)
-                => new MemcacheTransport(endPoint, authenticator, queueTimeout, pendingLimit, setupAction, autoConnect);
-
         #region Events
 
         public event Action<Exception> TransportError;
@@ -52,6 +48,7 @@ namespace Criteo.Memcache.Node
 
         public event Action<IMemcacheNode> NodeAlive;
 
+        // To be called in the transport constructor
         private void RegisterEvents(IMemcacheTransport transport)
         {
             transport.MemcacheError += OnMemcacheError;
@@ -60,10 +57,11 @@ namespace Criteo.Memcache.Node
             transport.TransportDead += OnTransportDead;
         }
 
-        private void OnTransportDead(IMemcacheTransport transort)
+        private void OnTransportDead(IMemcacheTransport transport)
         {
             lock (this)
             {
+                transport.Registered = false;
                 if (0 == Interlocked.Decrement(ref _workingTransport))
                 {
                     _isAlive = false;
@@ -87,6 +85,9 @@ namespace Criteo.Memcache.Node
 
         public MemcacheNode(EndPoint endPoint, MemcacheClientConfiguration configuration)
         {
+            if (configuration == null)
+                throw new ArgumentException("Client config should not be null");
+
             _configuration = configuration;
             _endPoint = endPoint;
             _tokenSource = new CancellationTokenSource();
@@ -94,11 +95,10 @@ namespace Criteo.Memcache.Node
 
             for (int i = 0; i < configuration.PoolSize; ++i)
             {
-                var transport = (configuration.TransportFactory ?? DefaultAllocator)
+                var transport = (configuration.TransportFactory ?? MemcacheTransport.DefaultAllocator)
                                     (endPoint,
-                                    configuration.Authenticator,
-                                    configuration.TransportQueueTimeout,
-                                    configuration.TransportQueueLength,
+                                    configuration,
+                                    RegisterEvents,
                                     TransportAvailable,
                                     false);
                 TransportAvailable(transport);
@@ -111,8 +111,7 @@ namespace Criteo.Memcache.Node
             {
                 if (!transport.Registered)
                 {
-                    RegisterEvents(transport);
-
+                    transport.Registered = true;
                     Interlocked.Increment(ref _workingTransport);
                     if (!_isAlive)
                         lock (this)
