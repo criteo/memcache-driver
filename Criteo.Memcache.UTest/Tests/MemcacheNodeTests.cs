@@ -223,5 +223,110 @@ namespace Criteo.Memcache.UTest.Tests
                 Assert.IsNull(expectedException, "The request shouldn't have thrown an exception");
             }
         }
+
+        // Test the coherency of the _workingTransports counter in MemcacheNode
+        [TestCase(1)]
+        [TestCase(2)]
+        public void NodeWorkingTransportsTest(int nbOfTransportsPerNode)
+        {
+            int createdTransports = 0;
+            int rememberPort;
+            var mutex = new ManualResetEventSlim(false);
+            Status returnStatus = Status.NoError;
+            MemcacheNode theNode = null;
+
+            // Memcache client config
+            var config = new MemcacheClientConfiguration
+            {
+                DeadTimeout = TimeSpan.FromSeconds(1),
+                TransportFactory = (_, __, ___, ____, _____, ______) =>
+                {
+                    return new MemcacheTransportForTest(_, __, ___, ____, _____, ______, () => { createdTransports++; }, () => { });
+                },
+                NodeFactory =  (_, __, ___) =>
+                {
+                    var node = MemcacheClientConfiguration.DefaultNodeFactory(_, __, ___);
+                    theNode = node as MemcacheNode;
+                    return node;
+                },
+                PoolSize = nbOfTransportsPerNode,
+            };
+
+
+            MemcacheClient memcacheClient;
+            using (var serverMock1 = new ServerMock())
+            {
+                config.NodesEndPoints.Add(serverMock1.ListenEndPoint);
+                rememberPort = serverMock1.ListenEndPoint.Port;
+
+                serverMock1.ResponseBody = new byte[24];
+
+                // Create a Memcache client with one node
+                memcacheClient = new MemcacheClient(config);
+
+                // Check that we hooked to the MemcacheNode
+                Assert.IsNotNull(theNode, "Did not hook to the MemcacheNode while creating the client");
+
+                // Check the number of transports that have been created
+                Assert.AreEqual(nbOfTransportsPerNode, createdTransports);
+
+                // Check the number of working transports (meaning, connected to the server) and the node state
+                // By default, the transport are marked as being available upon creation of the client
+                Assert.AreEqual(nbOfTransportsPerNode, theNode.WorkingTransports);
+                Assert.IsFalse(theNode.IsDead);
+
+                // Do a get to initialize one of the transports
+                Assert.IsTrue(memcacheClient.Get("whatever", (s, o) => { returnStatus = s; mutex.Set(); }));
+                Assert.IsTrue(mutex.Wait(1000), "Timeout on the get request");
+                Assert.AreEqual(Status.InternalError, returnStatus);
+                mutex.Reset();
+
+                // Check the number of working transports and the node state
+                Assert.AreEqual(nbOfTransportsPerNode, theNode.WorkingTransports);
+                Assert.IsFalse(theNode.IsDead);
+            }
+
+            // Wait for the ServerMock to be fully disposed
+            Thread.Sleep(100);
+
+            // Attempt to send a request to take one of the transports out of the pool
+            // After that the node should be dead
+            Assert.IsTrue(memcacheClient.Get("whatever", (s, o) => { returnStatus = s; mutex.Set(); }));
+            Assert.IsTrue(mutex.Wait(1000), "Timeout on the get request");
+            Assert.AreEqual(Status.InternalError, returnStatus);
+            mutex.Reset();
+
+            // Check the number of working transports and the node state
+            Assert.AreEqual(nbOfTransportsPerNode - 1, theNode.WorkingTransports);
+            if (nbOfTransportsPerNode == 1)
+                Assert.IsTrue(theNode.IsDead);
+            else
+                Assert.IsFalse(theNode.IsDead);
+
+            // A new transport has been allocated and is periodically trying to reconnect
+            Assert.AreEqual(nbOfTransportsPerNode + 1, createdTransports, "Expected a new transport to be created to replace the disposed one");
+
+            using (var serverMock2 = new ServerMock(rememberPort))
+            {
+                serverMock2.ResponseBody = new byte[24];
+
+                // After some delay, the transport should connect
+                Assert.That(() => { return theNode.WorkingTransports; }, new DelayedConstraint(new EqualConstraint(nbOfTransportsPerNode), 4000, 100), "After a while, the transport should manage to connect");
+                Assert.IsFalse(theNode.IsDead);
+
+                // Attempt a get
+                Assert.IsTrue(memcacheClient.Get("whatever", (s, o) => { returnStatus = s; mutex.Set(); }));
+                Assert.IsTrue(mutex.Wait(1000), "Timeout on the get request");
+                Assert.AreEqual(Status.InternalError, returnStatus);
+                mutex.Reset();
+
+                // Check the number of working transports and the node state
+                Assert.AreEqual(nbOfTransportsPerNode, theNode.WorkingTransports);
+                Assert.IsFalse(theNode.IsDead);
+
+                // Dispose the client
+                memcacheClient.Dispose();
+            }
+        }
     }
 }

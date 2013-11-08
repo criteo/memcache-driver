@@ -15,25 +15,36 @@ namespace Criteo.Memcache.UTest.Mocks
 
         private bool _disposed = false;
 
+        private const int ANY_AVAILABLE_PORT = 0;
+
         public MemcacheRequestHeader LastReceivedHeader { get; private set; }
         public byte[] LastReceivedBody { get; set; }
 
         public byte[] ResponseHeader { get; private set; }
         public byte[] ResponseBody { private get; set; }
         public ManualResetEventSlim ReceiveMutex { get; set; }
-        public EndPoint ListenEndPoint { get; private set; }
+        public IPEndPoint ListenEndPoint { get; private set; }
+        public int LastConnectionPort { get; private set; }
 
         public int MaxSent { get; set; }
 
         /// <summary>
-        /// Start and listen ongoing TCP connections
+        /// Start and listen ongoing TCP connections on localhost, on any available port
         /// </summary>
-        public ServerMock()
+        public ServerMock() :
+            this(ANY_AVAILABLE_PORT)
+        { }
+
+        /// <summary>
+        /// Start and listen ongoing TCP connections on the localhost on the given port
+        /// </summary>
+        /// <param name="port">port number of the connection. Use 0 for any availble port.</param>
+        public ServerMock(int port)
         {
-            var endpoint = new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 0);
+            var endpoint = new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), port);
             _socket = new Socket(endpoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             _socket.Bind(endpoint);
-            ListenEndPoint = _socket.LocalEndPoint;
+            ListenEndPoint = _socket.LocalEndPoint as IPEndPoint;
             _socket.Listen((int)SocketOptionName.MaxConnections);
             var acceptEventArgs = GetAcceptEventArgs();
             if (!_socket.AcceptAsync(acceptEventArgs))
@@ -41,6 +52,8 @@ namespace Criteo.Memcache.UTest.Mocks
             _acceptedSockets = new List<Socket>();
             ResponseHeader = new byte[MemcacheResponseHeader.SIZE];
         }
+
+
 
         private SocketAsyncEventArgs GetAcceptEventArgs()
         {

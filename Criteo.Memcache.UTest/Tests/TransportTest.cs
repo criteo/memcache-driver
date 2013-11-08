@@ -211,7 +211,7 @@ namespace Criteo.Memcache.UTest.Tests
                 for (int p = 0; p < nbOfNodes; p++)
                 {
                     var serverMock = new ServerMock();
-                    config.NodesEndPoints.Add(serverMock.ListenEndPoint as IPEndPoint);
+                    config.NodesEndPoints.Add(serverMock.ListenEndPoint);
                     serverMocks.Add(serverMock);
                 }
 
@@ -261,7 +261,7 @@ namespace Criteo.Memcache.UTest.Tests
             MemcacheClient memcacheClient;
             using (var serverMock = new ServerMock())
             {
-                config.NodesEndPoints.Add(serverMock.ListenEndPoint as IPEndPoint);
+                config.NodesEndPoints.Add(serverMock.ListenEndPoint);
                 serverMock.ResponseBody = new byte[24];
 
                 // Create Memcache client
@@ -271,7 +271,6 @@ namespace Criteo.Memcache.UTest.Tests
                 Assert.AreEqual(1, createdTransports);
 
                 // Do a get to initialize the transport
-
                 Assert.IsTrue(memcacheClient.Get("whatever", (s, o) => { returnStatus = s; mutex2.Set(); }));
                 Assert.IsTrue(mutex2.Wait(1000), "Timeout on the get request");
                 Assert.AreEqual(Status.InternalError, returnStatus);

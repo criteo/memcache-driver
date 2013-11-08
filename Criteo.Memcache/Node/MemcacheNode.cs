@@ -14,12 +14,14 @@ namespace Criteo.Memcache.Node
     internal class MemcacheNode : IMemcacheNode
     {
         private readonly BlockingCollection<IMemcacheTransport> _transportPool;
-        private int _workingTransport;
         private volatile bool _isAlive = false;
         private volatile CancellationTokenSource _tokenSource;
         private MemcacheClientConfiguration _configuration;
         private IOngoingDispose _clientDispose;
         private bool _ongoingNodeDispose = false;
+
+        private int _workingTransports;
+        public int WorkingTransports { get { return _workingTransports; } }
 
         #region Events
 
@@ -65,7 +67,7 @@ namespace Criteo.Memcache.Node
             lock (this)
             {
                 transport.Registered = false;
-                if (0 == Interlocked.Decrement(ref _workingTransport))
+                if (0 == Interlocked.Decrement(ref _workingTransports))
                 {
                     _isAlive = false;
                     if (NodeDead != null)
@@ -117,7 +119,7 @@ namespace Criteo.Memcache.Node
                 if (!transport.Registered)
                 {
                     transport.Registered = true;
-                    Interlocked.Increment(ref _workingTransport);
+                    Interlocked.Increment(ref _workingTransports);
                     if (!_isAlive)
                         lock (this)
                             if (!_isAlive)
