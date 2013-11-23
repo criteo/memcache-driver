@@ -95,9 +95,6 @@ namespace Criteo.Memcache
         /// <param name="configuration"></param>
         public MemcacheClient(MemcacheClientConfiguration configuration)
         {
-            if (configuration == null)
-                throw new ArgumentException("Client config should not be null");
-
             _configuration = configuration;
             _locator = configuration.NodeLocator ?? MemcacheClientConfiguration.DefaultLocatorFactory();
             _nodes = new List<IMemcacheNode>(configuration.NodesEndPoints.Count);

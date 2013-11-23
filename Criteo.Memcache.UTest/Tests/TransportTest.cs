@@ -6,7 +6,7 @@ using NUnit.Framework;
 
 using Criteo.Memcache.Headers;
 using Criteo.Memcache.Transport;
-using Criteo.Memcache.Configuration;
+
 using Criteo.Memcache.UTest.Mocks;
 
 namespace Criteo.Memcache.UTest.Tests
@@ -58,7 +58,7 @@ namespace Criteo.Memcache.UTest.Tests
                 // body with the size defined in the header
                 var responseExtra = new byte[] { 1, 2, 3 };
                 var responseMessage = new byte[] { 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
-
+                
                 // build the request buffer
                 var responseBody = new byte[responseHeader.TotalBodyLength];
                 Array.Copy(responseExtra, 0, responseBody, 0, responseHeader.ExtraLength);
@@ -77,7 +77,7 @@ namespace Criteo.Memcache.UTest.Tests
                     Extra = responseExtra,*/
                 };
 
-                using (var transport = new MemcacheTransport(endPoint, new MemcacheClientConfiguration(), _ => { }, _ => { }, false))
+                using (var transport = new MemcacheTransport(endPoint, null, 0, 0, _ => { }, false))
                 {
                     Assert.IsTrue(transport.TrySend(request));
 
@@ -90,6 +90,7 @@ namespace Criteo.Memcache.UTest.Tests
                     Assert.AreEqual(responseHeader, request.ResponseHeader, "Received header differ from header sent by the server");
                     CollectionAssert.AreEqual(responseExtra, request.Extra, "Received extra is different than sent by the server");
                     CollectionAssert.AreEqual(responseMessage, request.Message, "Received message is different than sent by the server");
+                    //Thread.Sleep(1000);
                 }
             }
         }

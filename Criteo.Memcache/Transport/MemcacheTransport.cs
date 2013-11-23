@@ -7,7 +7,6 @@ using System.Threading;
 
 using Criteo.Memcache.Requests;
 using Criteo.Memcache.Authenticators;
-using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Headers;
 using Criteo.Memcache.Exceptions;
 
@@ -16,27 +15,20 @@ namespace Criteo.Memcache.Transport
     internal class MemcacheTransport : IMemcacheTransport
     {
         #region Events
-
         public event Action<Exception> TransportError;
-
         public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError;
-
         public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheResponse;
-
         public event Action<IMemcacheTransport> TransportDead;
+        #endregion Event
 
-        #endregion Events
-
+        private readonly int _queueTimeout;
+        private readonly int _pendingLimit;
         // TODO : add me in the Conf
-        private readonly int _windowSize = 2 << 15;     // END TODO
-
+        private readonly int _windowSize = 2 << 15;
+        // END TODO
         private readonly EndPoint _endPoint;
-        private readonly MemcacheClientConfiguration _clientConfig;
-
-        private readonly Action<IMemcacheTransport> _registerEvents;
-        private readonly Action<IMemcacheTransport> _transportAvailable;
-
-        private const int CONNECT_TIMER_PERIOD_MS = 1000;
+        private readonly IMemcacheAuthenticator _authenticator;
+        private readonly Action<MemcacheTransport> _transportAvailable;
         private readonly Timer _connectTimer;
 
         private volatile bool _disposed = false;
@@ -54,43 +46,30 @@ namespace Criteo.Memcache.Transport
 
         public bool IsAlive { get; private set; }
 
-        // The Registered property is set to true by the memcache node
-        // when it acknowledges the transport is a working transport.
-        public bool Registered { get; set; }
-
-        // Default transport allocator
-        public static TransportAllocator DefaultAllocator =
-            (endPoint, config, register, available, autoConnect)
-                => new MemcacheTransport(endPoint, config, register, available, autoConnect);
-
         /// <summary>
         /// Ctor, intialize things ...
         /// </summary>
         /// <param name="endpoint" />
-        /// <param name="clientConfig">The client configuration</param>
-        /// <param name="registerEvents">Delegate to call to register the transport</param>
+        /// <param name="authenticator">Object that ables to Sasl authenticate the socket</param>
+        /// <param name="queueTimeout" />
+        /// <param name="pendingLimit" />
         /// <param name="tranportAvailable">Delegate to call when the transport is alive</param>
-        /// <param name="planToConnect">If true, connect in a timer handler started immediately and call transportAvailable.
-        ///                             Otherwise, the transport will connect synchronously at the first request</param>
-        public MemcacheTransport(EndPoint endpoint, MemcacheClientConfiguration clientConfig, Action<IMemcacheTransport> registerEvents, Action<IMemcacheTransport> transportAvailable, bool planToConnect)
+        /// <param name="planToConnect">If true, connects in a timer started immedialty then call the transportAvailable
+        /// else will connect synchronously at the first requests</param>
+        public MemcacheTransport(EndPoint endpoint, IMemcacheAuthenticator authenticator, int queueTimeout, int pendingLimit, Action<MemcacheTransport> tranportAvailable, bool planToConnect)
         {
-            if (clientConfig == null)
-                throw new ArgumentException("Client config should not be null");
-
             IsAlive = false;
             _endPoint = endpoint;
-            _clientConfig = clientConfig;
-            _registerEvents = registerEvents;
-            _transportAvailable = transportAvailable;
-
+            _authenticator = authenticator;
+            _queueTimeout = queueTimeout;
+            _transportAvailable = tranportAvailable;
             _connectTimer = new Timer(TryConnect);
             _initialized = false;
-
-            _registerEvents(this);
+            _pendingLimit = pendingLimit;
 
             _pendingQueue = new ConcurrentQueue<IMemcacheRequest>();
-            _pendingRequests = clientConfig.TransportQueueLength > 0 ?
-                new BlockingCollection<IMemcacheRequest>(_pendingQueue, clientConfig.TransportQueueLength) :
+            _pendingRequests = _pendingLimit > 0 ?
+                new BlockingCollection<IMemcacheRequest>(_pendingQueue, _pendingLimit) :
                 new BlockingCollection<IMemcacheRequest>(_pendingQueue);
 
             _sendAsynchEvtArgs = new SocketAsyncEventArgs();
@@ -124,7 +103,7 @@ namespace Criteo.Memcache.Transport
 
         /// <summary>
         /// Dispose the socket
-        /// 5 clean tries with 1 second interval, after it disposes it in a more dirty way
+        /// 5 clean tries with 1 second interval, after it dispose it in a more dirty way
         /// </summary>
         public virtual void Dispose()
         {
@@ -204,7 +183,7 @@ namespace Criteo.Memcache.Transport
                 if (TransportError != null)
                     TransportError(e2);
 
-                _connectTimer.Change(CONNECT_TIMER_PERIOD_MS, Timeout.Infinite);
+                _connectTimer.Change(1000, Timeout.Infinite);
 
                 return false;
             }
@@ -288,11 +267,9 @@ namespace Criteo.Memcache.Transport
                 TransportFailureOnReceive(e);
             }
         }
-
-        #endregion Reads
+        #endregion Async Reads
 
         private static ArraySegment<byte> EmptySegment = new ArraySegment<byte>(new byte[0]);
-
         private void ReceiveBody(Socket socket, byte[] headerBytes)
         {
             _currentResponse = new MemcacheResponseHeader(headerBytes);
@@ -430,10 +407,10 @@ namespace Criteo.Memcache.Transport
             IMemcacheRequest request = null;
             Status authStatus = Status.NoError;
 
-            if (_clientConfig.Authenticator != null)
+            if (_authenticator != null)
             {
                 var mre = new ManualResetEventSlim();
-                var authenticationToken = _clientConfig.Authenticator.CreateToken();
+                var authenticationToken = _authenticator.CreateToken();
                 while (authenticationToken != null && !authDone)
                 {
                     authStatus = authenticationToken.StepAuthenticate(out request);
@@ -445,14 +422,12 @@ namespace Criteo.Memcache.Transport
                             authenticationToken = null;
                             authDone = true;
                             break;
-
                         case Status.StepRequired:
                             if (request == null)
                                 throw new AuthenticationException("Unable to authenticate : step required but no request from token");
                             if (!SendRequest(request, mre))
                                 throw new AuthenticationException("Unable to authenticate : unable to send authentication request");
                             break;
-
                         default:
                             throw new AuthenticationException("Unable to authenticate : status " + authStatus.ToString());
                     }
@@ -465,18 +440,8 @@ namespace Criteo.Memcache.Transport
 
         private void TryConnect(object dummy)
         {
-            try
-            {
-                if (Initialize() && _transportAvailable != null)
-                    _transportAvailable(this);
-            }
-            catch (Exception e)
-            {
-                if (TransportError != null)
-                    TransportError(e);
-
-                _connectTimer.Change(CONNECT_TIMER_PERIOD_MS, Timeout.Infinite);
-            }
+            if (Initialize() && _transportAvailable != null)
+                _transportAvailable(this);
         }
 
 
@@ -531,7 +496,7 @@ namespace Criteo.Memcache.Transport
             {
                 buffer = request.GetQueryBuffer();
 
-                if (!_pendingRequests.TryAdd(request, _clientConfig.TransportQueueTimeout, _token.Token))
+                if (!_pendingRequests.TryAdd(request, _queueTimeout, _token.Token))
                 {
                     if (TransportError != null)
                         TransportError(new MemcacheException("Send request queue full to " + _endPoint));
@@ -561,14 +526,14 @@ namespace Criteo.Memcache.Transport
                         if (TransportError != null)
                             TransportError(e);
 
-                        // Allocate a new transport
-                        var newTransport =  (_clientConfig.TransportFactory ?? DefaultAllocator)(_endPoint, _clientConfig, _registerEvents, _transportAvailable, true);
+                        new MemcacheTransport(_endPoint, _authenticator, _queueTimeout, _pendingLimit, _transportAvailable, true);
 
-                        // Dispose this transport
                         FailPending();
                         Dispose();
                     }
         }
+
+        public bool Registered { get { return TransportDead != null; } }
 
         public override string ToString()
         {

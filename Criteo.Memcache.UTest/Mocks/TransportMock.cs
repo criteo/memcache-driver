@@ -15,7 +15,7 @@ namespace Criteo.Memcache.UTest.Mocks
         public bool IsAlive
         {
             get { return _isAlive; }
-            set
+            set 
             {
                 if (!_isAlive && value && Setup != null)
                     Setup(this);
@@ -33,19 +33,10 @@ namespace Criteo.Memcache.UTest.Mocks
                 _isAlive = value;
             }
         }
-
-        public bool Registered { get; set; }
-
         public Action<IMemcacheTransport> Setup;
         public MemcacheResponseHeader Response { private get; set; }
         public byte[] Extra { private get; set; }
         public byte[] Message { private get; set; }
-
-        public TransportMock(Action<IMemcacheTransport> registerEvents)
-        {
-            registerEvents(this);
-        }
-
 
         public bool TrySend(IMemcacheRequest req)
         {
@@ -65,19 +56,19 @@ namespace Criteo.Memcache.UTest.Mocks
         }
 
 #pragma warning disable 67
-
         public event Action<Exception> TransportError;
-
         public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError;
-
         public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheResponse;
-
         public event Action<IMemcacheTransport> TransportDead;
-
 #pragma warning restore 67
 
         public void Dispose()
         {
+        }
+
+        public bool Registered
+        {
+            get { return TransportDead != null; }
         }
     }
 }

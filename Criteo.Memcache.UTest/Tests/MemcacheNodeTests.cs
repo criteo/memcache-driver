@@ -29,9 +29,9 @@ namespace Criteo.Memcache.UTest.Tests
             var config = new MemcacheClientConfiguration
             {
                 DeadTimeout = TimeSpan.FromSeconds(1),
-                TransportFactory = (_, __, r, s, _____) =>
+                TransportFactory = (_, __, ___, ____, s, _____) => 
                     {
-                        var transport = new TransportMock(r) { IsAlive = aliveness, Setup = s };
+                        var transport = new TransportMock { IsAlive = aliveness, Setup = s };
                         transportMocks.Add(transport);
                         return transport;
                     },
@@ -39,7 +39,7 @@ namespace Criteo.Memcache.UTest.Tests
             };
             var node = new MemcacheNode(null, config);
             CollectionAssert.IsNotEmpty(transportMocks, "No transport has been created by the node");
-
+            
             Assert.IsTrue(node.TrySend(new NoOpRequest(), Timeout.Infinite), "Unable to send a request throught the node");
 
             // creation of new transport will set them as dead
@@ -84,13 +84,13 @@ namespace Criteo.Memcache.UTest.Tests
                 var mutex = new ManualResetEventSlim(false);
                 Status receivedStatus = Status.NoError;
                 node.TrySend(
-                    new SetRequest
+                    new SetRequest 
                     {
                         Code = Opcode.Set,
-                        RequestId = 1,
+                        RequestId = 1, 
                         Expire = TimeSpan.FromSeconds(1),
-                        Key = @"Key",
-                        Message = new byte[] { 0, 1, 2, 3, 4 },
+                        Key = @"Key", 
+                        Message = new byte[] { 0, 1, 2, 3, 4 }, 
                         CallBack = s =>
                         {
                             receivedStatus = s;
