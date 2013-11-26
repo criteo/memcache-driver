@@ -75,7 +75,7 @@ namespace Criteo.Memcache.UTest.Tests
                 var node = new Memcache.Node.MemcacheNode(endpoint, config);
 
                 Exception expectedException = null;
-                node.TransportError += e => { expectedException = e; Console.WriteLine(e); };
+                node.TransportError += e => { Interlocked.Exchange<Exception>(ref expectedException, e); Console.WriteLine(e); };
                 int nodeAliveCount = 0;
                 node.NodeAlive += t => ++nodeAliveCount;
                 int nodeDeadCount = 0;
