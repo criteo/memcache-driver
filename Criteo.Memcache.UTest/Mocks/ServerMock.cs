@@ -11,7 +11,9 @@ namespace Criteo.Memcache.UTest.Mocks
 {
     class ServerMock : IDisposable
     {
-        Socket _socket;
+        private Socket _socket;
+
+        private bool _disposed = false;
 
         public MemcacheRequestHeader LastReceivedHeader { get; private set; }
         public byte[] LastReceivedBody { get; set; }
@@ -57,7 +59,6 @@ namespace Criteo.Memcache.UTest.Mocks
             eventArg.Completed += new EventHandler<SocketAsyncEventArgs>(OnReceive);
             acceptedSocket.ReceiveAsync(eventArg);
 
-
             var acceptEventArgs = GetAcceptEventArgs();
             if (!_socket.AcceptAsync(acceptEventArgs))
                 throw new Exception("Unable to accept further connections");
@@ -81,7 +82,7 @@ namespace Criteo.Memcache.UTest.Mocks
             // ends request header transfer
             var socket = sender as Socket;
             int transfered = e.BytesTransferred;
-            while (transfered < MemcacheRequestHeader.SIZE)
+            while (transfered < MemcacheRequestHeader.SIZE && !_disposed)
                 transfered += socket.Receive(e.Buffer, transfered, MemcacheRequestHeader.SIZE - transfered, SocketFlags.None);
 
             // read the request header
@@ -90,12 +91,12 @@ namespace Criteo.Memcache.UTest.Mocks
             LastReceivedHeader = header;
 
             // transfer the body is present
-            if(header.TotalBodyLength > 0)
+            if (header.TotalBodyLength > 0)
             {
                 var body = new byte[header.TotalBodyLength];
                 transfered = 0;
 
-                while (transfered < header.TotalBodyLength)
+                while (transfered < header.TotalBodyLength && !_disposed)
                     transfered += socket.Receive(body, transfered, (int)header.TotalBodyLength - transfered, SocketFlags.None);
 
                 LastReceivedBody = body;
@@ -107,23 +108,25 @@ namespace Criteo.Memcache.UTest.Mocks
             var headerToSend = new byte[MemcacheResponseHeader.SIZE];
             ResponseHeader.ToData(headerToSend);
             transfered = 0;
-            while (transfered < MemcacheResponseHeader.SIZE)
+            while (transfered < MemcacheResponseHeader.SIZE && !_disposed)
                 transfered += socket.Send(headerToSend, transfered, MemcacheResponseHeader.SIZE - transfered, SocketFlags.None);
 
             // send the response body if present
             if (ResponseBody != null)
             {
                 transfered = 0;
-                while (transfered < ResponseBody.Length)
+                while (transfered < ResponseBody.Length && !_disposed)
                     transfered += socket.Send(ResponseBody, 0, ResponseBody.Length - transfered, SocketFlags.None);
             }
 
             // start to receive again
-            socket.ReceiveAsync(e);
+            if (!_disposed)
+                socket.ReceiveAsync(e);
         }
 
         public void Dispose()
         {
+            _disposed = true;
             if(_socket != null)
                 _socket.Dispose();
         }
