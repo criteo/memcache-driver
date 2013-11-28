@@ -110,7 +110,7 @@ namespace Criteo.Memcache.UTest.Tests
                 Assert.IsTrue(mutex.Wait(1000), @"The message has not been received after 1 second");
                 Thread.Sleep(100);
                 Assert.AreEqual(Status.InternalError, receivedStatus, @"A bad response has not sent an InternalError to the request callback");
-                Assert.IsInstanceOf<Memcache.Exceptions.MemcacheException>(expectedException, @"A bad response has not triggered a transport error");
+                Assert.IsInstanceOf<Memcache.Exceptions.MemcacheException>(expectedException, @"A bad response has not triggered a transport error. Expected a MemcacheException.");
                 Assert.AreEqual(1, node.PoolSize, @"A node contains more than the pool size sockets");
                 Assert.AreEqual(0, nodeDeadCount, @"The node has been detected has dead before a new send has been made");
 
@@ -128,6 +128,7 @@ namespace Criteo.Memcache.UTest.Tests
                 };
                 serverMock.ResponseBody = null;
                 expectedException = null;
+                mutex.Reset();
 
                 var result = node.TrySend(
                     new SetRequest
@@ -149,9 +150,11 @@ namespace Criteo.Memcache.UTest.Tests
                 // * The return must be true, because the request have been enqueued before the transport seen the socket died
                 // * The failure callback must have been called, so the received status must be InternalError
 
+                Assert.IsTrue(mutex.Wait(1000), @"The message has not been received after 1 second");
+                Thread.Sleep(100);
                 Assert.IsTrue(result, @"The first failed request should not see a false return");
                 Assert.AreEqual(Status.InternalError, receivedStatus, @"The send operation should have detected that the socket is dead");
-                Assert.IsInstanceOf<System.Net.Sockets.SocketException>(expectedException, @"A bad response has not triggered a transport error");
+                Assert.IsInstanceOf<System.Net.Sockets.SocketException>(expectedException, @"A bad response has not triggered a transport error. Expected a SocketException.");
 
                 // wait for the transport to connect
                 Thread.Sleep(100);
