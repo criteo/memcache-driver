@@ -12,6 +12,7 @@ namespace Criteo.Memcache.UTest.Mocks
     class ServerMock : IDisposable
     {
         private Socket _socket;
+        private List<Socket> _acceptedSockets;
 
         private bool _disposed = false;
 
@@ -33,6 +34,7 @@ namespace Criteo.Memcache.UTest.Mocks
             var acceptEventArgs = GetAcceptEventArgs();
             if (!_socket.AcceptAsync(acceptEventArgs))
                 throw new Exception("Unable to listen on port " + endPoint.Port);
+            _acceptedSockets = new List<Socket>();
         }
 
         private SocketAsyncEventArgs GetAcceptEventArgs()
@@ -54,6 +56,7 @@ namespace Criteo.Memcache.UTest.Mocks
 
             var socket = sender as Socket;
             var acceptedSocket = e.AcceptSocket;
+            _acceptedSockets.Add(acceptedSocket);
             var eventArg = new SocketAsyncEventArgs();
             eventArg.SetBuffer(new byte[MemcacheRequestHeader.SIZE], 0, MemcacheRequestHeader.SIZE);
             eventArg.Completed += new EventHandler<SocketAsyncEventArgs>(OnReceive);
@@ -129,6 +132,10 @@ namespace Criteo.Memcache.UTest.Mocks
             _disposed = true;
             if(_socket != null)
                 _socket.Dispose();
+            foreach (var socket in _acceptedSockets)
+            {
+                socket.Dispose();
+            }
         }
     }
 }
