@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading;
 
 using NUnit.Framework;
+using NUnit.Framework.Constraints;
 
 using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Node;
@@ -129,6 +130,7 @@ namespace Criteo.Memcache.UTest.Tests
                 serverMock.ResponseBody = null;
                 expectedException = null;
                 mutex.Reset();
+                receivedStatus = Status.NoError;
 
                 var result = node.TrySend(
                     new SetRequest
@@ -156,8 +158,8 @@ namespace Criteo.Memcache.UTest.Tests
                 Assert.AreEqual(Status.InternalError, receivedStatus, @"The send operation should have detected that the socket is dead");
                 Assert.IsInstanceOf<System.Net.Sockets.SocketException>(expectedException, @"A bad response has not triggered a transport error. Expected a SocketException.");
 
-                // wait for the transport to connect
-                Thread.Sleep(100);
+                // After a short delay, the transport should connect
+                Assert.That(() => { return node.PoolSize; }, new DelayedConstraint(new EqualConstraint(1), 2000, 100), "After a while, the transport should manage to connect");
 
                 expectedException = null;
                 mutex.Reset();
