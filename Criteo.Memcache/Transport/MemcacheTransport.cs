@@ -113,16 +113,13 @@ namespace Criteo.Memcache.Transport
         /// <param name="request" />
         public bool TrySend(IMemcacheRequest request)
         {
-            lock (this)
-            {
-                if (request == null || _disposed)
-                    return false;
+            if (request == null || _disposed)
+                return false;
 
-                if (!_initialized && !Initialize())
-                    return false;
+            if (!_initialized && !Initialize())
+                return false;
 
-                return SendRequest(request);
-            }
+            return SendRequest(request);
         }
 
         /// <summary>
@@ -384,11 +381,11 @@ namespace Criteo.Memcache.Transport
                 lock (this)
                     if (!_disposed)
                     {
+                        _socket.Disconnect(false);
                         if (TransportError != null)
                         {
                             TransportError(e);
                         }
-                        _socket.Disconnect(false);
 
                         FailPending();
                     }

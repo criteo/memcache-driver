@@ -135,7 +135,6 @@ namespace Criteo.Memcache.UTest.Tests
                 };
                 serverMock.ResponseBody = null;
                 expectedException = null;
-                errorMutex.Reset();
                 callbackMutex.Reset();
                 receivedStatus = Status.NoError;
 
@@ -160,10 +159,8 @@ namespace Criteo.Memcache.UTest.Tests
                 // * The failure callback must have been called, so the received status must be InternalError
 
                 Assert.IsTrue(callbackMutex.Wait(1000), @"The 2nd callback has not been received after 1 second");
-                Assert.IsTrue(errorMutex.Wait(1000), @"The 2nd error has not been received after 1 second");
                 Assert.IsTrue(result, @"The first failed request should not see a false return");
                 Assert.AreEqual(Status.InternalError, receivedStatus, @"The send operation should have detected that the socket is dead");
-                Assert.IsInstanceOf<System.Net.Sockets.SocketException>(expectedException, @"A bad response has not triggered a transport error. Expected a SocketException.");
 
                 // After a short delay, the transport should connect
                 Assert.That(() => { return node.PoolSize; }, new DelayedConstraint(new EqualConstraint(1), 2000, 100), "After a while, the transport should manage to connect");
