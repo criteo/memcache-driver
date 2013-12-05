@@ -74,15 +74,21 @@ namespace Criteo.Memcache.UTest.Tests
                 };
 
                 var node = new Memcache.Node.MemcacheNode(endpoint, config);
+                var errorMutex = new ManualResetEventSlim(false);
+                var callbackMutex = new ManualResetEventSlim(false);
 
                 Exception expectedException = null;
-                node.TransportError += e => { Interlocked.Exchange<Exception>(ref expectedException, e); Console.WriteLine(e); };
+                node.TransportError += e =>
+                    {
+                        Interlocked.Exchange<Exception>(ref expectedException, e);
+                        errorMutex.Set();
+                        Console.WriteLine(e);
+                    };
                 int nodeAliveCount = 0;
                 node.NodeAlive += t => ++nodeAliveCount;
                 int nodeDeadCount = 0;
                 node.NodeDead += t => ++nodeDeadCount;
 
-                var mutex = new ManualResetEventSlim(false);
                 Status receivedStatus = Status.NoError;
                 node.TrySend(
                     new SetRequest
@@ -95,7 +101,7 @@ namespace Criteo.Memcache.UTest.Tests
                         CallBack = s =>
                         {
                             receivedStatus = s;
-                            mutex.Set();
+                            callbackMutex.Set();
                         },
                     }, 1000);
                 // must wait before the next test because the TransportError event is fired after the callback call
@@ -108,8 +114,8 @@ namespace Criteo.Memcache.UTest.Tests
                 //      more mean that we added it twice after a failure, less means we didn't putted it back in the pool
                 // * The node should not be seen has dead yet
 
-                Assert.IsTrue(mutex.Wait(1000), @"The message has not been received after 1 second");
-                Thread.Sleep(100);
+                Assert.IsTrue(callbackMutex.Wait(1000), @"The 1st callback has not been received after 1 second");
+                Assert.IsTrue(errorMutex.Wait(1000), @"The 1st error has not been received after 1 second");
                 Assert.AreEqual(Status.InternalError, receivedStatus, @"A bad response has not sent an InternalError to the request callback");
                 Assert.IsInstanceOf<Memcache.Exceptions.MemcacheException>(expectedException, @"A bad response has not triggered a transport error. Expected a MemcacheException.");
                 Assert.AreEqual(1, node.PoolSize, @"A node contains more than the pool size sockets");
@@ -129,7 +135,8 @@ namespace Criteo.Memcache.UTest.Tests
                 };
                 serverMock.ResponseBody = null;
                 expectedException = null;
-                mutex.Reset();
+                errorMutex.Reset();
+                callbackMutex.Reset();
                 receivedStatus = Status.NoError;
 
                 var result = node.TrySend(
@@ -143,7 +150,7 @@ namespace Criteo.Memcache.UTest.Tests
                         CallBack = s =>
                         {
                             receivedStatus = s;
-                            mutex.Set();
+                            callbackMutex.Set();
                         },
                     }, 1000);
 
@@ -152,8 +159,8 @@ namespace Criteo.Memcache.UTest.Tests
                 // * The return must be true, because the request have been enqueued before the transport seen the socket died
                 // * The failure callback must have been called, so the received status must be InternalError
 
-                Assert.IsTrue(mutex.Wait(1000), @"The message has not been received after 1 second");
-                Thread.Sleep(100);
+                Assert.IsTrue(callbackMutex.Wait(1000), @"The 2nd callback has not been received after 1 second");
+                Assert.IsTrue(errorMutex.Wait(1000), @"The 2nd error has not been received after 1 second");
                 Assert.IsTrue(result, @"The first failed request should not see a false return");
                 Assert.AreEqual(Status.InternalError, receivedStatus, @"The send operation should have detected that the socket is dead");
                 Assert.IsInstanceOf<System.Net.Sockets.SocketException>(expectedException, @"A bad response has not triggered a transport error. Expected a SocketException.");
@@ -162,7 +169,7 @@ namespace Criteo.Memcache.UTest.Tests
                 Assert.That(() => { return node.PoolSize; }, new DelayedConstraint(new EqualConstraint(1), 2000, 100), "After a while, the transport should manage to connect");
 
                 expectedException = null;
-                mutex.Reset();
+                callbackMutex.Reset();
                 result = node.TrySend(
                     new SetRequest
                     {
@@ -174,7 +181,7 @@ namespace Criteo.Memcache.UTest.Tests
                         CallBack = s =>
                         {
                             receivedStatus = s;
-                            mutex.Set();
+                            callbackMutex.Set();
                         },
                     }, 1000);
 
@@ -184,7 +191,7 @@ namespace Criteo.Memcache.UTest.Tests
                 // * The callback must have been called and with a NoError status
 
                 Assert.IsTrue(result, @"The node has not been able to send a new request after a disconnection");
-                Assert.IsTrue(mutex.Wait(1000), @"The message has not been received after 1 second, case after reconnection");
+                Assert.IsTrue(callbackMutex.Wait(1000), @"The message has not been received after 1 second, case after reconnection");
                 Assert.AreEqual(Status.NoError, receivedStatus, @"The response after a reconnection is still not NoError");
                 Assert.IsNull(expectedException, "The request shouldn't have thrown an exception");
             }
