@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Criteo.Memcache.Exceptions;
 
 namespace Criteo.Memcache.Headers
 {
@@ -49,7 +50,7 @@ namespace Criteo.Memcache.Headers
         public void FromData(byte[] data, int offset = 0)
         {
             if (data[offset] != Magic)
-                throw new ArgumentException("The buffer does not begin with the MagicNumber");
+                throw new MemcacheException("The buffer does not begin with the MagicNumber");
             Opcode = (Opcode)data[1 + offset];
             KeyLength = data.CopyToUShort(2 + offset);
             ExtraLength = data[4 + offset];

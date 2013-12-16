@@ -66,7 +66,7 @@ namespace Criteo.Memcache.UTest.Tests
 
                 // set the things to answer to the server
                 serverMock.ResponseBody = responseBody;
-                serverMock.ResponseHeader = responseHeader;
+                responseHeader.ToData(serverMock.ResponseHeader);
 
                 var request = new RequestMock
                 {

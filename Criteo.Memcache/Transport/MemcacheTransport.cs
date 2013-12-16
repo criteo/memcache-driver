@@ -41,8 +41,8 @@ namespace Criteo.Memcache.Transport
 
         private volatile bool _disposed = false;
         private volatile bool _initialized = false;
-        private BlockingCollection<IMemcacheRequest> _pendingRequests;
-        private ConcurrentQueue<IMemcacheRequest> _pendingQueue;
+        private int _transportAvailableInReceive = 0;
+        private ConcurrentQueue<IMemcacheRequest> _pendingRequests;
         private Socket _socket;
         private CancellationTokenSource _token;
 
@@ -88,17 +88,14 @@ namespace Criteo.Memcache.Transport
 
             _registerEvents(this);
 
-            _pendingQueue = new ConcurrentQueue<IMemcacheRequest>();
-            _pendingRequests = clientConfig.TransportQueueLength > 0 ?
-                new BlockingCollection<IMemcacheRequest>(_pendingQueue, clientConfig.TransportQueueLength) :
-                new BlockingCollection<IMemcacheRequest>(_pendingQueue);
+            _pendingRequests = new ConcurrentQueue<IMemcacheRequest>();
 
             _sendAsynchEvtArgs = new SocketAsyncEventArgs();
             _sendAsynchEvtArgs.Completed += OnSendRequestComplete;
 
             _receiveHeaderAsynchEvtArgs = new SocketAsyncEventArgs();
             _receiveHeaderAsynchEvtArgs.SetBuffer(new byte[MemcacheResponseHeader.SIZE], 0, MemcacheResponseHeader.SIZE);
-            _receiveHeaderAsynchEvtArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnReadResponseComplete);
+            _receiveHeaderAsynchEvtArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnReceiveHeaderComplete);
 
             _receiveBodyAsynchEvtArgs = new SocketAsyncEventArgs();
             _receiveBodyAsynchEvtArgs.Completed += OnReceiveBodyComplete;
@@ -159,7 +156,6 @@ namespace Criteo.Memcache.Transport
 
                             Thread.Sleep(1000);
                         }
-                        _pendingRequests.Dispose();
                     }
         }
 
@@ -180,7 +176,7 @@ namespace Criteo.Memcache.Transport
         private void FailPending()
         {
             IMemcacheRequest request;
-            while (_pendingRequests.TryTake(out request))
+            while (_pendingRequests.TryDequeue(out request))
                 request.Fail();
         }
 
@@ -212,7 +208,7 @@ namespace Criteo.Memcache.Transport
             return true;
         }
 
-        private IMemcacheRequest UnstackToMatch(MemcacheResponseHeader header)
+        private IMemcacheRequest DequeueToMatch(MemcacheResponseHeader header)
         {
             IMemcacheRequest result = null;
 
@@ -225,12 +221,12 @@ namespace Criteo.Memcache.Transport
                 // hacky case on partial response for stat command
                 if (header.Opcode == Opcode.Stat && header.TotalBodyLength != 0 && header.Status == Status.NoError)
                 {
-                    if (!_pendingQueue.TryPeek(out result))
+                    if (!_pendingRequests.TryPeek(out result))
                         throw new MemcacheException("Received a response when no request is pending");
                 }
                 else
                 {
-                    if (!_pendingRequests.TryTake(out result))
+                    if (!_pendingRequests.TryDequeue(out result))
                         throw new MemcacheException("Received a response when no request is pending");
                 }
 
@@ -241,18 +237,19 @@ namespace Criteo.Memcache.Transport
                 }
             }
 
+            AvailableInReceive();
             return result;
         }
 
         #region Reads
 
-        private void ReadResponse()
+        private void ReceiveResponse()
         {
             try
             {
                 _receiveHeaderAsynchEvtArgs.SetBuffer(0, MemcacheResponseHeader.SIZE);
                 if (!_socket.ReceiveAsync(_receiveHeaderAsynchEvtArgs))
-                    OnReadResponseComplete(_socket, _receiveHeaderAsynchEvtArgs);
+                    OnReceiveHeaderComplete(_socket, _receiveHeaderAsynchEvtArgs);
             }
             catch (Exception e)
             {
@@ -260,7 +257,7 @@ namespace Criteo.Memcache.Transport
             }
         }
 
-        private void OnReadResponseComplete(object sender, SocketAsyncEventArgs args)
+        private void OnReceiveHeaderComplete(object sender, SocketAsyncEventArgs args)
         {
             var socket = (Socket)sender;
             try
@@ -277,7 +274,7 @@ namespace Criteo.Memcache.Transport
                     int offset = args.BytesTransferred + args.Offset;
                     args.SetBuffer(offset, MemcacheResponseHeader.SIZE - offset);
                     if (!socket.ReceiveAsync(args))
-                        OnReadResponseComplete(socket, args);
+                        OnReceiveHeaderComplete(socket, args);
                     return;
                 }
 
@@ -286,6 +283,7 @@ namespace Criteo.Memcache.Transport
             catch (Exception e)
             {
                 TransportFailureOnReceive(e);
+                // if the receive header failed, we must restack the transport cause only sends detects it
             }
         }
 
@@ -323,17 +321,17 @@ namespace Criteo.Memcache.Transport
                 if (args.SocketError != SocketError.Success)
                     throw new SocketException((int)args.SocketError);
 
-                // check if we read a full header, else continue
+                // check if we read a full body, else continue
                 if (args.BytesTransferred + args.Offset < _currentResponse.TotalBodyLength)
                 {
                     int offset = args.BytesTransferred + args.Offset;
                     args.SetBuffer(offset, (int)_currentResponse.TotalBodyLength - offset);
                     if (!socket.ReceiveAsync(args))
-                        OnReadResponseComplete(socket, args);
+                        OnReceiveHeaderComplete(socket, args);
                     return;
                 }
                 // should assert we have the good request
-                var request = UnstackToMatch(_currentResponse);
+                var request = DequeueToMatch(_currentResponse);
 
                 if (MemcacheResponse != null)
                     MemcacheResponse(_currentResponse, request);
@@ -347,7 +345,7 @@ namespace Criteo.Memcache.Transport
                 byte[] extra = null;
                 if (_currentResponse.ExtraLength == _currentResponse.TotalBodyLength)
                     extra = args.Buffer;
-                else if(_currentResponse.ExtraLength > 0)
+                else if (_currentResponse.ExtraLength > 0)
                 {
                     extra = new byte[_currentResponse.ExtraLength];
                     Array.Copy(args.Buffer, _currentResponse.KeyLength, extra, 0, _currentResponse.ExtraLength);
@@ -367,11 +365,21 @@ namespace Criteo.Memcache.Transport
                     request.HandleResponse(_currentResponse, key, extra, payload);
 
                 // loop the read on the socket
-                ReadResponse();
+                ReceiveResponse();
             }
             catch (Exception e)
             {
                 TransportFailureOnReceive(e);
+            }
+        }
+
+        private void AvailableInReceive()
+        {
+            if (1 == Interlocked.CompareExchange(ref _transportAvailableInReceive, 0, 1))
+            {
+                // the flag has been successfully reset
+                if (_transportAvailable != null)
+                    _transportAvailable(this);
             }
         }
 
@@ -389,13 +397,14 @@ namespace Criteo.Memcache.Transport
 
                         FailPending();
                     }
+            AvailableInReceive();
         }
 
         private void Start()
         {
             _token = new CancellationTokenSource();
 
-            ReadResponse();
+            ReceiveResponse();
             Authenticate();
 
             IsAlive = true;
@@ -516,7 +525,10 @@ namespace Criteo.Memcache.Transport
                 }
 
                 if (args.UserToken == null)
-                    _transportAvailable(this);
+                {
+                    if (_transportAvailable != null)
+                        _transportAvailable(this);
+                }
                 else
                     (args.UserToken as ManualResetEventSlim).Set();
             }
@@ -533,16 +545,21 @@ namespace Criteo.Memcache.Transport
             {
                 buffer = request.GetQueryBuffer();
 
-                if (!_pendingRequests.TryAdd(request, _clientConfig.TransportQueueTimeout, _token.Token))
+                if(_clientConfig.TransportQueueLength > 0 &&
+                    _pendingRequests.Count >= _clientConfig.TransportQueueLength)
                 {
-                    if (TransportError != null)
-                        TransportError(new MemcacheException("Send request queue full to " + _endPoint));
+                    // The request queue is full, the transport will be put back in the pool after the queue is not full anymore
+                    Interlocked.Exchange(ref _transportAvailableInReceive, 1);
+                    if (!_pendingRequests.IsEmpty)
+                        // the receive will reset the flag after the next dequeue
+                        return false;
 
-                    if (_transportAvailable != null)
-                        _transportAvailable(this);
-                    return false;
+                    if (0 == Interlocked.CompareExchange(ref _transportAvailableInReceive, 0, 1))
+                        // the flag has already been reset (by the receive)
+                        return false;
                 }
 
+                _pendingRequests.Enqueue(request);
                 SendAsynch(buffer, 0, buffer.Length, callAvailable);
             }
             catch (Exception e)

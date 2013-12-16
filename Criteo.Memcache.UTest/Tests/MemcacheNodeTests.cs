@@ -60,13 +60,46 @@ namespace Criteo.Memcache.UTest.Tests
         private IPAddress LOCALHOST = new IPAddress(new byte[] { 127, 0, 0, 1 });
 
         [Test]
-        public void ReceiveFailConsistency()
+        public void ReceiveFailConsistency([Values(true, false)] bool failInBody)
         {
             var endpoint = new IPEndPoint(LOCALHOST, 12347);
 
             using (var serverMock = new ServerMock(endpoint))
             {
                 serverMock.ResponseBody = new byte[24];
+                if (failInBody)
+                {
+                    // the Opaque vs RequestId is check in the body receiving callback
+                    // I put 2 different values
+                    new MemcacheResponseHeader
+                    {
+                        Cas = 8,
+                        DataType = 12,
+                        ExtraLength = 0,
+                        KeyLength = 0,
+                        Opaque = 0,
+                        Status = Status.NoError,
+                        Opcode = Opcode.Set,
+                        TotalBodyLength = 0,
+                    }.ToData(serverMock.ResponseHeader);
+                }
+                else
+                {
+                    // the magic number is checked in the header receiving callback
+                    // I corrupt it
+                    new MemcacheResponseHeader
+                    {
+                        Cas = 8,
+                        DataType = 12,
+                        ExtraLength = 0,
+                        KeyLength = 0,
+                        Opaque = 1,
+                        Status = Status.NoError,
+                        Opcode = Opcode.Set,
+                        TotalBodyLength = 0,
+                    }.ToData(serverMock.ResponseHeader);
+                    serverMock.ResponseHeader.CopyFrom(0, (uint)42);
+                }
 
                 var config = new MemcacheClientConfiguration
                 {
@@ -121,7 +154,7 @@ namespace Criteo.Memcache.UTest.Tests
                 Assert.AreEqual(1, node.PoolSize, @"A node contains more than the pool size sockets");
                 Assert.AreEqual(0, nodeDeadCount, @"The node has been detected has dead before a new send has been made");
 
-                serverMock.ResponseHeader = new MemcacheResponseHeader
+                new MemcacheResponseHeader
                 {
                     Cas = 8,
                     DataType = 12,
@@ -132,7 +165,8 @@ namespace Criteo.Memcache.UTest.Tests
                     Status = Status.NoError,
                     Opcode = Opcode.Set,
                     TotalBodyLength = 0,
-                };
+                }.ToData(serverMock.ResponseHeader);
+
                 serverMock.ResponseBody = null;
                 expectedException = null;
                 callbackMutex.Reset();

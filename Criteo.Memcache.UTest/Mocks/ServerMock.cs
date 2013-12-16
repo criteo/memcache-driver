@@ -19,7 +19,7 @@ namespace Criteo.Memcache.UTest.Mocks
         public MemcacheRequestHeader LastReceivedHeader { get; private set; }
         public byte[] LastReceivedBody { get; set; }
 
-        public MemcacheResponseHeader ResponseHeader { private get; set; }
+        public byte[] ResponseHeader { get; private set; }
         public byte[] ResponseBody { private get; set; }
 
         /// <summary>
@@ -35,6 +35,7 @@ namespace Criteo.Memcache.UTest.Mocks
             if (!_socket.AcceptAsync(acceptEventArgs))
                 throw new Exception("Unable to listen on port " + endPoint.Port);
             _acceptedSockets = new List<Socket>();
+            ResponseHeader = new byte[MemcacheResponseHeader.SIZE];
         }
 
         private SocketAsyncEventArgs GetAcceptEventArgs()
@@ -108,11 +109,9 @@ namespace Criteo.Memcache.UTest.Mocks
                 LastReceivedBody = null;
 
             // send the response header
-            var headerToSend = new byte[MemcacheResponseHeader.SIZE];
-            ResponseHeader.ToData(headerToSend);
             transfered = 0;
             while (transfered < MemcacheResponseHeader.SIZE && !_disposed)
-                transfered += socket.Send(headerToSend, transfered, MemcacheResponseHeader.SIZE - transfered, SocketFlags.None);
+                transfered += socket.Send(ResponseHeader, transfered, MemcacheResponseHeader.SIZE - transfered, SocketFlags.None);
 
             // send the response body if present
             if (ResponseBody != null)

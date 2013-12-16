@@ -91,7 +91,7 @@ namespace Criteo.Memcache.Node
             _configuration = configuration;
             _endPoint = endPoint;
             _tokenSource = new CancellationTokenSource();
-            _transportPool = new BlockingCollection<IMemcacheTransport>(new ConcurrentQueue<IMemcacheTransport>());
+            _transportPool = new BlockingCollection<IMemcacheTransport>(new ConcurrentStack<IMemcacheTransport>());
 
             for (int i = 0; i < configuration.PoolSize; ++i)
             {
