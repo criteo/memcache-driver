@@ -62,10 +62,9 @@ namespace Criteo.Memcache.UTest.Tests
         [Test]
         public void ReceiveFailConsistency([Values(true, false)] bool failInBody)
         {
-            var endpoint = new IPEndPoint(LOCALHOST, 12347);
-
-            using (var serverMock = new ServerMock(endpoint))
+            using (var serverMock = new ServerMock())
             {
+                var endpoint = serverMock.ListenEndPoint;
                 serverMock.ResponseBody = new byte[24];
                 if (failInBody)
                 {
@@ -115,7 +114,6 @@ namespace Criteo.Memcache.UTest.Tests
                     {
                         Interlocked.Exchange<Exception>(ref expectedException, e);
                         errorMutex.Set();
-                        Console.WriteLine(e);
                     };
                 int nodeAliveCount = 0;
                 node.NodeAlive += t => ++nodeAliveCount;

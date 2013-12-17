@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Sockets;
 
 using Criteo.Memcache.Headers;
+using System.Threading;
 
 namespace Criteo.Memcache.UTest.Mocks
 {
@@ -21,19 +22,24 @@ namespace Criteo.Memcache.UTest.Mocks
 
         public byte[] ResponseHeader { get; private set; }
         public byte[] ResponseBody { private get; set; }
+        public ManualResetEventSlim ReceiveMutex { get; set; }
+        public EndPoint ListenEndPoint { get; private set; }
+
+        public int MaxSent { get; set; }
 
         /// <summary>
         /// Start and listen ongoing TCP connections
         /// </summary>
-        /// <param name="endPoint"></param>
-        public ServerMock(IPEndPoint endPoint)
+        public ServerMock()
         {
-            _socket = new Socket(endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-            _socket.Bind(endPoint);
+            var endpoint = new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 0);
+            _socket = new Socket(endpoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            _socket.Bind(endpoint);
+            ListenEndPoint = _socket.LocalEndPoint;
             _socket.Listen((int)SocketOptionName.MaxConnections);
             var acceptEventArgs = GetAcceptEventArgs();
             if (!_socket.AcceptAsync(acceptEventArgs))
-                throw new Exception("Unable to listen on port " + endPoint.Port);
+                throw new Exception("Unable to listen on " + ListenEndPoint.ToString());
             _acceptedSockets = new List<Socket>();
             ResponseHeader = new byte[MemcacheResponseHeader.SIZE];
         }
@@ -79,6 +85,9 @@ namespace Criteo.Memcache.UTest.Mocks
         /// <param name="e" />
         void OnReceive(object sender, SocketAsyncEventArgs e)
         {
+            if (ReceiveMutex != null)
+                ReceiveMutex.Wait();
+
             // ends when error occur
             if (e.SocketError != SocketError.Success)
                 return;
@@ -111,14 +120,24 @@ namespace Criteo.Memcache.UTest.Mocks
             // send the response header
             transfered = 0;
             while (transfered < MemcacheResponseHeader.SIZE && !_disposed)
-                transfered += socket.Send(ResponseHeader, transfered, MemcacheResponseHeader.SIZE - transfered, SocketFlags.None);
+            {
+                var toTransfer = MemcacheResponseHeader.SIZE - transfered;
+                if (MaxSent != 0 && MaxSent < toTransfer)
+                    toTransfer = MaxSent;
+                transfered += socket.Send(ResponseHeader, transfered, toTransfer, SocketFlags.None);
+            }
 
             // send the response body if present
             if (ResponseBody != null)
             {
                 transfered = 0;
                 while (transfered < ResponseBody.Length && !_disposed)
-                    transfered += socket.Send(ResponseBody, 0, ResponseBody.Length - transfered, SocketFlags.None);
+                {
+                    var toTransfer = ResponseBody.Length - transfered;
+                    if (MaxSent != 0 && MaxSent < toTransfer)
+                        toTransfer = MaxSent;
+                    transfered += socket.Send(ResponseBody, transfered, toTransfer, SocketFlags.None);
+                }
             }
 
             // start to receive again
