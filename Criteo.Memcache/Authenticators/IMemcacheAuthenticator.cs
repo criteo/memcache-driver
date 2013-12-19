@@ -1,13 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-using Criteo.Memcache.Transport;
-using Criteo.Memcache.Headers;
-using Criteo.Memcache.Requests;
-
-namespace Criteo.Memcache.Authenticators
+﻿namespace Criteo.Memcache.Authenticators
 {
     public interface IMemcacheAuthenticator
     {

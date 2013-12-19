@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 
 using Criteo.Memcache.Headers;
@@ -17,13 +15,13 @@ namespace Criteo.Memcache.Requests
         public TimeSpan Expire { get; set; }
         public uint RequestId { get; set; }
         public uint Flags { get; set; }
-        public Opcode Code { get; set; }
+        public Opcode RequestOpcode { get; set; }
 
         public Action<Status> CallBack { get; set; }
 
         public SetRequest()
         {
-            Code = Opcode.Set;
+            RequestOpcode = Opcode.Set;
             Flags = RawDataFlag;
         }
 
@@ -33,11 +31,11 @@ namespace Criteo.Memcache.Requests
             if (keyAsBytes.Length > ushort.MaxValue)
                 throw new ArgumentException("The key is too long for the memcache binary protocol : " + Key);
 
-            var requestHeader = new MemcacheRequestHeader(Code)
+            var requestHeader = new MemcacheRequestHeader(RequestOpcode)
             {
                 KeyLength = (ushort)keyAsBytes.Length,
-                ExtraLength = 8,
-                TotalBodyLength = (uint)(8 + keyAsBytes.Length + (Message == null? 0 : Message.Length)),
+                ExtraLength = 2 * sizeof(uint),
+                TotalBodyLength = (uint)(2 * sizeof(uint) + keyAsBytes.Length + (Message == null ? 0 : Message.Length)),
                 Opaque = RequestId,
             };
 
@@ -52,9 +50,9 @@ namespace Criteo.Memcache.Requests
                 expire = (uint)(DateTime.UtcNow.Add(Expire) - Epock).TotalSeconds;
 
             buffer.CopyFrom(MemcacheRequestHeader.SIZE + sizeof(uint), expire);
-            keyAsBytes.CopyTo(buffer, 32);
+            keyAsBytes.CopyTo(buffer, MemcacheRequestHeader.SIZE + requestHeader.ExtraLength);
             if(Message != null)
-                Message.CopyTo(buffer, 32 + keyAsBytes.Length);
+                Message.CopyTo(buffer, MemcacheRequestHeader.SIZE + requestHeader.ExtraLength + keyAsBytes.Length);
 
             return buffer;
         }
@@ -74,7 +72,7 @@ namespace Criteo.Memcache.Requests
 
         public override string ToString()
         {
-            return Code.ToString() + ";Id=" + RequestId + ";Key=" + Key;
+            return RequestOpcode.ToString() + ";Id=" + RequestId + ";Key=" + Key;
         }
     }
 }

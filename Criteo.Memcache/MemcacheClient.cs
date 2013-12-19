@@ -4,10 +4,10 @@ using System.Net;
 using System.Threading;
 
 using Criteo.Memcache.Configuration;
-using Criteo.Memcache.Requests;
-using Criteo.Memcache.Node;
-using Criteo.Memcache.Locator;
 using Criteo.Memcache.Headers;
+using Criteo.Memcache.Locator;
+using Criteo.Memcache.Node;
+using Criteo.Memcache.Requests;
 
 namespace Criteo.Memcache
 {
@@ -205,9 +205,9 @@ namespace Criteo.Memcache
                 case StoreMode.Set:
                     return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy, Replicas = _configuration.Replicas });
                 case StoreMode.Replace:
-                    return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy, Replicas = _configuration.Replicas, Code = Opcode.Replace });
+                    return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy, Replicas = _configuration.Replicas, RequestOpcode = Opcode.Replace });
                 case StoreMode.Add:
-                    return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy, Replicas = _configuration.Replicas, Code = Opcode.Add });
+                    return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy, Replicas = _configuration.Replicas, RequestOpcode = Opcode.Add });
                 default:
                     return false;
             }

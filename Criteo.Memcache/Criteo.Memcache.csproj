@@ -62,7 +62,6 @@
     <Compile Include="Requests\StatRequest.cs" />
     <Compile Include="Requests\DeleteRequest.cs" />
     <Compile Include="Requests\GetRequest.cs" />
-    <Compile Include="Requests\HealthCheckRequest.cs" />
     <Compile Include="Requests\IMemcacheRequest.cs" />
     <Compile Include="Requests\NoOpRequest.cs" />
     <Compile Include="Requests\SaslPlainRequest.cs" />

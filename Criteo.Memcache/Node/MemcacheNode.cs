@@ -1,11 +1,11 @@
 ﻿using System;
-using System.Net;
 using System.Collections.Concurrent;
+using System.Net;
 using System.Threading;
 
+using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Headers;
 using Criteo.Memcache.Requests;
-using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Transport;
 
 namespace Criteo.Memcache.Node

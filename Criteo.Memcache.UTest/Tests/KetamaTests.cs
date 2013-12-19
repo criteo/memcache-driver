@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 
-using Criteo.Memcache.Node;
-using Criteo.Memcache.Locator;
-
 using NUnit.Framework;
+
+using Criteo.Memcache.Locator;
+using Criteo.Memcache.Node;
 
 namespace Criteo.Memcache.UTest.Tests
 {

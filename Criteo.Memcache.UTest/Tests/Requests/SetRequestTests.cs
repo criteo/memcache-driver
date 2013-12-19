@@ -1,12 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 using NUnit.Framework;
 
-using Criteo.Memcache.Requests;
 using Criteo.Memcache.Headers;
+using Criteo.Memcache.Requests;
 
 namespace Criteo.Memcache.UTest.Tests
 {
@@ -49,7 +46,7 @@ namespace Criteo.Memcache.UTest.Tests
                 CallBackPolicy = CallBackPolicy.AllOK
             };
 
-            Assert.AreEqual(Opcode.Set, request.Code);
+            Assert.AreEqual(Opcode.Set, request.RequestOpcode);
 
             var queryBuffer = request.GetQueryBuffer();
             CollectionAssert.AreEqual(SET_QUERY, queryBuffer, "The set query buffer is different from the expected one");
@@ -100,7 +97,7 @@ namespace Criteo.Memcache.UTest.Tests
 
             var headerOK = new MemcacheResponseHeader { Opcode = Opcode.Set, Status = Status.NoError }; 
             
-            Assert.AreEqual(Opcode.Set, request.Code);
+            Assert.AreEqual(Opcode.Set, request.RequestOpcode);
 
             var queryBuffer = request.GetQueryBuffer();
             CollectionAssert.AreEqual(SET_QUERY, queryBuffer, "The set query buffer is different from the expected one");

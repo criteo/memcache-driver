@@ -1,18 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Net;
 using System.Threading;
 
 using NUnit.Framework;
 using NUnit.Framework.Constraints;
 
 using Criteo.Memcache.Configuration;
-using Criteo.Memcache.Node;
-using Criteo.Memcache.UTest.Mocks;
-using Criteo.Memcache.Requests;
-using System.Net;
 using Criteo.Memcache.Headers;
+using Criteo.Memcache.Node;
+using Criteo.Memcache.Requests;
+using Criteo.Memcache.UTest.Mocks;
 
 namespace Criteo.Memcache.UTest.Tests
 {
@@ -124,7 +122,7 @@ namespace Criteo.Memcache.UTest.Tests
                 node.TrySend(
                     new SetRequest
                     {
-                        Code = Opcode.Set,
+                        RequestOpcode = Opcode.Set,
                         RequestId = 1,
                         Expire = TimeSpan.FromSeconds(1),
                         Key = @"Key",
@@ -173,7 +171,7 @@ namespace Criteo.Memcache.UTest.Tests
                 var result = node.TrySend(
                     new SetRequest
                     {
-                        Code = Opcode.Set,
+                        RequestOpcode = Opcode.Set,
                         RequestId = 1,
                         Expire = TimeSpan.FromSeconds(1),
                         Key = @"Key",
@@ -202,7 +200,7 @@ namespace Criteo.Memcache.UTest.Tests
                 result = node.TrySend(
                     new SetRequest
                     {
-                        Code = Opcode.Set,
+                        RequestOpcode = Opcode.Set,
                         RequestId = 1,
                         Expire = TimeSpan.FromSeconds(1),
                         Key = @"Key",

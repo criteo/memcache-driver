@@ -1,14 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Net;
-
-using Criteo.Memcache.Configuration;
-using Criteo.Memcache.Headers;
 
 using NUnit.Framework;
 
+using Criteo.Memcache.Configuration;
+using Criteo.Memcache.Headers;
 using Criteo.Memcache.UTest.Mocks;
 
 namespace Criteo.Memcache.UTest.Tests

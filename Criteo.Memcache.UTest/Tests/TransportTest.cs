@@ -4,11 +4,11 @@ using System.Threading;
 
 using NUnit.Framework;
 
-using Criteo.Memcache.Headers;
-using Criteo.Memcache.Transport;
 using Criteo.Memcache.Configuration;
-using Criteo.Memcache.UTest.Mocks;
+using Criteo.Memcache.Headers;
 using Criteo.Memcache.Requests;
+using Criteo.Memcache.Transport;
+using Criteo.Memcache.UTest.Mocks;
 
 namespace Criteo.Memcache.UTest.Tests
 {

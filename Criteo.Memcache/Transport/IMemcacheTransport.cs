@@ -1,11 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 using Criteo.Memcache.Requests;
 using Criteo.Memcache.Headers;
-using Criteo.Memcache.Node;
 
 namespace Criteo.Memcache.Transport
 {

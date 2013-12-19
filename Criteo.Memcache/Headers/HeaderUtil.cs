@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-namespace Criteo.Memcache.Headers
+﻿namespace Criteo.Memcache.Headers
 {
     public enum Status : ushort
     {

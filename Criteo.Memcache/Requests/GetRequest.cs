@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 
-using Criteo.Memcache.Headers;
 using Criteo.Memcache.Exceptions;
+using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.Requests
 {
@@ -15,7 +13,7 @@ namespace Criteo.Memcache.Requests
         public string Key { get; set; }
         public Action<Status, byte[]> CallBack { get; set; }
         public uint RequestId { get; set; }
-        public virtual Opcode RequestOpcode { get; set; }
+        public Opcode RequestOpcode { get; set; }
         public uint Flag { get; private set; }
         public TimeSpan Expire { get; set; }
 

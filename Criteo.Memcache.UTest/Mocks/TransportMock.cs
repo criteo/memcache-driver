@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
-using Criteo.Memcache.Transport;
 using Criteo.Memcache.Headers;
 using Criteo.Memcache.Requests;
+using Criteo.Memcache.Transport;
 
 namespace Criteo.Memcache.UTest.Mocks
 {

@@ -1,14 +1,13 @@
 ﻿using System;
-using System.IO;
-using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
-using System.Security.Cryptography;
 
-using Criteo.Memcache.Node;
 using Criteo.Memcache.Headers;
+using Criteo.Memcache.Node;
 
 namespace Criteo.Memcache.Locator
 {
@@ -62,7 +61,6 @@ namespace Criteo.Memcache.Locator
 
         private IList<IMemcacheNode> _nodes;
         private LookupData _lookupData;
-        //private Timer _resurrectTimer;
         private int _resurrectFreq;
 
         public KetamaLocator(string hashName = null, int resurectFreq = 1000)
@@ -85,7 +83,6 @@ namespace Criteo.Memcache.Locator
                 _lookupData = new LookupData(nodes, hash.Value);
 
             UpdateState(null);
-            //_resurrectTimer = new Timer(UpdateState, null, _resurrectFreq, _resurrectFreq);
         }
 
         private void Reinitialize()
@@ -147,18 +144,18 @@ namespace Criteo.Memcache.Locator
                 case 0:
                     yield break;
                 case 1:
-                    var first_node = ld.nodes[0];
-                    if(!first_node.IsDead)
-                        yield return first_node;
+                    var firstNode = ld.nodes[0];
+                    if(!firstNode.IsDead)
+                        yield return firstNode;
                     yield break;
             }
 
             // Return alive nodes only.
-            foreach(var ret_node in LocateNode(ld, this.GetKeyHash(key)))
+            foreach(var retNode in LocateNode(ld, this.GetKeyHash(key)))
             {
-                if (ret_node != null && !ret_node.IsDead)
+                if (retNode != null && !retNode.IsDead)
                 {
-                    yield return ret_node;
+                    yield return retNode;
                 }
             }
         }

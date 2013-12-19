@@ -1,14 +1,12 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 
-using Criteo.Memcache.Requests;
-using Criteo.Memcache.Transport;
-using Criteo.Memcache.Node;
-using Criteo.Memcache.Locator;
 using Criteo.Memcache.Authenticators;
+using Criteo.Memcache.Locator;
+using Criteo.Memcache.Node;
+using Criteo.Memcache.Transport;
 
 namespace Criteo.Memcache.Configuration
 {
@@ -51,7 +49,7 @@ namespace Criteo.Memcache.Configuration
 
         #endregion factories
 
-        private IList<IPEndPoint> _nodesEndPoints = new List<IPEndPoint>();
+        private readonly IList<IPEndPoint> _nodesEndPoints = new List<IPEndPoint>();
         public IList<IPEndPoint> NodesEndPoints { get { return _nodesEndPoints;} }
 
         public INodeLocator NodeLocator { get; set; }

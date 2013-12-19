@@ -1,17 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Net;
 
 using NUnit.Framework;
 
-using Criteo.Memcache.Authenticators;
-using Criteo.Memcache.Requests;
-using Criteo.Memcache.Headers;
-using Criteo.Memcache.Node;
 using Criteo.Memcache.Locator;
-
+using Criteo.Memcache.Node;
 using Criteo.Memcache.UTest.Mocks;
 
 namespace Criteo.Memcache.UTest.Tests

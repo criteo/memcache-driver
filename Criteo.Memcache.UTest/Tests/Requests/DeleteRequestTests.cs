@@ -1,12 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using Criteo.Memcache.Headers;
+using Criteo.Memcache.Requests;
 
 using NUnit.Framework;
-
-using Criteo.Memcache.Requests;
-using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.UTest.Tests.Requests
 {
