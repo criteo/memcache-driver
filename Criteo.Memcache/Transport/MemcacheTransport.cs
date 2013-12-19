@@ -6,7 +6,6 @@ using System.Net.Sockets;
 using System.Threading;
 
 using Criteo.Memcache.Requests;
-using Criteo.Memcache.Authenticators;
 using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Headers;
 using Criteo.Memcache.Exceptions;
@@ -338,18 +337,18 @@ namespace Criteo.Memcache.Transport
                 if (_currentResponse.Status != Status.NoError && MemcacheError != null)
                     MemcacheError(_currentResponse, request);
 
-                string key = null;
-                if (_currentResponse.KeyLength > 0)
-                    key = UTF8Encoding.Default.GetString(args.Buffer, 0, _currentResponse.KeyLength);
-
                 byte[] extra = null;
                 if (_currentResponse.ExtraLength == _currentResponse.TotalBodyLength)
                     extra = args.Buffer;
                 else if (_currentResponse.ExtraLength > 0)
                 {
                     extra = new byte[_currentResponse.ExtraLength];
-                    Array.Copy(args.Buffer, _currentResponse.KeyLength, extra, 0, _currentResponse.ExtraLength);
+                    Array.Copy(args.Buffer, 0, extra, 0, _currentResponse.ExtraLength);
                 }
+
+                string key = null;
+                if (_currentResponse.KeyLength > 0)
+                    key = UTF8Encoding.Default.GetString(args.Buffer, _currentResponse.ExtraLength, _currentResponse.KeyLength);
 
                 var payloadLength = _currentResponse.TotalBodyLength - _currentResponse.KeyLength - _currentResponse.ExtraLength;
                 byte[] payload = null;
