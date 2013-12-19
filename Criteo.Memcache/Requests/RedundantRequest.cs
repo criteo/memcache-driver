@@ -10,7 +10,7 @@ using System.Threading;
 namespace Criteo.Memcache.Requests
 {
     /// <summary>
-    /// Base class for all requests that can be sent concurrently to several nodes, and for which the user expects only one callback.     
+    /// Base class for all requests that can be sent concurrently to several nodes, and for which the user expects only one callback.
     /// </summary>
     class RedundantRequest
     {
@@ -56,8 +56,8 @@ namespace Criteo.Memcache.Requests
                     ignoreNextResponses = false;
                     break;
             }
-            
-            if (ignoreNextResponses && 
+
+            if (ignoreNextResponses &&
                 0 == Interlocked.CompareExchange(ref _ignoreNextResponses, 1, 0))   // If _ignoreNextResponses was 0 (false), then switch it to 1 (true) and return true.
             {
                 return true;

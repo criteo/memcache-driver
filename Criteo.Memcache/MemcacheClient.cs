@@ -123,11 +123,11 @@ namespace Criteo.Memcache
         /// </returns>
         protected bool SendRequest(IMemcacheRequest request)
         {
-            int countTrySends = 0; 
+            int countTrySends = 0;
             int countTrySendsOK = 0;
 
             foreach (var node in _locator.Locate(request.Key))
-            {           
+            {
                 countTrySends++;
                 if (node.TrySend(request, _configuration.QueueTimeout))
                 {
@@ -234,15 +234,15 @@ namespace Criteo.Memcache
         /// <returns></returns>
         public bool GetAndTouch(string key, TimeSpan expire, Action<Status, byte[]> callback, CallBackPolicy callbackPolicy = CallBackPolicy.AnyOK)
         {
-            return SendRequest(new GetRequest 
-                { 
-                    RequestOpcode = Opcode.GAT, 
-                    Expire = expire, 
-                    Key = key, 
-                    CallBack = callback, 
-                    CallBackPolicy = callbackPolicy, 
-                    RequestId = NextRequestId, 
-                    Replicas = _configuration.Replicas 
+            return SendRequest(new GetRequest
+                {
+                    RequestOpcode = Opcode.GAT,
+                    Expire = expire,
+                    Key = key,
+                    CallBack = callback,
+                    CallBackPolicy = callbackPolicy,
+                    RequestId = NextRequestId,
+                    Replicas = _configuration.Replicas
                 });
         }
 

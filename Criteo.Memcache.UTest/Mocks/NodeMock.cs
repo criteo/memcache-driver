@@ -30,7 +30,7 @@ namespace Criteo.Memcache.UTest.Mocks
         public bool IsDead
         {
             get { return _isDead; }
-            set 
+            set
             {
                 _isDead = value;
                 if (_isDead && NodeDead != null)

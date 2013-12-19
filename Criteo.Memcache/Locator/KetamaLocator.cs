@@ -90,7 +90,7 @@ namespace Criteo.Memcache.Locator
 
         private void Reinitialize()
         {
-            // filter only working nodes and 
+            // filter only working nodes and
             var newNodes = new List<IMemcacheNode>(_nodes.Count);
             foreach (var node in _nodes)
                 if (!node.IsDead)
@@ -144,10 +144,10 @@ namespace Criteo.Memcache.Locator
 
             switch (ld.nodes.Length)
             {
-                case 0: 
+                case 0:
                     yield break;
-                case 1: 
-                    var first_node = ld.nodes[0]; 
+                case 1:
+                    var first_node = ld.nodes[0];
                     if(!first_node.IsDead)
                         yield return first_node;
                     yield break;
@@ -222,7 +222,7 @@ namespace Criteo.Memcache.Locator
                         yield return node;
                     }
                 }
-                
+
                 foundIndex++;
                 if (foundIndex >= ld.sortedKeys.Length)
                 {

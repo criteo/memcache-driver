@@ -13,10 +13,10 @@ namespace Criteo.Memcache.Requests
         public string Key { get; set; }
         public Action<MemcacheResponseHeader> Callback { get; set; }
 
-        public int Replicas 
-        { 
+        public int Replicas
+        {
             get { return 0; }
-            set { return;  } 
+            set { return;  }
         }
 
         public byte[] GetQueryBuffer()

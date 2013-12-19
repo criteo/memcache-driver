@@ -24,13 +24,13 @@ namespace Criteo.Memcache.Locator
             position = position >= 0 ? position : position + _nodes.Count;
 
             for(int i = 0; i < _nodes.Count; ++i)
-            {            
+            {
                 var selectedNode = _nodes[position];
                 if (!selectedNode.IsDead)
                     yield return selectedNode;
                 position++;
                 if (position >= _nodes.Count)
-                    position = 0; 
+                    position = 0;
             }
         }
     }

@@ -136,7 +136,7 @@ namespace Criteo.Memcache.UTest.Tests
         {
             var locator = new KetamaLocator();
             locator.Initialize(_nodes);
-            
+
             for (int i = 0; i < _nodes.Count; ++i)
             {
                 int j;
@@ -148,7 +148,7 @@ namespace Criteo.Memcache.UTest.Tests
                 foreach (var chosenNode in locator.Locate(i.ToString()))
                 {
                     nodesSet.Add(chosenNode);
-                    Assert.IsFalse(chosenNode.IsDead, "KetamaLocator returned a dead node"); 
+                    Assert.IsFalse(chosenNode.IsDead, "KetamaLocator returned a dead node");
                     // Kill one of the nodes
                     (_nodes[j++] as NodeMock).IsDead = true;
                 }
