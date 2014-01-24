@@ -378,8 +378,7 @@ namespace Criteo.Memcache.Transport
             if (1 == Interlocked.CompareExchange(ref _transportAvailableInReceive, 0, 1))
             {
                 // the flag has been successfully reset
-                if (_transportAvailable != null)
-                    _transportAvailable(this);
+                TransportAvailable();
             }
         }
 
@@ -522,7 +521,7 @@ namespace Criteo.Memcache.Transport
                 if (args.SocketError != SocketError.Success)
                     throw new SocketException((int)args.SocketError);
 
-                // check if we read a full header, else continue
+                // check if we sent a full request, else continue
                 if (args.BytesTransferred + args.Offset < args.Buffer.Length)
                 {
                     int offset = args.BytesTransferred + args.Offset;

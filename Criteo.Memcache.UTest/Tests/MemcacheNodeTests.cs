@@ -147,8 +147,9 @@ namespace Criteo.Memcache.UTest.Tests
                 Assert.IsTrue(errorMutex.Wait(1000), @"The 1st error has not been received after 1 second");
                 Assert.AreEqual(Status.InternalError, receivedStatus, @"A bad response has not sent an InternalError to the request callback");
                 Assert.IsInstanceOf<Memcache.Exceptions.MemcacheException>(expectedException, @"A bad response has not triggered a transport error. Expected a MemcacheException.");
-                Assert.AreEqual(1, node.PoolSize, @"A node contains more than the pool size sockets");
                 Assert.AreEqual(0, nodeDeadCount, @"The node has been detected has dead before a new send has been made");
+                // After a short delay, the transport should be back in the transport pool (node.PoolSize == 1)
+                Assert.That(() => { return node.PoolSize; }, new DelayedConstraint(new EqualConstraint(1), 2000, 100), "After a while, the transport should be back in the pool");
 
                 new MemcacheResponseHeader
                 {
