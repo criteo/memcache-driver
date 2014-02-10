@@ -100,10 +100,6 @@ namespace Criteo.Memcache.Configuration
         public int PoolSize { get; set; }
         public int QueueLength { get; set; }
         public int QueueTimeout { get; set; }
-        [Obsolete("Use QueueLength")]
-        public int TransportQueueLength { get { return QueueLength; } set { QueueLength = value; } }       // Zero for unbounded queue size
-        [Obsolete("Use QueueTimeout")]
-        public int TransportQueueTimeout { get { return QueueTimeout; } set { QueueTimeout = value; } }
         public TimeSpan TransportConnectTimerPeriod { get; set; }
         public TimeSpan DeadTimeout { get; set; }
         public TimeSpan SocketTimeout { get; set; }

@@ -119,7 +119,7 @@ namespace Criteo.Memcache.UTest.Tests
         {
             var config = new Configuration.MemcacheClientConfiguration
             {
-                TransportQueueLength = 1,
+                QueueLength = 1,
             };
             int transportAvailablized = 0;
 

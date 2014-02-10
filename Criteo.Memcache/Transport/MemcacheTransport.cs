@@ -566,8 +566,8 @@ namespace Criteo.Memcache.Transport
             {
                 buffer = request.GetQueryBuffer();
 
-                if(_clientConfig.TransportQueueLength > 0 &&
-                    _pendingRequests.Count >= _clientConfig.TransportQueueLength)
+                if(_clientConfig.QueueLength > 0 &&
+                    _pendingRequests.Count >= _clientConfig.QueueLength)
                 {
                     // The request queue is full, the transport will be put back in the pool after the queue is not full anymore
                     Interlocked.Exchange(ref _transportAvailableInReceive, 1);
