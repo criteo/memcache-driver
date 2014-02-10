@@ -27,22 +27,45 @@ using Criteo.Memcache.Transport;
 
 namespace Criteo.Memcache.Configuration
 {
-    public enum Policy
-    {
-        Throw,
-        Ignore,
-    }
+    /// <summary>
+    /// If you want to implement a different transport layer, use this delegate to inject it in the client
+    /// </summary>
+    /// <param name="endPoint">Remote Memcached server listening endpoint</param>
+    /// <param name="clientConfig">The MemcacheClientConfiguration passed to the client at construction</param>
+    /// <param name="registerEvents">Delegate used to register the transport event to the node it belongs to</param>
+    /// <param name="transportAvailable">Delegate used to return the transport to the node it belongs to,
+    /// after a request has been succesfully set or after the connection has been succesfully established</param>
+    /// <param name="autoConnect">if set to true, it will set a timer to try to connect while connection fails
+    /// else it will lazily and synchronously connect at first request sent</param>
+    /// <param name="ongoingDispose">Object for signaling that a dispose is requested</param>
+    /// <returns>The allocated transport</returns>
+    public delegate IMemcacheTransport TransportAllocator(
+        EndPoint endPoint,
+        MemcacheClientConfiguration clientConfig,
+        Action<IMemcacheTransport> registerEvents,
+        Action<IMemcacheTransport> transportAvailable,
+        bool autoConnect,
+        IOngoingDispose ongoingDispose);
 
-    public enum RequeuePolicy
-    {
-        Requeue,
-        Ignore,
-    }
+    /// <summary>
+    /// If you want to implement your own nodes, then use this delegate to inject it in the client
+    /// </summary>
+    /// <param name="endPoint">Remote Memcached server listening endpoint</param>
+    /// <param name="configuration">The MemcacheClientConfiguration passed to the client at construction</param>
+    /// <param name="ongoingDispose">Object for signaling that a dispose is requested</param>
+    /// <returns>The allocated node</returns>
+    public delegate IMemcacheNode NodeAllocator(EndPoint endPoint, MemcacheClientConfiguration configuration, IOngoingDispose ongoingDispose);
 
-    public delegate IMemcacheTransport TransportAllocator(EndPoint endPoint, MemcacheClientConfiguration clientConfig, Action<IMemcacheTransport> registerEvents, Action<IMemcacheTransport> transportAvailable, bool autoConnect, IOngoingDispose ongoingDispose);
-
-    public delegate IMemcacheNode NodeAllocator(IPEndPoint endPoint, MemcacheClientConfiguration configuration, IOngoingDispose ongoingDispose);
-
+    /// <summary>
+    /// Delegate for Sasl authentication
+    /// </summary>
+    /// <param name="zone">Sasl zone
+    /// unused at this moment, but part of the sasl specification
+    /// you can pass null</param>
+    /// <param name="user">Sasl user
+    /// for Couchbase it must be the name of the bucket</param>
+    /// <param name="password">Sasl password</param>
+    /// <returns>The authenticator that will be used for every new socket connection</returns>
     public delegate IMemcacheAuthenticator AuthenticatorAllocator(string zone, string user, string password);
 
     public class MemcacheClientConfiguration
@@ -61,7 +84,7 @@ namespace Criteo.Memcache.Configuration
         public static Func<INodeLocator> RoundRobinLocatorFactory =
             () => new RoundRobinLocator();
 
-        public static Func<string, string, string, IMemcacheAuthenticator> SaslPlainAuthenticatorFactory =
+        public static AuthenticatorAllocator SaslPlainAuthenticatorFactory =
             (zone, user, password) => new SaslPlainTextAuthenticator { Zone = zone, User = user, Password = password };
 
         #endregion factories
@@ -74,12 +97,13 @@ namespace Criteo.Memcache.Configuration
         public NodeAllocator NodeFactory { get; set; }
         public IMemcacheAuthenticator Authenticator { get; set; }
 
-        public RequeuePolicy NodeDeadPolicy { get; set; }
-        public int QueueTimeout { get; set; }
         public int PoolSize { get; set; }
         public int QueueLength { get; set; }
-        public int TransportQueueLength { get; set; }       // Zero for unbounded queue size
-        public int TransportQueueTimeout { get; set; }
+        public int QueueTimeout { get; set; }
+        [Obsolete("Use QueueLength")]
+        public int TransportQueueLength { get { return QueueLength; } set { QueueLength = value; } }       // Zero for unbounded queue size
+        [Obsolete("Use QueueTimeout")]
+        public int TransportQueueTimeout { get { return QueueTimeout; } set { QueueTimeout = value; } }
         public TimeSpan TransportConnectTimerPeriod { get; set; }
         public TimeSpan DeadTimeout { get; set; }
         public TimeSpan SocketTimeout { get; set; }
@@ -92,9 +116,7 @@ namespace Criteo.Memcache.Configuration
             DeadTimeout = TimeSpan.FromSeconds(15);
             SocketTimeout = TimeSpan.FromMilliseconds(200);
             QueueTimeout = Timeout.Infinite;
-            NodeDeadPolicy = RequeuePolicy.Ignore;
-            TransportQueueLength = 0;
-            TransportQueueTimeout = Timeout.Infinite;
+            QueueLength = 0;
             TransportConnectTimerPeriod = TimeSpan.FromMilliseconds(1000);
             Replicas = 0;
         }

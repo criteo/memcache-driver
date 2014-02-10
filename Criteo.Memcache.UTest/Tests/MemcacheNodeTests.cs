@@ -286,22 +286,22 @@ namespace Criteo.Memcache.UTest.Tests
                 Assert.IsNotNull(theNode, "Did not hook to the MemcacheNode while creating the client");
 
                 // Check the number of transports that have been created
-                Assert.AreEqual(nbOfTransportsPerNode, createdTransports);
+                Assert.AreEqual(nbOfTransportsPerNode, createdTransports, "The number of created should be the number of configured transport");
 
                 // Check the number of working transports (meaning, connected to the server) and the node state
                 // By default, the transport are marked as being available upon creation of the client
-                Assert.AreEqual(nbOfTransportsPerNode, theNode.WorkingTransports);
-                Assert.IsFalse(theNode.IsDead);
+                Assert.AreEqual(nbOfTransportsPerNode, theNode.WorkingTransports, "The number of working transport should be the number of created transport (1)");
+                Assert.IsFalse(theNode.IsDead, "The node should be alive (1)");
 
                 // Do a get to initialize one of the transports
-                Assert.IsTrue(memcacheClient.Get("whatever", (s, o) => { returnStatus = s; mutex.Set(); }));
+                Assert.IsTrue(memcacheClient.Get("whatever", (s, o) => { returnStatus = s; mutex.Set(); }), "The request should be sent correctly (1)");
                 Assert.IsTrue(mutex.Wait(1000), "Timeout on the get request");
-                Assert.AreEqual(Status.InternalError, returnStatus);
+                Assert.AreEqual(Status.InternalError, returnStatus, "The status of the request should be InternalError (1)");
                 mutex.Reset();
 
                 // Check the number of working transports and the node state
-                Assert.AreEqual(nbOfTransportsPerNode, theNode.WorkingTransports);
-                Assert.IsFalse(theNode.IsDead);
+                Assert.AreEqual(nbOfTransportsPerNode, theNode.WorkingTransports, "The number of working transport should be the number of created transport (2)");
+                Assert.IsFalse(theNode.IsDead, "The node should be dead (1)");
             }
 
             // Wait for the ServerMock to be fully disposed
@@ -309,17 +309,17 @@ namespace Criteo.Memcache.UTest.Tests
 
             // Attempt to send a request to take one of the transports out of the pool
             // After that the node should be dead
-            Assert.IsTrue(memcacheClient.Get("whatever", (s, o) => { returnStatus = s; mutex.Set(); }));
+            Assert.IsTrue(memcacheClient.Get("whatever", (s, o) => { returnStatus = s; mutex.Set(); }), "The request should be sent correctly (2)");
             Assert.IsTrue(mutex.Wait(1000), "Timeout on the get request");
-            Assert.AreEqual(Status.InternalError, returnStatus);
+            Assert.AreEqual(Status.InternalError, returnStatus, "The status of the request should be InternalError (2)");
             mutex.Reset();
 
             // Check the number of working transports and the node state
-            Assert.AreEqual(nbOfTransportsPerNode - 1, theNode.WorkingTransports);
+            Assert.AreEqual(nbOfTransportsPerNode - 1, theNode.WorkingTransports, "The number of working transport should be the number of created transport minus 1");
             if (nbOfTransportsPerNode == 1)
-                Assert.IsTrue(theNode.IsDead);
+                Assert.IsTrue(theNode.IsDead, "The node should be dead (2)");
             else
-                Assert.IsFalse(theNode.IsDead);
+                Assert.IsFalse(theNode.IsDead, "The node should be alive (2)");
 
             // A new transport has been allocated and is periodically trying to reconnect
             Assert.AreEqual(nbOfTransportsPerNode + 1, createdTransports, "Expected a new transport to be created to replace the disposed one");
@@ -330,17 +330,17 @@ namespace Criteo.Memcache.UTest.Tests
 
                 // After some delay, the transport should connect
                 Assert.That(() => { return theNode.WorkingTransports; }, new DelayedConstraint(new EqualConstraint(nbOfTransportsPerNode), 4000, 100), "After a while, the transport should manage to connect");
-                Assert.IsFalse(theNode.IsDead);
+                Assert.IsFalse(theNode.IsDead, "The node should be dead (3)");
 
                 // Attempt a get
-                Assert.IsTrue(memcacheClient.Get("whatever", (s, o) => { returnStatus = s; mutex.Set(); }));
+                Assert.IsTrue(memcacheClient.Get("whatever", (s, o) => { returnStatus = s; mutex.Set(); }), "The request should be sent correctly (3)");
                 Assert.IsTrue(mutex.Wait(1000), "Timeout on the get request");
-                Assert.AreEqual(Status.InternalError, returnStatus);
+                Assert.AreEqual(Status.InternalError, returnStatus, "The status of the request should be InternalError (3)");
                 mutex.Reset();
 
                 // Check the number of working transports and the node state
-                Assert.AreEqual(nbOfTransportsPerNode, theNode.WorkingTransports);
-                Assert.IsFalse(theNode.IsDead);
+                Assert.AreEqual(nbOfTransportsPerNode, theNode.WorkingTransports, "The number of working transport should be the number of created transport (3)");
+                Assert.IsFalse(theNode.IsDead, "The node should be alive (3)");
 
                 // Dispose the client
                 memcacheClient.Dispose();
