@@ -408,7 +408,7 @@ namespace Criteo.Memcache.Transport
                         _socket.Disconnect(false);
                         if (TransportError != null)
                         {
-                            TransportError(e);
+                            TransportError(new MemcacheException("TransportFailureOnReceive on " + this.ToString(), e));
                         }
 
                         FailPending();
@@ -607,7 +607,7 @@ namespace Criteo.Memcache.Transport
                     if (!_disposed)
                     {
                         if (TransportError != null)
-                            TransportError(e);
+                            TransportError(new MemcacheException("TransportFailureOnSend on " + this.ToString(), e));
 
                         // If the node hasn't been disposed, allocate a new transport that will attempt to reconnect
                         if (!(_nodeDispose != null &&

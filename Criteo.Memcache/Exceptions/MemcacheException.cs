@@ -25,5 +25,10 @@ namespace Criteo.Memcache.Exceptions
             : base(message)
         {
         }
+
+        public MemcacheException(string message, Exception cause)
+            : base(message, cause)
+        {
+        }
     }
 }
