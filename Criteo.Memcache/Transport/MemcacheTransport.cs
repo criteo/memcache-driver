@@ -43,9 +43,6 @@ namespace Criteo.Memcache.Transport
 
         #endregion Events
 
-        // TODO : add me in the Conf
-        private readonly int _windowSize = 2 << 15;
-
         private readonly EndPoint _endPoint;
         private readonly MemcacheClientConfiguration _clientConfig;
 
@@ -182,8 +179,8 @@ namespace Criteo.Memcache.Transport
             var socket = new Socket(_endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             socket.Connect(_endPoint);
 
-            socket.ReceiveBufferSize = _windowSize;
-            socket.SendBufferSize = _windowSize;
+            socket.ReceiveBufferSize = _clientConfig.TransportReceiveBufferSize;
+            socket.SendBufferSize = _clientConfig.TransportReceiveBufferSize;
 
             if (_socket != null)
                 _socket.Dispose();

@@ -101,6 +101,8 @@ namespace Criteo.Memcache.Configuration
         public int QueueLength { get; set; }
         public int QueueTimeout { get; set; }
         public TimeSpan TransportConnectTimerPeriod { get; set; }
+        public int TransportReceiveBufferSize { get; set; }
+        public int TransportSendBufferSize { get; set; }
         public TimeSpan DeadTimeout { get; set; }
         public TimeSpan SocketTimeout { get; set; }
         public int Replicas { get; set; }
@@ -114,6 +116,8 @@ namespace Criteo.Memcache.Configuration
             QueueTimeout = Timeout.Infinite;
             QueueLength = 0;
             TransportConnectTimerPeriod = TimeSpan.FromMilliseconds(1000);
+            TransportReceiveBufferSize = 2 << 15;   // 32kB
+            TransportSendBufferSize = 2 << 15;      // 32kB
             Replicas = 0;
         }
     }
