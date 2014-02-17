@@ -245,6 +245,7 @@ namespace Criteo.Memcache.UTest.Tests
         // Test the coherency of the _workingTransports counter in MemcacheNode
         [TestCase(1)]
         [TestCase(2)]
+        [Explicit]
         public void NodeWorkingTransportsTest(int nbOfTransportsPerNode)
         {
             int createdTransports = 0;
