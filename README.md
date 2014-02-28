@@ -23,8 +23,8 @@ No
  * Performance
  * Readable code
  * Tests
-* In case of a bug fix, please try to also provide a test
-* Features aligned with our roadmap
+ * In case of a bug fix, please try to also provide a test
+ * Features aligned with our roadmap
 
 ##What if you don't fit with these requirements
 * The API is plugin oriented, you can implement most of the main components and inject them with the factories.
