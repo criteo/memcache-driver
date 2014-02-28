@@ -1,7 +1,7 @@
 #FAQ
 
 ##What is our priority?
-This driver main purpose is to access memcached with high performance.
+This driver's main purpose is to access memcached with high performance.
 To that purpose, this driver multiplexes requests and is fully asynchronous.
 
 ##Is there a CLA?
@@ -20,11 +20,11 @@ No
 ##How to contribute
 * Fork -> rebase on master -> pull request
 * We'll review all changes before merging them, we ask for:
-** Performance
-** Readable code
-** Tests
-** In case of a bug fix, please try to also provide a test
-** Features aligned with our roadmap
+ * Performance
+ * Readable code
+ * Tests
+* In case of a bug fix, please try to also provide a test
+* Features aligned with our roadmap
 
 ##What if you don't fit with these requirements
 * The API is plugin oriented, you can implement most of the main components and inject them with the factories.
