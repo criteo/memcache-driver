@@ -303,9 +303,9 @@ namespace Criteo.Memcache.UTest.Tests
             Assert.AreEqual(Status.InternalError, returnStatus);
             mutex2.Reset();
 
-
             // The initial transport should now be disposed, a new transport has been allocated and
             // is periodically trying to reconnect
+            Assert.IsTrue(mutex1.Wait(1000), "Timeout on initial transport disposal");
             Assert.AreEqual(1, disposedTransports, "Expected the initial transport to be disposed");
             Assert.AreEqual(2, createdTransports, "Expected a new transport to be created to replace the disposed one");
 
