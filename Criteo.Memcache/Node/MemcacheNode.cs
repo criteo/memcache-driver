@@ -35,9 +35,10 @@ namespace Criteo.Memcache.Node
         private volatile CancellationTokenSource _tokenSource;
         private MemcacheClientConfiguration _configuration;
         private IOngoingDispose _clientDispose;
-        private bool _ongoingNodeDispose = false;
+        private volatile bool _ongoingNodeDispose = false;
 
         private int _workingTransports;
+
         public int WorkingTransports { get { return _workingTransports; } }
 
         #region Events
@@ -172,7 +173,8 @@ namespace Criteo.Memcache.Node
             try
             {
                 int tries = 0;
-                while (!_tokenSource.IsCancellationRequested
+                while (!_ongoingNodeDispose
+                    && !_tokenSource.IsCancellationRequested
                     && ++tries <= _configuration.PoolSize
                     && _transportPool.TryTake(out transport, timeout, _tokenSource.Token))
                 {
@@ -197,10 +199,15 @@ namespace Criteo.Memcache.Node
 
             _ongoingNodeDispose = true;
 
-            while(_transportPool.TryTake(out transport))
+            // Release all threads blocking on the transport pool
+            if (_tokenSource != null)
+                _tokenSource.Cancel();
+
+            // Dispose of the transports currently in the pool
+            while (_transportPool.TryTake(out transport))
                 transport.Dispose();
 
-            _transportPool.Dispose();
+            // Let the GC finalize _tokenSource and _transportPool;
         }
 
         // for testing purpose only !!!

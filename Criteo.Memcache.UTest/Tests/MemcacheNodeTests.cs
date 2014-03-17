@@ -56,7 +56,7 @@ namespace Criteo.Memcache.UTest.Tests
             var node = new MemcacheNode(null, config, null);
             CollectionAssert.IsNotEmpty(transportMocks, "No transport has been created by the node");
 
-            Assert.IsTrue(node.TrySend(new NoOpRequest(), Timeout.Infinite), "Unable to send a request throught the node");
+            Assert.IsTrue(node.TrySend(new NoOpRequest(), Timeout.Infinite), "Unable to send a request through the node");
 
             // creation of new transport will set them as dead
             aliveness = false;
@@ -70,6 +70,32 @@ namespace Criteo.Memcache.UTest.Tests
 
             Assert.IsFalse(node.IsDead, "The node is still dead, should be alive now !");
             Assert.IsTrue(node.TrySend(new NoOpRequest(), Timeout.Infinite), "Unable to send a request throught the node after it's alive");
+        }
+
+        // Test the dispose of a node
+        [Test]
+        public void NodeDisposeTest()
+        {
+            // Memcache client config
+            var config = new MemcacheClientConfiguration
+            {
+                TransportFactory = (_, __, r, s, ___, ____) =>
+                {
+                    var transport = new TransportMock(r) { IsAlive = true, Setup = s };
+                    return transport;
+                },
+                PoolSize = 1,
+            };
+            var node = new MemcacheNode(null, config, null);
+
+            // TransportMock does not put back the transport in the pool after the TrySend
+            Assert.IsTrue(node.TrySend(new NoOpRequest(), Timeout.Infinite), "Unable to send a request through the node");
+
+            // Dispose the node after a certain delay
+            ThreadPool.QueueUserWorkItem((o) => { Thread.Sleep(500); node.Dispose(); });
+
+            // The following TrySend will block because the transport pool is empty
+            Assert.DoesNotThrow(() => node.TrySend(new NoOpRequest(), 1000), "The TrySend should not throw an exception");
         }
 
         private IPAddress LOCALHOST = new IPAddress(new byte[] { 127, 0, 0, 1 });
