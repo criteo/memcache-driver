@@ -109,7 +109,7 @@ namespace Criteo.Memcache
         {
             node.MemcacheError += OnMemcacheError;
             node.TransportError += OnTransportError;
-            node.NodeDead += NodeError;
+            node.NodeDead += OnNodeError;
         }
 
         /// <summary>
