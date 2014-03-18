@@ -53,7 +53,7 @@ namespace Criteo.Memcache.UTest.Tests
                     },
                 PoolSize = 2,
             };
-            var node = new MemcacheNode(null, config, null);
+            var node = new MemcacheNode(null, config);
             CollectionAssert.IsNotEmpty(transportMocks, "No transport has been created by the node");
 
             Assert.IsTrue(node.TrySend(new NoOpRequest(), Timeout.Infinite), "Unable to send a request through the node");
@@ -86,7 +86,7 @@ namespace Criteo.Memcache.UTest.Tests
                 },
                 PoolSize = 1,
             };
-            var node = new MemcacheNode(null, config, null);
+            var node = new MemcacheNode(null, config);
 
             // TransportMock does not put back the transport in the pool after the TrySend
             Assert.IsTrue(node.TrySend(new NoOpRequest(), Timeout.Infinite), "Unable to send a request through the node");
@@ -146,7 +146,7 @@ namespace Criteo.Memcache.UTest.Tests
                     PoolSize = 1,
                 };
 
-                var node = new Memcache.Node.MemcacheNode(endpoint, config, null);
+                var node = new Memcache.Node.MemcacheNode(endpoint, config);
                 var errorMutex = new ManualResetEventSlim(false);
                 var callbackMutex = new ManualResetEventSlim(false);
 
@@ -288,9 +288,9 @@ namespace Criteo.Memcache.UTest.Tests
                 {
                     return new MemcacheTransportForTest(_, __, ___, ____, _____, ______, () => { createdTransports++; }, () => { });
                 },
-                NodeFactory =  (_, __, ___) =>
+                NodeFactory =  (_, __) =>
                 {
-                    var node = MemcacheClientConfiguration.DefaultNodeFactory(_, __, ___);
+                    var node = MemcacheClientConfiguration.DefaultNodeFactory(_, __);
                     theNode = node as MemcacheNode;
                     return node;
                 },

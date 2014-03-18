@@ -67,5 +67,13 @@ namespace Criteo.Memcache.Node
         /// <param name="timeout">Timeout.Infinite means no timeout</param>
         /// <returns>false if it failed</returns>
         bool TrySend(IMemcacheRequest request, int timeout);
+
+        /// <summary>
+        /// Attempt to shutdown the node and the transports associated with it.
+        /// May return false ifsome requests are still pending, allowing for a graceful shutdown.
+        /// </summary>
+        /// <param name="force">Force an immediate shutdown and fail all pending requests.</param>
+        /// <returns>True if the node was successfully shut down.</returns>
+        bool Shutdown(bool force);
     }
 }

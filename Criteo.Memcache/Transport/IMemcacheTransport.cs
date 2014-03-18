@@ -52,6 +52,12 @@ namespace Criteo.Memcache.Transport
         /// <returns>false if the request has synchronously failed (then it won't call any callback)</returns>
         bool TrySend(IMemcacheRequest req);
 
-        bool IsAlive { get; }
+        /// <summary>
+        /// Attempt to shutdown the transport.
+        /// May return false if some requests are still pending, allowing for a graceful shutdown.
+        /// </summary>
+        /// <param name="force">Force an immediate shutdown and fail all pending requests.</param>
+        /// <returns>True if the transport was successfully shut down.</returns>
+        bool Shutdown(bool force);
     }
 }

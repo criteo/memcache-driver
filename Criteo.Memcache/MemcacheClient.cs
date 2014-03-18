@@ -66,11 +66,12 @@ namespace Criteo.Memcache
     /// <summary>
     /// The main class of the library
     /// </summary>
-    public class MemcacheClient : IDisposable, IOngoingDispose
+    public class MemcacheClient : IDisposable
     {
         private INodeLocator _locator;
         private IList<IMemcacheNode> _nodes;
         private MemcacheClientConfiguration _configuration;
+        private bool _disposed = false;
 
         /// <summary>
         /// Raised when the server answer with a error code
@@ -121,15 +122,13 @@ namespace Criteo.Memcache
             if (configuration == null)
                 throw new ArgumentException("Client config should not be null");
 
-            OngoingDispose = false;
-
             _configuration = configuration;
             _locator = configuration.NodeLocator ?? MemcacheClientConfiguration.DefaultLocatorFactory();
             _nodes = new List<IMemcacheNode>(configuration.NodesEndPoints.Count);
 
             foreach (var nodeEndPoint in configuration.NodesEndPoints)
             {
-                var node = (configuration.NodeFactory ?? MemcacheClientConfiguration.DefaultNodeFactory)(nodeEndPoint, configuration, this);
+                var node = (configuration.NodeFactory ?? MemcacheClientConfiguration.DefaultNodeFactory)(nodeEndPoint, configuration);
                 _nodes.Add(node);
                 RegisterEvents(node);
             }
@@ -326,9 +325,14 @@ namespace Criteo.Memcache
         /// </summary>
         /// <param name="force">Force an immediate shutdown and fail all pending requests.</param>
         /// <returns>True if the client was successfully shut down.</returns>
-        public bool Shutdown(bool force)
+        public bool Shutdown(bool force = false)
         {
-            return true;
+            // Shutdown all nodes, don't stop on the first one returning false!
+            bool success = true;
+            foreach (var node in _nodes)
+                success &= node.Shutdown(force);
+
+            return success;
         }
 
         private int _currentRequestId = 0;
@@ -345,18 +349,23 @@ namespace Criteo.Memcache
 
         public void Dispose()
         {
-            OngoingDispose = true;
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
 
-            foreach (var node in _nodes)
-                node.Dispose();
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    foreach (var node in _nodes)
+                        node.Dispose();
+                }
+                _disposed = true;
+            }
         }
 
         #endregion IDisposable
-
-        #region IOngoingDispose
-
-        public bool OngoingDispose { get; private set; }
-
-        #endregion IOngoingDispose
     }
 }

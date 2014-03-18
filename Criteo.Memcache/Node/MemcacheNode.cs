@@ -34,8 +34,8 @@ namespace Criteo.Memcache.Node
         private volatile bool _isAlive = false;
         private volatile CancellationTokenSource _tokenSource;
         private MemcacheClientConfiguration _configuration;
-        private IOngoingDispose _clientDispose;
-        private volatile bool _ongoingNodeDispose = false;
+        private volatile bool _ongoingDispose = false;
+        private volatile bool _ongoingShutdown = false;
 
         private int _workingTransports;
 
@@ -106,14 +106,13 @@ namespace Criteo.Memcache.Node
             get { return _endPoint; }
         }
 
-        public MemcacheNode(EndPoint endPoint, MemcacheClientConfiguration configuration, IOngoingDispose clientDispose)
+        public MemcacheNode(EndPoint endPoint, MemcacheClientConfiguration configuration)
         {
             if (configuration == null)
                 throw new ArgumentException("Client config should not be null");
 
             _configuration = configuration;
             _endPoint = endPoint;
-            _clientDispose = clientDispose;
             _tokenSource = new CancellationTokenSource();
             _transportPool = new BlockingCollection<IMemcacheTransport>(new ConcurrentStack<IMemcacheTransport>());
 
@@ -125,7 +124,7 @@ namespace Criteo.Memcache.Node
                                     RegisterEvents,
                                     TransportAvailable,
                                     false,
-                                    clientDispose);
+                                    IsClosing);
                 TransportAvailable(transport);
             }
         }
@@ -150,7 +149,7 @@ namespace Criteo.Memcache.Node
                 }
 
                 // Add the transport to the pool, unless the node is disposing of the pool
-                if (!_ongoingNodeDispose)
+                if (!IsClosing())
                     _transportPool.Add(transport);
                 else
                     transport.Dispose();
@@ -173,7 +172,7 @@ namespace Criteo.Memcache.Node
             try
             {
                 int tries = 0;
-                while (!_ongoingNodeDispose
+                while (!IsClosing()
                     && !_tokenSource.IsCancellationRequested
                     && ++tries <= _configuration.PoolSize
                     && _transportPool.TryTake(out transport, timeout, _tokenSource.Token))
@@ -193,22 +192,63 @@ namespace Criteo.Memcache.Node
             return false;
         }
 
+        public bool Shutdown(bool force)
+        {
+            _ongoingShutdown = true;
+
+            IMemcacheTransport transport;
+            while (_transportPool.TryTake(out transport))
+            {
+                if (!transport.Shutdown(force))
+                    return false;
+            }
+
+            return true;
+        }
+
+        internal bool IsClosing()
+        {
+            return _ongoingDispose || _ongoingShutdown;
+        }
+
+        #region IDisposable
+
         public void Dispose()
         {
-            IMemcacheTransport transport;
-
-            _ongoingNodeDispose = true;
-
-            // Release all threads blocking on the transport pool
-            if (_tokenSource != null)
-                _tokenSource.Cancel();
-
-            // Dispose of the transports currently in the pool
-            while (_transportPool.TryTake(out transport))
-                transport.Dispose();
-
-            // Let the GC finalize _tokenSource and _transportPool;
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_ongoingDispose)
+            {
+                _ongoingDispose = true;
+
+                if (disposing)
+                {
+                    // Release all threads blocking on the transport pool
+                    try
+                    {
+                        if (_tokenSource != null)
+                            _tokenSource.Cancel();
+                    }
+                    catch (Exception e)
+                    {
+                        OnTransportError(e);
+                    }
+
+                    // Dispose of the transports currently in the pool
+                    IMemcacheTransport transport;
+                    while (_transportPool.TryTake(out transport))
+                        transport.Dispose();
+
+                    // Let the GC finalize _tokenSource and _transportPool;
+                }
+            }
+        }
+
+        #endregion IDisposable
 
         // for testing purpose only !!!
         internal int PoolSize { get { return _transportPool.Count; } }

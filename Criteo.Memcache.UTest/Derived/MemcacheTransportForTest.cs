@@ -34,10 +34,11 @@ namespace Criteo.Memcache.UTest
 {
     internal class MemcacheTransportForTest : MemcacheTransport
     {
+        public bool _disposed = false;
         public Action OnDispose { private get; set; }
 
-        public MemcacheTransportForTest(EndPoint endpoint, MemcacheClientConfiguration clientConfig, Action<IMemcacheTransport> registerEvents, Action<IMemcacheTransport> transportAvailable, bool planToConnect, IOngoingDispose nodeDispose, Action onCreate, Action onDispose)
-            : base(endpoint, clientConfig, registerEvents, transportAvailable, planToConnect, nodeDispose)
+        public MemcacheTransportForTest(EndPoint endpoint, MemcacheClientConfiguration clientConfig, Action<IMemcacheTransport> registerEvents, Action<IMemcacheTransport> transportAvailable, bool planToConnect, Func<bool> nodeClosing, Action onCreate, Action onDispose)
+            : base(endpoint, clientConfig, registerEvents, transportAvailable, planToConnect, nodeClosing)
         {
             if (onCreate != null)
                 onCreate();
@@ -45,12 +46,15 @@ namespace Criteo.Memcache.UTest
             OnDispose = onDispose;
         }
 
-        // Hiding MemcacheTransport.Dispose()
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
-            if(OnDispose != null)
-                OnDispose();
-            base.Dispose();
+            if (!_disposed)
+            {
+                _disposed = true;
+                if (OnDispose != null)
+                    OnDispose();
+                base.Dispose(disposing);
+            }
         }
 
         public override string ToString()

@@ -72,6 +72,11 @@ namespace Criteo.Memcache.UTest.Mocks
             return true;
         }
 
+        public bool Shutdown(bool force)
+        {
+            return true;
+        }
+
         public void Dispose()
         {
         }

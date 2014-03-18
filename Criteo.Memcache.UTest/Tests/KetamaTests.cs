@@ -3431,6 +3431,11 @@ namespace Criteo.Memcache.UTest.Tests
             throw new NotImplementedException();
         }
 
+        public bool Shutdown(bool force)
+        {
+            return true;
+        }
+
         public void Dispose()
         {
         }
@@ -3441,7 +3446,7 @@ namespace Criteo.Memcache.UTest.Tests
 
 /* ************************************************************
  *
- *    Copyright (c) 2010 Attila Kiskó, enyim.com
+ *    Copyright (c) 2010 Attila KiskÃ³, enyim.com
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.

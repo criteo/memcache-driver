@@ -15,17 +15,17 @@
    specific language governing permissions and limitations
    under the License.
 */
+
 using System;
 using System.Collections.Concurrent;
-using System.Text;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
-
-using Criteo.Memcache.Requests;
 using Criteo.Memcache.Configuration;
-using Criteo.Memcache.Headers;
 using Criteo.Memcache.Exceptions;
+using Criteo.Memcache.Headers;
+using Criteo.Memcache.Requests;
 
 namespace Criteo.Memcache.Transport
 {
@@ -48,12 +48,13 @@ namespace Criteo.Memcache.Transport
 
         private readonly Action<IMemcacheTransport> _registerEvents;
         private readonly Action<IMemcacheTransport> _transportAvailable;
-        private readonly IOngoingDispose _nodeDispose;
+        private readonly Func<bool> _nodeClosing;
 
         private readonly Timer _connectTimer;
 
         private volatile bool _disposed = false;
         private volatile bool _initialized = false;
+        private int _ongoingShutdown = 0;          // Integer used as a boolean
         private int _transportAvailableInReceive = 0;
         private ConcurrentQueue<IMemcacheRequest> _pendingRequests;
         private Socket _socket;
@@ -64,16 +65,14 @@ namespace Criteo.Memcache.Transport
 
         private MemcacheResponseHeader _currentResponse;
 
-        public bool IsAlive { get; private set; }
-
         // The Registered property is set to true by the memcache node
         // when it acknowledges the transport is a working transport.
         public bool Registered { get; set; }
 
         // Default transport allocator
         public static TransportAllocator DefaultAllocator =
-            (endPoint, config, register, available, autoConnect,dispose)
-                => new MemcacheTransport(endPoint, config, register, available, autoConnect, dispose);
+            (endPoint, config, register, available, autoConnect, closingNode)
+                => new MemcacheTransport(endPoint, config, register, available, autoConnect, closingNode);
 
         /// <summary>
         /// Ctor, intialize things ...
@@ -85,17 +84,16 @@ namespace Criteo.Memcache.Transport
         /// <param name="planToConnect">If true, connect in a timer handler started immediately and call transportAvailable.
         ///                             Otherwise, the transport will connect synchronously at the first request</param>
         /// <param name="nodeDispose">Interface to check if the node is being disposed"</param>
-        public MemcacheTransport(EndPoint endpoint, MemcacheClientConfiguration clientConfig, Action<IMemcacheTransport> registerEvents, Action<IMemcacheTransport> transportAvailable, bool planToConnect, IOngoingDispose nodeDispose)
+        public MemcacheTransport(EndPoint endpoint, MemcacheClientConfiguration clientConfig, Action<IMemcacheTransport> registerEvents, Action<IMemcacheTransport> transportAvailable, bool planToConnect, Func<bool> nodeClosing)
         {
             if (clientConfig == null)
                 throw new ArgumentException("Client config should not be null");
 
-            IsAlive = false;
             _endPoint = endpoint;
             _clientConfig = clientConfig;
             _registerEvents = registerEvents;
             _transportAvailable = transportAvailable;
-            _nodeDispose = nodeDispose;
+            _nodeClosing = nodeClosing;
 
             _connectTimer = new Timer(TryConnect);
             _initialized = false;
@@ -124,7 +122,7 @@ namespace Criteo.Memcache.Transport
         /// <param name="request" />
         public bool TrySend(IMemcacheRequest request)
         {
-            if (request == null || _disposed)
+            if (request == null || _disposed || _ongoingShutdown == 1)
                 return false;
 
             if (!_initialized && !Initialize())
@@ -133,45 +131,64 @@ namespace Criteo.Memcache.Transport
             return SendRequest(request);
         }
 
-        /// <summary>
-        /// Dispose the socket
-        /// 5 clean tries with 1 second interval, after it disposes it in a more dirty way
-        /// </summary>
-        public virtual void Dispose()
+        public bool Shutdown(bool force)
         {
-            // block the start of any resets, then shut down
+            if (_disposed)
+                return true;
+
+            // Ensure that only one thread triggers the TransportDead event
+            if (0 == Interlocked.Exchange(ref _ongoingShutdown, 1))
+            {
+                if (TransportDead != null)
+                    TransportDead(this);
+            }
+
+            if (force)
+            {
+                FailPending();
+                return true;
+            }
+
+            return _pendingRequests.IsEmpty;
+        }
+
+        #region IDisposable
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
             if (!_disposed)
                 lock (this)
                     if (!_disposed)
                     {
-                        if (TransportDead != null)
-                            TransportDead(this);
-
-                        int attempt = 0;
-
-                        while (true)
+                        if (disposing)
                         {
-                            try
-                            {
-                                if (_pendingRequests.Count == 0 || ++attempt > 5)
-                                {
-                                    ShutDown();
-                                    _disposed = true;
-                                    break;
-                                }
-                            }
-                            catch (Exception e2)
-                            {
-                                if (TransportError != null)
-                                    TransportError(e2);
-                                _disposed = true;
-                                break;
-                            }
+                            if (_connectTimer != null)
+                                _connectTimer.Dispose();
 
-                            Thread.Sleep(1000);
+                            var socket = Interlocked.Exchange(ref _socket, null);
+                            if (socket != null)
+                                socket.Dispose();
+
+                            if (_sendAsynchEvtArgs != null)
+                                _sendAsynchEvtArgs.Dispose();
+
+                            if (_receiveHeaderAsynchEvtArgs != null)
+                                _receiveHeaderAsynchEvtArgs.Dispose();
+
+                            if (_receiveBodyAsynchEvtArgs != null)
+                                _receiveBodyAsynchEvtArgs.Dispose();
                         }
+                        _disposed = true;
                     }
         }
+
+        #endregion IDisposable
 
         private void CreateSocket()
         {
@@ -181,16 +198,26 @@ namespace Criteo.Memcache.Transport
             socket.ReceiveBufferSize = _clientConfig.TransportReceiveBufferSize;
             socket.SendBufferSize = _clientConfig.TransportReceiveBufferSize;
 
-            if (_socket != null)
-                _socket.Dispose();
-            _socket = socket;
+            var oldSocket = Interlocked.Exchange(ref _socket, socket);
+            if (oldSocket != null)
+                oldSocket.Dispose();
         }
 
         private void FailPending()
         {
             IMemcacheRequest request;
             while (_pendingRequests.TryDequeue(out request))
-                request.Fail();
+            {
+                try
+                {
+                    request.Fail();
+                }
+                catch (Exception e)
+                {
+                    if (TransportError != null)
+                        TransportError(e);
+                }
+            }
         }
 
         private bool Initialize()
@@ -208,10 +235,10 @@ namespace Criteo.Memcache.Transport
                     }
                 }
             }
-            catch (Exception e2)
+            catch (Exception e)
             {
                 if (TransportError != null)
-                    TransportError(e2);
+                    TransportError(e);
 
                 _connectTimer.Change(Convert.ToInt32(_clientConfig.TransportConnectTimerPeriod.TotalMilliseconds), Timeout.Infinite);
 
@@ -245,7 +272,15 @@ namespace Criteo.Memcache.Transport
 
                 if (result.RequestId != header.Opaque)
                 {
-                    result.Fail();
+                    try
+                    {
+                        result.Fail();
+                    }
+                    catch (Exception e)
+                    {
+                        if (TransportError != null)
+                            TransportError(e);
+                    }
                     throw new MemcacheException("Received a response that doesn't match with the sent request queue : sent " + result.ToString() + " received " + header.ToString());
                 }
             }
@@ -375,7 +410,15 @@ namespace Criteo.Memcache.Transport
                 }
 
                 if (request != null)
-                    request.HandleResponse(_currentResponse, key, extra, payload);
+                    try
+                    {
+                        request.HandleResponse(_currentResponse, key, extra, payload);
+                    }
+                    catch (Exception e)
+                    {
+                        if (TransportError != null)
+                            TransportError(e);
+                    }
 
                 // loop the read on the socket
                 ReceiveResponse();
@@ -401,7 +444,8 @@ namespace Criteo.Memcache.Transport
                 lock (this)
                     if (!_disposed)
                     {
-                        _socket.Disconnect(false);
+                        if (_socket != null)
+                            _socket.Disconnect(false);
                         if (TransportError != null)
                         {
                             TransportError(new MemcacheException("TransportFailureOnReceive on " + this.ToString(), e));
@@ -416,22 +460,6 @@ namespace Criteo.Memcache.Transport
         {
             ReceiveResponse();
             Authenticate();
-
-            IsAlive = true;
-        }
-
-        private void ShutDown()
-        {
-            IsAlive = false;
-
-            var socket = _socket;
-            if (socket != null)
-                socket.Dispose();
-
-            if (_receiveHeaderAsynchEvtArgs != null)
-                _receiveHeaderAsynchEvtArgs.Dispose();
-
-            FailPending();
         }
 
         private bool Authenticate()
@@ -477,9 +505,9 @@ namespace Criteo.Memcache.Transport
         {
             try
             {
-                // If the node has been disposed, dispose this transport, which will terminate the reconnect timer.
-                if (_nodeDispose != null &&
-                    _nodeDispose.OngoingDispose)
+                // If the node is closing, dispose this transport, which will terminate the reconnect timer.
+                // If we do not know if the node is closed (_nodeClosing == null) then we also dispose, to prevent leaks.
+                if (_nodeClosing == null || _nodeClosing())
                 {
                     Dispose();
                 }
@@ -593,14 +621,13 @@ namespace Criteo.Memcache.Transport
                             TransportError(new MemcacheException("TransportFailureOnSend on " + this.ToString(), e));
 
                         // If the node hasn't been disposed, allocate a new transport that will attempt to reconnect
-                        if (!(_nodeDispose != null &&
-                              _nodeDispose.OngoingDispose == true))
+                        if (_nodeClosing != null && !_nodeClosing())
                         {
-                            var newTransport =  (_clientConfig.TransportFactory ?? DefaultAllocator)(_endPoint, _clientConfig, _registerEvents, _transportAvailable, true, _nodeDispose);
+                            var newTransport =  (_clientConfig.TransportFactory ?? DefaultAllocator)(_endPoint, _clientConfig, _registerEvents, _transportAvailable, true, _nodeClosing);
                         }
 
-                        // Dispose this transport
-                        FailPending();
+                        // Shutdown and dispose this transport
+                        Shutdown(true);
                         Dispose();
                     }
         }

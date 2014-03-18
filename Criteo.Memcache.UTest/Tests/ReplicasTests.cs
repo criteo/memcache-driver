@@ -37,7 +37,7 @@ namespace Criteo.Memcache.UTest.Tests
             _configuration = new MemcacheClientConfiguration
             {
                 QueueTimeout = 0,
-                NodeFactory = (ipendpoint, config, dispose) => new NodeMock { EndPoint = ipendpoint, DefaultResponse = Status.NoError, },
+                NodeFactory = (ipendpoint, config) => new NodeMock { EndPoint = ipendpoint, DefaultResponse = Status.NoError, },
             };
 
             _configuration.NodesEndPoints.Add(new IPEndPoint(new IPAddress(new byte[] { 192, 168, 18, 1 }), 11211));

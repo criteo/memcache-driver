@@ -45,7 +45,7 @@ namespace Criteo.Memcache.Configuration
         Action<IMemcacheTransport> registerEvents,
         Action<IMemcacheTransport> transportAvailable,
         bool autoConnect,
-        IOngoingDispose ongoingDispose);
+        Func<bool> nodeClosing);
 
     /// <summary>
     /// If you want to implement your own nodes, then use this delegate to inject it in the client
@@ -54,7 +54,7 @@ namespace Criteo.Memcache.Configuration
     /// <param name="configuration">The MemcacheClientConfiguration passed to the client at construction</param>
     /// <param name="ongoingDispose">Object for signaling that a dispose is requested</param>
     /// <returns>The allocated node</returns>
-    public delegate IMemcacheNode NodeAllocator(EndPoint endPoint, MemcacheClientConfiguration configuration, IOngoingDispose ongoingDispose);
+    public delegate IMemcacheNode NodeAllocator(EndPoint endPoint, MemcacheClientConfiguration configuration);
 
     /// <summary>
     /// Delegate for Sasl authentication
@@ -73,7 +73,7 @@ namespace Criteo.Memcache.Configuration
         #region factories
 
         internal static NodeAllocator DefaultNodeFactory =
-            (endPoint, configuration, dispose) => new MemcacheNode(endPoint, configuration, dispose);
+            (endPoint, configuration) => new MemcacheNode(endPoint, configuration);
 
         internal static Func<INodeLocator> DefaultLocatorFactory =
             () => new KetamaLocator();
