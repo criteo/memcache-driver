@@ -57,7 +57,6 @@ namespace Criteo.Memcache.Transport
         private int _transportAvailableInReceive = 0;
         private ConcurrentQueue<IMemcacheRequest> _pendingRequests;
         private Socket _socket;
-        private CancellationTokenSource _token;
 
         private SocketAsyncEventArgs _sendAsynchEvtArgs;
         private SocketAsyncEventArgs _receiveHeaderAsynchEvtArgs;
@@ -415,8 +414,6 @@ namespace Criteo.Memcache.Transport
 
         private void Start()
         {
-            _token = new CancellationTokenSource();
-
             ReceiveResponse();
             Authenticate();
 
@@ -426,17 +423,6 @@ namespace Criteo.Memcache.Transport
         private void ShutDown()
         {
             IsAlive = false;
-            try
-            {
-                if (_token != null)
-                    _token.Cancel();
-            }
-            catch (AggregateException e)
-            {
-                if (TransportError != null)
-                    TransportError(e);
-            }
-
 
             var socket = _socket;
             if (socket != null)
