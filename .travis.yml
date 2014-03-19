@@ -1,15 +1,14 @@
-language: objective-c
-
-env:
-  matrix:
-    - MONO_VERSION="3.2.5"
+language: c
 
 before_install:
-  - wget "http://download.xamarin.com/MonoFrameworkMDK/Macx86/MonoFramework-MDK-${MONO_VERSION}.macos10.xamarin.x86.pkg"
-  - sudo installer -pkg "MonoFramework-MDK-${MONO_VERSION}.macos10.xamarin.x86.pkg" -target /
+  - sudo add-apt-repository ppa:directhex/monoxide -y
+  - sudo apt-get update -qq > /dev/null
+  - sudo apt-get install -qq mono-devel > /dev/null
+  - mono --version
+  - mozroots --import --sync
 
 script:
-  - mono .nuget/NuGet.exe install Criteo.Memcache.UTest/packages.config -OutputDirectory packages
+  - mono --runtime=v4.0 .nuget/NuGet.exe install Criteo.Memcache.UTest/packages.config -OutputDirectory packages
   - xbuild /property:Configuration=Release
   - mono --runtime=v4.0 .nuget/NuGet.exe install NUnit.Runners -Version 2.6.1 -o packages
   - mono --runtime=v4.0 packages/NUnit.Runners.2.6.1/tools/nunit-console.exe -noxml -nodots -labels -stoponerror Criteo.Memcache.UTest/bin/Release/Criteo.Memcache.UTest.dll
