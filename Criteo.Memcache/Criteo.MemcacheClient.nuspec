@@ -6,7 +6,7 @@
     <title>$title$</title>
     <authors>$author$</authors>
     <owners>$author$</owners>
-    <projectUrl>https://gitorious/scalability/criteo-memcache-client</projectUrl>
+    <projectUrl>https://github.com/criteo/memcache-driver</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>$description$</description>
     <releaseNotes>Beta version</releaseNotes>
