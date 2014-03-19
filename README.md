@@ -1,5 +1,8 @@
 #FAQ
 
+[![Build Status](https://travis-ci.org/criteo/memcache-driver.png?branch=master)](https://travis-ci.org/criteo/memcache-driver)
+[![NuGet version](https://badge.fury.io/nu/Criteo.Memcache.png)](http://badge.fury.io/nu/Criteo.Memcache)
+
 ##What is our priority?
 This driver's main purpose is to access memcached with high performance.
 To that purpose, this driver multiplexes requests and is fully asynchronous.
