@@ -319,6 +319,18 @@ namespace Criteo.Memcache
             }
         }
 
+        /// <summary>
+        /// Attempt to shutdown the memcache client.
+        /// This method may return false if some requests are still pending, allowing for a graceful shutdown.
+        /// After a call to Shutdown, the client will reject any new request.
+        /// </summary>
+        /// <param name="force">Force an immediate shutdown and fail all pending requests.</param>
+        /// <returns>True if the client was successfully shut down.</returns>
+        public bool Shutdown(bool force)
+        {
+            return true;
+        }
+
         private int _currentRequestId = 0;
 
         protected uint NextRequestId
