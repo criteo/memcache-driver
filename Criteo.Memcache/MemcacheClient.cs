@@ -17,6 +17,7 @@
 */
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading;
 
@@ -333,6 +334,17 @@ namespace Criteo.Memcache
                 success &= node.Shutdown(force);
 
             return success;
+        }
+
+        /// <summary>
+        /// Number of alive nodes
+        /// </summary>
+        public int AliveNodes
+        {
+            get
+            {
+                return _nodes.Count(node => !node.IsDead);
+            }
         }
 
         private int _currentRequestId = 0;
