@@ -222,9 +222,9 @@ namespace Criteo.Memcache.Transport
 
         private bool Initialize()
         {
-            try
+            lock (this)
             {
-                lock (this)
+                try
                 {
                     if (!_initialized && !_disposed)
                     {
@@ -234,15 +234,16 @@ namespace Criteo.Memcache.Transport
                         _initialized = true;
                     }
                 }
-            }
-            catch (Exception e)
-            {
-                if (TransportError != null)
-                    TransportError(e);
+                catch (Exception e)
+                {
+                    if (TransportError != null)
+                        TransportError(e);
 
-                _connectTimer.Change(Convert.ToInt32(_clientConfig.TransportConnectTimerPeriod.TotalMilliseconds), Timeout.Infinite);
+                    if(!_disposed)
+                        _connectTimer.Change((int)_clientConfig.TransportConnectTimerPeriod.TotalMilliseconds, Timeout.Infinite);
 
-                return false;
+                    return false;
+                }
             }
 
             return true;
@@ -503,26 +504,18 @@ namespace Criteo.Memcache.Transport
 
         private void TryConnect(object dummy)
         {
-            try
-            {
-                // If the node is closing, dispose this transport, which will terminate the reconnect timer.
-                // If we do not know if the node is closed (_nodeClosing == null) then we also dispose, to prevent leaks.
-                if (_nodeClosing == null || _nodeClosing())
-                {
-                    Dispose();
-                }
-                // Else, try to connect and register the transport on the node in case of success
-                else if (Initialize())
-                {
-                    TransportAvailable();
-                }
-            }
-            catch (Exception e)
-            {
-                if (TransportError != null)
-                    TransportError(e);
 
-                _connectTimer.Change(Convert.ToInt32(_clientConfig.TransportConnectTimerPeriod.TotalMilliseconds), Timeout.Infinite);
+            // If the node is closing, dispose this transport, which will terminate the reconnect timer.
+            // If we do not know if the node is closed (_nodeClosing == null) then we also dispose, to prevent leaks.
+            if (_nodeClosing == null || _nodeClosing())
+            {
+                Dispose();
+            }
+            // Else, try to connect and register the transport on the node in case of success. If the connection
+            // fails, the Initialize method reschedules it.
+            else if (Initialize())
+            {
+                TransportAvailable();
             }
         }
 
@@ -604,11 +597,18 @@ namespace Criteo.Memcache.Transport
         }
 
         // Register the transport on the node.
-        // The caller must catch exceptions and possibly, check the node's IOngoingDispose interface beforehand
         private void TransportAvailable()
         {
-            if (_transportAvailable != null)
-                _transportAvailable(this);
+            try
+            {
+                if (_transportAvailable != null)
+                    _transportAvailable(this);
+            }
+            catch (Exception e)
+            {
+                if (TransportError != null)
+                    TransportError(e);
+            }
         }
 
         private void TransportFailureOnSend(Exception e)
