@@ -15,6 +15,7 @@
    specific language governing permissions and limitations
    under the License.
 */
+
 namespace Criteo.Memcache.Authenticators
 {
     public interface IMemcacheAuthenticator

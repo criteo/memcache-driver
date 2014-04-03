@@ -15,6 +15,7 @@
    specific language governing permissions and limitations
    under the License.
 */
+using System;
 using System.Threading.Tasks;
 
 using Criteo.Memcache.Headers;
@@ -46,13 +47,15 @@ namespace Criteo.Memcache.Authenticators
                 };
             }
 
-            public Status StepAuthenticate(out IMemcacheRequest stepRequest)
+            public Status StepAuthenticate(TimeSpan authTimeout, out IMemcacheRequest stepRequest)
             {
                 if (_started)
                 {
                     stepRequest = null;
-                    var status = _authenticationStatus.Task.Result;
-                    return status;
+                    if (_authenticationStatus.Task.Wait(authTimeout))
+                        return _authenticationStatus.Task.Result;
+                    else
+                        return Status.TemporaryFailure;
                 }
                 else
                 {

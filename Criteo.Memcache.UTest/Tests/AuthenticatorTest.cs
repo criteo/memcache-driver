@@ -15,6 +15,8 @@
    specific language governing permissions and limitations
    under the License.
 */
+using System;
+
 using NUnit.Framework;
 
 using Criteo.Memcache.Authenticators;
@@ -41,7 +43,7 @@ namespace Criteo.Memcache.UTest.Tests
 
             IMemcacheRequest request;
             // initial step, nothing done, it must say we have to authenticate
-            Assert.AreEqual(Status.StepRequired, token.StepAuthenticate(out request));
+            Assert.AreEqual(Status.StepRequired, token.StepAuthenticate(TimeSpan.FromSeconds(10), out request));
             Assert.IsNotNull(request);
 
             // checks it builds the right message
@@ -69,7 +71,7 @@ namespace Criteo.Memcache.UTest.Tests
             request.HandleResponse(new MemcacheResponseHeader { Status = Status.NoError }, null, null, null);
 
             // check it works
-            Assert.AreEqual(Status.NoError, token.StepAuthenticate(out request));
+            Assert.AreEqual(Status.NoError, token.StepAuthenticate(TimeSpan.FromSeconds(10), out request));
             Assert.IsNull(request);
         }
 
@@ -88,7 +90,7 @@ namespace Criteo.Memcache.UTest.Tests
 
             IMemcacheRequest request;
             // initial step, nothing done, it must say we have to authenticate
-            Assert.AreEqual(Status.StepRequired, token.StepAuthenticate(out request));
+            Assert.AreEqual(Status.StepRequired, token.StepAuthenticate(TimeSpan.FromSeconds(10), out request));
             Assert.IsNotNull(request);
 
             var buffer = request.GetQueryBuffer();
@@ -98,7 +100,7 @@ namespace Criteo.Memcache.UTest.Tests
             request.HandleResponse(new MemcacheResponseHeader { Status = Status.StepRequired }, null, null, null);
 
             // check it returns the sent status
-            Assert.AreEqual(Status.StepRequired, token.StepAuthenticate(out request));
+            Assert.AreEqual(Status.StepRequired, token.StepAuthenticate(TimeSpan.FromSeconds(10), out request));
         }
     }
 }

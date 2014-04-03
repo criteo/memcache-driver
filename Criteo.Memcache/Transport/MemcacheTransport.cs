@@ -474,7 +474,7 @@ namespace Criteo.Memcache.Transport
                 var authenticationToken = _clientConfig.Authenticator.CreateToken();
                 while (authenticationToken != null && !authDone)
                 {
-                    authStatus = authenticationToken.StepAuthenticate(out request);
+                    authStatus = authenticationToken.StepAuthenticate(_clientConfig.SocketTimeout, out request);
 
                     switch (authStatus)
                     {

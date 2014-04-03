@@ -15,6 +15,8 @@
    specific language governing permissions and limitations
    under the License.
 */
+using System;
+
 using Criteo.Memcache.Headers;
 using Criteo.Memcache.Requests;
 
@@ -31,6 +33,6 @@ namespace Criteo.Memcache.Authenticators
         /// StepRequired when a next step must be sent
         /// AuthRequired when the authentication has failed
         /// </returns>
-        Status StepAuthenticate(out IMemcacheRequest stepRequest);
+        Status StepAuthenticate(TimeSpan authTimeout, out IMemcacheRequest stepRequest);
     }
 }
