@@ -224,25 +224,36 @@ namespace Criteo.Memcache.Transport
         {
             lock (this)
             {
-                try
+                if (!_initialized && !_disposed)
                 {
-                    if (!_initialized && !_disposed)
+                    try
                     {
                         CreateSocket();
-                        Start();
+                    }
+                    catch (Exception e)
+                    {
+                        // if create socket fails, then nothing is initialized, retry only the connection
+                        if (TransportError != null)
+                            TransportError(e);
 
+                        if (!_disposed)
+                            _connectTimer.Change((int)_clientConfig.TransportConnectTimerPeriod.TotalMilliseconds, Timeout.Infinite);
+
+                        return false;
+                    }
+
+                    try
+                    {
+                        Start();
                         _initialized = true;
                     }
-                }
-                catch (Exception e)
-                {
-                    if (TransportError != null)
-                        TransportError(e);
-
-                    if(!_disposed)
-                        _connectTimer.Change((int)_clientConfig.TransportConnectTimerPeriod.TotalMilliseconds, Timeout.Infinite);
-
-                    return false;
+                    catch (Exception e)
+                    {
+                        // once the start method has been called, if a fail occurs,
+                        // we must create everything from scratch since we are in an unknow state
+                        TransportFailureOnSend(e);
+                        return false;
+                    }
                 }
             }
 
@@ -471,32 +482,35 @@ namespace Criteo.Memcache.Transport
 
             if (_clientConfig.Authenticator != null)
             {
-                var mre = new ManualResetEventSlim();
-                var authenticationToken = _clientConfig.Authenticator.CreateToken();
-                while (authenticationToken != null && !authDone)
+                using (var mre = new ManualResetEventSlim(true))
                 {
-                    authStatus = authenticationToken.StepAuthenticate(_clientConfig.SocketTimeout, out request);
-
-                    switch (authStatus)
+                    var authenticationToken = _clientConfig.Authenticator.CreateToken();
+                    while (authenticationToken != null && !authDone)
                     {
-                        // auth OK, clear the token
-                        case Status.NoError:
-                            authenticationToken = null;
-                            authDone = true;
-                            break;
+                        authStatus = authenticationToken.StepAuthenticate(_clientConfig.SocketTimeout, out request);
 
-                        case Status.StepRequired:
-                            if (request == null)
-                                throw new AuthenticationException("Unable to authenticate : step required but no request from token");
-                            if (!SendRequest(request, mre))
-                                throw new AuthenticationException("Unable to authenticate : unable to send authentication request");
-                            break;
+                        switch (authStatus)
+                        {
+                            // auth OK, clear the token
+                            case Status.NoError:
+                                authenticationToken = null;
+                                authDone = true;
+                                break;
 
-                        default:
-                            throw new AuthenticationException("Unable to authenticate : status " + authStatus.ToString());
+                            case Status.StepRequired:
+                                if (request == null)
+                                    throw new AuthenticationException("Unable to authenticate : step required but no request from token");
+                                mre.Reset();
+                                if (!SendRequest(request, mre))
+                                    throw new AuthenticationException("Unable to authenticate : unable to send authentication request");
+                                break;
+
+                            default:
+                                throw new AuthenticationException("Unable to authenticate : status " + authStatus.ToString());
+                        }
                     }
+                    mre.Wait();
                 }
-                mre.Wait();
             }
 
             return true;

@@ -35,6 +35,7 @@ namespace Criteo.Memcache.UTest.Mocks
         private const int ANY_AVAILABLE_PORT = 0;
 
         public MemcacheRequestHeader LastReceivedHeader { get; private set; }
+        public Exception LastException { get; private set; }
         public byte[] LastReceivedBody { get; set; }
 
         public byte[] ResponseHeader { get; private set; }
@@ -113,64 +114,74 @@ namespace Criteo.Memcache.UTest.Mocks
         /// <param name="e" />
         void OnReceive(object sender, SocketAsyncEventArgs e)
         {
-            if (ReceiveMutex != null)
-                ReceiveMutex.Wait();
-
-            // ends when error occur
-            if (e.SocketError != SocketError.Success)
-                return;
-
-            // ends request header transfer
-            var socket = sender as Socket;
-            int transfered = e.BytesTransferred;
-            while (transfered < MemcacheRequestHeader.SIZE && !_disposed)
-                transfered += socket.Receive(e.Buffer, transfered, MemcacheRequestHeader.SIZE - transfered, SocketFlags.None);
-
-            // read the request header
-            var header = new MemcacheRequestHeader();
-            header.FromData(e.Buffer);
-            LastReceivedHeader = header;
-
-            // transfer the body is present
-            if (header.TotalBodyLength > 0)
+            try
             {
-                var body = new byte[header.TotalBodyLength];
-                transfered = 0;
-
-                while (transfered < header.TotalBodyLength && !_disposed)
-                    transfered += socket.Receive(body, transfered, (int)header.TotalBodyLength - transfered, SocketFlags.None);
-
-                LastReceivedBody = body;
-            }
-            else
-                LastReceivedBody = null;
-
-            // send the response header
-            transfered = 0;
-            while (transfered < MemcacheResponseHeader.SIZE && !_disposed)
-            {
-                var toTransfer = MemcacheResponseHeader.SIZE - transfered;
-                if (MaxSent != 0 && MaxSent < toTransfer)
-                    toTransfer = MaxSent;
-                transfered += socket.Send(ResponseHeader, transfered, toTransfer, SocketFlags.None);
-            }
-
-            // send the response body if present
-            if (ResponseBody != null)
-            {
-                transfered = 0;
-                while (transfered < ResponseBody.Length && !_disposed)
+                if (ReceiveMutex != null)
                 {
-                    var toTransfer = ResponseBody.Length - transfered;
+                    ReceiveMutex.Wait();
+                }
+
+                // ends when error occur
+                if (e.SocketError != SocketError.Success)
+                    return;
+
+                // ends request header transfer
+                var socket = sender as Socket;
+                int transfered = e.BytesTransferred;
+                while (transfered < MemcacheRequestHeader.SIZE && !_disposed)
+                    transfered += socket.Receive(e.Buffer, transfered, MemcacheRequestHeader.SIZE - transfered, SocketFlags.None);
+
+                // read the request header
+                var header = new MemcacheRequestHeader();
+                header.FromData(e.Buffer);
+                LastReceivedHeader = header;
+
+                // transfer the body is present
+                if (header.TotalBodyLength > 0)
+                {
+                    var body = new byte[header.TotalBodyLength];
+                    transfered = 0;
+
+                    while (transfered < header.TotalBodyLength && !_disposed)
+                        transfered += socket.Receive(body, transfered, (int)header.TotalBodyLength - transfered, SocketFlags.None);
+
+                    LastReceivedBody = body;
+                }
+                else
+                    LastReceivedBody = null;
+
+                // send the response header
+                transfered = 0;
+                while (transfered < MemcacheResponseHeader.SIZE && !_disposed)
+                {
+                    var toTransfer = MemcacheResponseHeader.SIZE - transfered;
                     if (MaxSent != 0 && MaxSent < toTransfer)
                         toTransfer = MaxSent;
-                    transfered += socket.Send(ResponseBody, transfered, toTransfer, SocketFlags.None);
+                    transfered += socket.Send(ResponseHeader, transfered, toTransfer, SocketFlags.None);
                 }
-            }
 
-            // start to receive again
-            if (!_disposed)
-                socket.ReceiveAsync(e);
+                // send the response body if present
+                if (ResponseBody != null)
+                {
+                    transfered = 0;
+                    while (transfered < ResponseBody.Length && !_disposed)
+                    {
+                        var toTransfer = ResponseBody.Length - transfered;
+                        if (MaxSent != 0 && MaxSent < toTransfer)
+                            toTransfer = MaxSent;
+                        transfered += socket.Send(ResponseBody, transfered, toTransfer, SocketFlags.None);
+                    }
+                }
+
+                // start to receive again
+                if (!_disposed)
+                    socket.ReceiveAsync(e);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Exception raised in ServerMock.OnReceive : " + ex);
+                LastException = ex;
+            }
         }
 
         public void Dispose()

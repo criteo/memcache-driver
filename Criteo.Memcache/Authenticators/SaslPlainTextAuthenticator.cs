@@ -17,7 +17,7 @@
 */
 using System;
 using System.Threading.Tasks;
-
+using Criteo.Memcache.Exceptions;
 using Criteo.Memcache.Headers;
 using Criteo.Memcache.Requests;
 
@@ -55,7 +55,7 @@ namespace Criteo.Memcache.Authenticators
                     if (_authenticationStatus.Task.Wait(authTimeout))
                         return _authenticationStatus.Task.Result;
                     else
-                        return Status.TemporaryFailure;
+                        throw new AuthenticationException("Authentication has timed out");
                 }
                 else
                 {

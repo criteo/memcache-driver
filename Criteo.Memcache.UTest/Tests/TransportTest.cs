@@ -27,6 +27,8 @@ using Criteo.Memcache.Headers;
 using Criteo.Memcache.Requests;
 using Criteo.Memcache.Transport;
 using Criteo.Memcache.UTest.Mocks;
+using Criteo.Memcache.Exceptions;
+using Criteo.Memcache.Authenticators;
 
 namespace Criteo.Memcache.UTest.Tests
 {
@@ -320,6 +322,110 @@ namespace Criteo.Memcache.UTest.Tests
             // Check that all transports have been disposed
             Assert.AreEqual(2, disposedTransports);
             Assert.AreEqual(createdTransports, disposedTransports);
+        }
+
+        [Test]
+        public void AuthenticationFailed()
+        {
+            var sentMutex = new ManualResetEventSlim(false);
+
+            using(var serverStub = new ServerMock())
+            {
+                IMemcacheRequest authenticationRequest = null;
+                // a token that fails
+                var authenticatorTokenFailing = new Moq.Mock<IAuthenticationToken>();
+                authenticatorTokenFailing
+                    .Setup(t => t.StepAuthenticate(Moq.It.IsAny<TimeSpan>(), out authenticationRequest))
+                    .Returns(Status.TemporaryFailure);
+                // a token that works
+                var authenticatorTokenOk = new Moq.Mock<IAuthenticationToken>();
+                authenticatorTokenOk
+                    .Setup(t => t.StepAuthenticate(Moq.It.IsAny<TimeSpan>(), out authenticationRequest))
+                    .Returns(Status.NoError);
+                // an authenticator that returns one failing token followed by working tokens
+                bool alreadyFailed = false;
+                var authenticator = new Moq.Mock<IMemcacheAuthenticator>();
+                authenticator
+                    .Setup(auth => auth.CreateToken())
+                    .Returns(() =>
+                        {
+                            if (alreadyFailed)
+                                return authenticatorTokenOk.Object;
+                            alreadyFailed = true;
+                            return authenticatorTokenFailing.Object;
+                        });
+
+                // setup the request to send
+                bool requestFailed = false;
+                bool requestAchieved = false;
+                var request = new Moq.Mock<IMemcacheRequest>();
+                request
+                    .Setup(r => r.Fail())
+                    .Callback(() =>
+                        {
+                            requestFailed = true;
+                            sentMutex.Set();
+                        });
+                request
+                    .Setup(r => r.HandleResponse(
+                        Moq.It.Is<Headers.MemcacheResponseHeader>(h => h.Status == Status.NoError),
+                        Moq.It.IsAny<string>(),
+                        Moq.It.IsAny<byte[]>(),
+                        Moq.It.IsAny<byte[]>()))
+                    .Callback(() =>
+                        {
+                            requestAchieved = true;
+                            sentMutex.Set();
+                        });
+                var queryBuffer = new byte[MemcacheRequestHeader.SIZE];
+                new MemcacheRequestHeader().ToData(queryBuffer);
+                request
+                    .Setup(r => r.GetQueryBuffer())
+                    .Returns(queryBuffer);
+
+                IMemcacheTransport transportToWork = null;
+                var transportToFail = new MemcacheTransport(
+                    serverStub.ListenEndPoint,
+                    new MemcacheClientConfiguration
+                    {
+                        SocketTimeout = TimeSpan.Zero,
+                        Authenticator = authenticator.Object,
+                    },
+                    _ => { },
+                    t =>
+                        {
+                            Interlocked.Exchange(ref transportToWork, t);
+                        },
+                    false,
+                    () => false);
+                new MemcacheResponseHeader
+                    {
+                        Status = Status.NoError,
+                        Opcode = Opcode.Get,
+                    }.ToData(serverStub.ResponseHeader);
+
+                Exception raised = null;
+                transportToFail.TransportError += e =>
+                    {
+                        // when the transport fails collect the exception
+                        Interlocked.Exchange(ref raised, e);
+                    };
+
+                var sent = transportToFail.TrySend(request.Object);
+
+                Assert.IsFalse(sent, "The request send should fail");
+                Assert.IsNotNull(raised, "The authentication should have failed");
+
+                // wait for reconnection to happen (should be done in a instant timer)
+                Assert.That(ref transportToWork , (!Is.Null).After(1000, 10), "The working transport should have been set");
+
+                sent = transportToWork.TrySend(request.Object);
+                Assert.IsTrue(sent, "The request should have been sent");
+                var received = sentMutex.Wait(TimeSpan.FromMinutes(5));
+                Assert.IsTrue(received, "The response should have been received");
+                Assert.IsFalse(requestFailed, "The request should not have failed");
+                Assert.IsTrue(requestAchieved, "The request should have achieved");
+            }
         }
     }
 }
