@@ -19,55 +19,13 @@ namespace Criteo.Memcache.Locator
         private const string DefaultHashName = "System.Security.Cryptography.MD5";
         private const int ServerAddressMutations = 160;
 
-        #region Hash Pooling
-        private ConcurrentBag<HashAlgorithm> _hashAlgoPool;
-        private Func<HashAlgorithm> _hashFactory;
-
-        protected struct HashProxy : IDisposable
-        {
-            private HashAlgorithm _value;
-            private ConcurrentBag<HashAlgorithm> _pool;
-
-            public HashProxy(ConcurrentBag<HashAlgorithm> pool, Func<HashAlgorithm> hashFactory)
-            {
-                _pool = pool;
-                if (!pool.TryTake(out _value))
-                    _value = hashFactory();
-            }
-
-            public HashAlgorithm Value
-            {
-                get
-                {
-                    return _value;
-                }
-            }
-
-            public void Dispose()
-            {
-                if (_value != null)
-                    _pool.Add(_value);
-            }
-        }
-
-        protected HashProxy Hash
-        {
-            get
-            {
-                return new HashProxy(_hashAlgoPool, _hashFactory);
-            }
-        }
-        #endregion Hash Pooling
-
+        private HashPool _hashPool;
         private IList<IMemcacheNode> _nodes;
         private LookupData _lookupData;
-        private int _resurrectFreq;
 
-        public KetamaLocator(string hashName = null, int resurectFreq = 1000)
+        public KetamaLocator(string hashName = null)
         {
-            _hashAlgoPool = new ConcurrentBag<HashAlgorithm>();
-            _hashFactory = () => HashAlgorithm.Create(hashName = hashName ?? DefaultHashName);
-            _resurrectFreq = resurectFreq;
+            _hashPool = new HashPool(() => HashAlgorithm.Create(hashName ?? DefaultHashName));
         }
 
         public void Initialize(IList<IMemcacheNode> nodes)
@@ -79,7 +37,7 @@ namespace Criteo.Memcache.Locator
                 node.NodeAlive += _ => Reinitialize();
             }
 
-            using(var hash = Hash)
+            using (var hash = _hashPool.Hash)
                 _lookupData = new LookupData(nodes, hash.Value);
 
             UpdateState(null);
@@ -93,7 +51,7 @@ namespace Criteo.Memcache.Locator
                 if (!node.IsDead)
                     newNodes.Add(node);
 
-            using (var hash = Hash)
+            using (var hash = _hashPool.Hash)
                 Interlocked.Exchange(ref _lookupData, new LookupData(newNodes, hash.Value));
         }
 
@@ -129,7 +87,7 @@ namespace Criteo.Memcache.Locator
         private uint GetKeyHash(string key)
         {
             var keyData = Encoding.UTF8.GetBytes(key);
-            using (var hash = Hash)
+            using (var hash = _hashPool.Hash)
                 return hash.Value.ComputeHash(keyData).CopyToUIntNoRevert(0);
         }
 

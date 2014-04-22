@@ -50,6 +50,7 @@
     <Compile Include="Headers\HeaderUtil.cs" />
     <Compile Include="Headers\MemcacheRequestHeader.cs" />
     <Compile Include="Headers\MemcacheResponseHeader.cs" />
+    <Compile Include="Locator\HashPool.cs" />
     <Compile Include="Locator\INodeLocator.cs" />
     <Compile Include="Locator\KetamaLocator.cs" />
     <Compile Include="MemcacheClient.cs" />
