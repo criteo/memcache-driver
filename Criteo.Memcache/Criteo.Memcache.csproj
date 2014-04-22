@@ -47,6 +47,8 @@
     <Compile Include="Authenticators\SaslPlainTextAuthenticator.cs" />
     <Compile Include="Exceptions\AuthenticationException.cs" />
     <Compile Include="Exceptions\MemcacheException.cs" />
+    <Compile Include="Cluster\IMemcacheCluster.cs" />
+    <Compile Include="Cluster\StaticCluster.cs" />
     <Compile Include="Headers\HeaderUtil.cs" />
     <Compile Include="Headers\MemcacheRequestHeader.cs" />
     <Compile Include="Headers\MemcacheResponseHeader.cs" />

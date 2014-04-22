@@ -21,6 +21,7 @@ using System.Net;
 using System.Threading;
 
 using Criteo.Memcache.Authenticators;
+using Criteo.Memcache.Cluster;
 using Criteo.Memcache.Locator;
 using Criteo.Memcache.Node;
 using Criteo.Memcache.Transport;
@@ -46,6 +47,10 @@ namespace Criteo.Memcache.Configuration
         Action<IMemcacheTransport> transportAvailable,
         bool autoConnect,
         Func<bool> nodeClosing);
+
+    public delegate IMemcacheCluster ClusterAllocator(MemcacheClientConfiguration configuration);
+
+    public delegate INodeLocator NodeLocatorAllocator();
 
     /// <summary>
     /// If you want to implement your own nodes, then use this delegate to inject it in the client
@@ -75,13 +80,18 @@ namespace Criteo.Memcache.Configuration
         internal static NodeAllocator DefaultNodeFactory =
             (endPoint, configuration) => new MemcacheNode(endPoint, configuration);
 
-        internal static Func<INodeLocator> DefaultLocatorFactory =
+        internal static ClusterAllocator DefaultClusterFactory =
+            c => new StaticCluster(c);
+
+        internal static NodeLocatorAllocator DefaultLocatorFactory =
             () => new KetamaLocator();
 
-        public static Func<string, INodeLocator> KetamaLocatorFactory =
-            hashName => new KetamaLocator(hashName);
+        internal static NodeLocatorAllocator KetamaLocatorFactory(string hashName)
+        {
+            return () => new KetamaLocator(hashName);
+        }
 
-        public static Func<INodeLocator> RoundRobinLocatorFactory =
+        public static NodeLocatorAllocator RoundRobinLocatorFactory =
             () => new RoundRobinLocator();
 
         public static AuthenticatorAllocator SaslPlainAuthenticatorFactory =
@@ -92,8 +102,9 @@ namespace Criteo.Memcache.Configuration
         private readonly IList<IPEndPoint> _nodesEndPoints = new List<IPEndPoint>();
         public IList<IPEndPoint> NodesEndPoints { get { return _nodesEndPoints;} }
 
-        public INodeLocator NodeLocator { get; set; }
+        public NodeLocatorAllocator NodeLocatorFactory { get; set; }
         public TransportAllocator TransportFactory { get; set; }
+        public ClusterAllocator ClusterFactory { get; set; }
         public NodeAllocator NodeFactory { get; set; }
         public IMemcacheAuthenticator Authenticator { get; set; }
 

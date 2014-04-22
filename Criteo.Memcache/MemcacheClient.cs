@@ -21,9 +21,9 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 
+using Criteo.Memcache.Cluster;
 using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Headers;
-using Criteo.Memcache.Locator;
 using Criteo.Memcache.Node;
 using Criteo.Memcache.Requests;
 
@@ -69,9 +69,8 @@ namespace Criteo.Memcache
     /// </summary>
     public class MemcacheClient : IDisposable
     {
-        private INodeLocator _locator;
-        private IList<IMemcacheNode> _nodes;
         private MemcacheClientConfiguration _configuration;
+        private IMemcacheCluster _cluster;
         private bool _disposed = false;
 
         /// <summary>
@@ -124,17 +123,9 @@ namespace Criteo.Memcache
                 throw new ArgumentException("Client config should not be null");
 
             _configuration = configuration;
-            _locator = configuration.NodeLocator ?? MemcacheClientConfiguration.DefaultLocatorFactory();
-            _nodes = new List<IMemcacheNode>(configuration.NodesEndPoints.Count);
-
-            foreach (var nodeEndPoint in configuration.NodesEndPoints)
-            {
-                var node = (configuration.NodeFactory ?? MemcacheClientConfiguration.DefaultNodeFactory)(nodeEndPoint, configuration);
-                _nodes.Add(node);
-                RegisterEvents(node);
-            }
-
-            _locator.Initialize(_nodes);
+            _cluster = (configuration.ClusterFactory ?? MemcacheClientConfiguration.DefaultClusterFactory)(configuration);
+            _cluster.NodeAdded += RegisterEvents;
+            _cluster.Initialize();
         }
 
         /// <summary>
@@ -151,7 +142,7 @@ namespace Criteo.Memcache
             int countTrySends = 0;
             int countTrySendsOK = 0;
 
-            foreach (var node in _locator.Locate(request.Key))
+            foreach (var node in _cluster.Locator.Locate(request.Key))
             {
                 countTrySends++;
                 if (node.TrySend(request, _configuration.QueueTimeout))
@@ -287,7 +278,7 @@ namespace Criteo.Memcache
 
         public void Ping(Action<EndPoint, Status> callback)
         {
-            foreach (var node in _nodes)
+            foreach (var node in _cluster.Nodes)
             {
                 if (node.IsDead)
                     callback(node.EndPoint, Status.InternalError);
@@ -306,7 +297,7 @@ namespace Criteo.Memcache
         /// <param name="callback"></param>
         public void Stats(string key, Action<EndPoint, IDictionary<string, string>> callback)
         {
-            foreach (var node in _nodes)
+            foreach (var node in _cluster.Nodes)
             {
                 if (node.IsDead)
                     callback(node.EndPoint, null);
@@ -330,7 +321,7 @@ namespace Criteo.Memcache
         {
             // Shutdown all nodes, don't stop on the first one returning false!
             bool success = true;
-            foreach (var node in _nodes)
+            foreach (var node in _cluster.Nodes)
                 success &= node.Shutdown(force);
 
             return success;
@@ -343,7 +334,7 @@ namespace Criteo.Memcache
         {
             get
             {
-                return _nodes.Count(node => !node.IsDead);
+                return _cluster.Nodes.Count(node => !node.IsDead);
             }
         }
 
@@ -371,8 +362,7 @@ namespace Criteo.Memcache
             {
                 if (disposing)
                 {
-                    foreach (var node in _nodes)
-                        node.Dispose();
+                    _cluster.Dispose();
                 }
                 _disposed = true;
             }
