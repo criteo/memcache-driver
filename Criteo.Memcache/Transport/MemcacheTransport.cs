@@ -456,12 +456,19 @@ namespace Criteo.Memcache.Transport
                 lock (this)
                     if (!_disposed)
                     {
-                        if (_socket != null)
-                            _socket.Disconnect(false);
-                        if (TransportError != null)
+                        try
                         {
-                            TransportError(new MemcacheException("TransportFailureOnReceive on " + this.ToString(), e));
+                            if (_socket != null)
+                                _socket.Disconnect(false);
                         }
+                        catch (Exception ex)
+                        {
+                            if (TransportError != null)
+                                TransportError(new MemcacheException("Exception disconnecting the socket on " + this.ToString(), ex));
+                        }
+
+                        if (TransportError != null)
+                            TransportError(new MemcacheException("TransportFailureOnReceive on " + this.ToString(), e));
 
                         FailPending();
                     }
