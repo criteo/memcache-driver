@@ -61,6 +61,7 @@
     <Compile Include="Node\MemcacheNode.cs" />
     <Compile Include="Locator\RoundRobinLocator.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Requests\QuitRequest.cs" />
     <Compile Include="Requests\RedundantRequest.cs" />
     <Compile Include="Requests\StatRequest.cs" />
     <Compile Include="Requests\DeleteRequest.cs" />

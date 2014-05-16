@@ -35,6 +35,7 @@ namespace Criteo.Memcache.Node
         private volatile CancellationTokenSource _tokenSource;
         private MemcacheClientConfiguration _configuration;
         private volatile bool _ongoingDispose = false;
+        private volatile bool _forceShutDown = false;
         private volatile bool _ongoingShutdown = false;
 
         private int _workingTransports;
@@ -149,8 +150,12 @@ namespace Criteo.Memcache.Node
                 }
 
                 // Add the transport to the pool, unless the node is disposing of the pool
-                if (!IsClosing())
+                if (!_ongoingDispose)
+                {
                     _transportPool.Add(transport);
+                    if (_ongoingShutdown)
+                        transport.Shutdown(_forceShutDown);
+                }
                 else
                     transport.Dispose();
             }
@@ -194,10 +199,10 @@ namespace Criteo.Memcache.Node
 
         public bool Shutdown(bool force)
         {
+            _forceShutDown = force;
             _ongoingShutdown = true;
 
-            IMemcacheTransport transport;
-            while (_transportPool.TryTake(out transport))
+            foreach(var transport in _transportPool)
             {
                 if (!transport.Shutdown(force))
                     return false;

@@ -141,6 +141,9 @@ namespace Criteo.Memcache.Transport
             {
                 if (TransportDead != null)
                     TransportDead(this);
+
+                if (_initialized)
+                    SendRequest(new QuitRequest());
             }
 
             if (force)
@@ -620,6 +623,8 @@ namespace Criteo.Memcache.Transport
         // Register the transport on the node.
         private void TransportAvailable()
         {
+            if (_ongoingShutdown != 0)
+                return;
             try
             {
                 if (_transportAvailable != null)
@@ -648,7 +653,9 @@ namespace Criteo.Memcache.Transport
                         }
 
                         // Shutdown and dispose this transport
-                        Shutdown(true);
+                        if (TransportDead != null)
+                            TransportDead(this);
+                        FailPending();
                         Dispose();
                     }
         }
