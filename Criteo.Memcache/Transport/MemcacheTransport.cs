@@ -136,15 +136,9 @@ namespace Criteo.Memcache.Transport
             if (_disposed)
                 return true;
 
-            // Ensure that only one thread triggers the TransportDead event
-            if (0 == Interlocked.Exchange(ref _ongoingShutdown, 1))
-            {
-                if (TransportDead != null)
-                    TransportDead(this);
-
-                if (_initialized)
-                    SendRequest(new QuitRequest());
-            }
+            // Ensure that only one thread triggers the QuitRequest
+            if (0 == Interlocked.Exchange(ref _ongoingShutdown, 1) && _initialized)
+                SendRequest(new QuitRequest());
 
             if (force)
             {
