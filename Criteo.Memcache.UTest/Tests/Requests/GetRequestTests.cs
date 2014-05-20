@@ -15,6 +15,8 @@
    specific language governing permissions and limitations
    under the License.
 */
+using System;
+
 using NUnit.Framework;
 
 using Criteo.Memcache.Headers;
@@ -28,7 +30,7 @@ namespace Criteo.Memcache.UTest.Tests
     [TestFixture]
     public class GetRequestTests
     {
-        static readonly byte[] GET_QUERY = 
+        static readonly byte[] GET_QUERY =
         {
             0x80, 0x00, 0x00, 0x05,
             0x00, 0x00, 0x00, 0x00,
@@ -40,12 +42,12 @@ namespace Criteo.Memcache.UTest.Tests
             0x6f,
         };
 
-        static readonly byte[] GET_FLAG = 
+        static readonly byte[] GET_FLAG =
         {
             0xde, 0xad, 0xbe, 0xef,
         };
 
-        static readonly byte[] GET_MESSAGE = 
+        static readonly byte[] GET_MESSAGE =
         {
             0x57, 0x6f, 0x72, 0x6c,
             0x64,
@@ -183,6 +185,19 @@ namespace Criteo.Memcache.UTest.Tests
             Assert.DoesNotThrow(() => request.HandleResponse(headerFail, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
             Assert.AreEqual(Status.KeyNotFound, status, "Returned status should be KeynotFound");
 
+        }
+
+        [Test]
+        public void GetRequestValidInvalidTest()
+        {
+            // Invalid Expire times
+            Assert.Throws<ArgumentException>(() => new GetRequest() { Expire = TimeSpan.MinValue }, "Invalid negative expire time");
+            Assert.Throws<ArgumentException>(() => new GetRequest() { Expire = TimeSpan.FromSeconds(-1) }, "Invalid negative expire time");
+
+            // Valid requests
+            Assert.DoesNotThrow(() => new GetRequest() { Expire = TimeSpan.Zero }, "Timestamp.Zero translates to infinite TTL");
+            Assert.DoesNotThrow(() => new GetRequest() { Expire =  ExpirationTimeUtils.Infinite }, "Timestamp.Zero translates to infinite TTL");
+            Assert.DoesNotThrow(() => new GetRequest() { Expire = TimeSpan.MaxValue }, "Timestamp.MaxValue is considered valid, but the conversion to a timestamp will crash");
         }
 
     }

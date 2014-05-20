@@ -61,6 +61,7 @@
     <Compile Include="Tests\MemcacheNodeTests.cs" />
     <Compile Include="Tests\ReplicasTests.cs" />
     <Compile Include="Tests\Requests\DeleteRequestTests.cs" />
+    <Compile Include="Tests\Requests\ExpirationTimeTests.cs" />
     <Compile Include="Tests\Requests\GetRequestTests.cs" />
     <Compile Include="Tests\Requests\NoOpRequestTests.cs" />
     <Compile Include="Tests\Requests\SaslPlainTextRequestTests.cs" />

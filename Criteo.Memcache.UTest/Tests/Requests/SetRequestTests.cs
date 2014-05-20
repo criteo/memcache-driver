@@ -27,7 +27,7 @@ namespace Criteo.Memcache.UTest.Tests
     [TestFixture]
     public class SetRequestTests
     {
-        static readonly byte[] SET_QUERY = 
+        static readonly byte[] SET_QUERY =
         {
             0x80, 0x01, 0x00, 0x05,
             0x08, 0x00, 0x00, 0x00,
@@ -53,11 +53,11 @@ namespace Criteo.Memcache.UTest.Tests
         public void SetRequestTest()
         {
             Status status = Status.UnknownCommand;
-            var request = new SetRequest 
-            { 
+            var request = new SetRequest
+            {
                 Key = @"Hello",
-                Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"), 
-                RequestId = 0, 
+                Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"),
+                RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
                 CallBack = (s) => status = s,
                 CallBackPolicy = CallBackPolicy.AllOK
@@ -112,8 +112,8 @@ namespace Criteo.Memcache.UTest.Tests
                 Replicas = 1,
             };
 
-            var headerOK = new MemcacheResponseHeader { Opcode = Opcode.Set, Status = Status.NoError }; 
-            
+            var headerOK = new MemcacheResponseHeader { Opcode = Opcode.Set, Status = Status.NoError };
+
             Assert.AreEqual(Opcode.Set, request.RequestOpcode);
 
             var queryBuffer = request.GetQueryBuffer();
@@ -121,7 +121,7 @@ namespace Criteo.Memcache.UTest.Tests
 
             Assert.DoesNotThrow(() => request.HandleResponse(headerOK, null, SET_EXTRA, SET_MESSAGE));
             Assert.AreEqual(Status.UnknownCommand, status, "Callback should not be called on the first OK response");
-            Assert.DoesNotThrow(() => request.HandleResponse(headerOK, null, SET_EXTRA, SET_MESSAGE)); 
+            Assert.DoesNotThrow(() => request.HandleResponse(headerOK, null, SET_EXTRA, SET_MESSAGE));
             Assert.AreEqual(Status.NoError, status, "Callback should be called with status OK");
         }
 
@@ -169,12 +169,25 @@ namespace Criteo.Memcache.UTest.Tests
                 CallBackPolicy = CallBackPolicy.AllOK,
                 Replicas = 1,
             };
-      
+
             Assert.DoesNotThrow(() => request.HandleResponse(headerFail, null, SET_EXTRA, SET_MESSAGE));
             Assert.AreEqual(Status.OutOfMemory, status, "Callback should be called on the first failed response");
             status = Status.UnknownCommand;
             Assert.DoesNotThrow(() => request.HandleResponse(headerOK, null, SET_EXTRA, SET_MESSAGE));
             Assert.AreEqual(Status.UnknownCommand, status, "Callback should not be called on the responses following a fail");
+        }
+
+        [Test]
+        public void SetRequestValidInvalidTest()
+        {
+            // Invalid Expire times
+            Assert.Throws<ArgumentException>(() => new SetRequest() { Expire = TimeSpan.MinValue }, "Invalid negative expire time");
+            Assert.Throws<ArgumentException>(() => new SetRequest() { Expire = TimeSpan.FromSeconds(-1) }, "Invalid negative expire time");
+
+            // Valid requests
+            Assert.DoesNotThrow(() => new SetRequest() { Expire = TimeSpan.Zero }, "Timestamp.Zero translates to infinite TTL");
+            Assert.DoesNotThrow(() => new SetRequest() { Expire = ExpirationTimeUtils.Infinite }, "Timestamp.Zero translates to infinite TTL");
+            Assert.DoesNotThrow(() => new SetRequest() { Expire = TimeSpan.MaxValue }, "Timestamp.MaxValue is considered valid, but the conversion to a timestamp will crash");
         }
 
     }

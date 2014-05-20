@@ -25,19 +25,37 @@ namespace Criteo.Memcache.Requests
 {
     internal class GetRequest : RedundantRequest, IMemcacheRequest
     {
-        static private DateTime Epock = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-
         public string Key { get; set; }
         public Action<Status, byte[]> CallBack { get; set; }
         public uint RequestId { get; set; }
         public Opcode RequestOpcode { get; set; }
         public uint Flag { get; private set; }
-        public TimeSpan Expire { get; set; }
+
+        private TimeSpan _expire { get; set; }
+
+        public TimeSpan Expire
+        {
+            get
+            {
+                return _expire;
+            }
+
+            set
+            {
+                if(ExpirationTimeUtils.IsValid(value))
+                    _expire = value;
+                else
+                    throw new ArgumentException("Invalid expiration time: "  + value.ToString());
+            }
+        }
 
         public GetRequest()
         {
             // set the default opcode to get
             RequestOpcode = Opcode.Get;
+
+            // Only relevant for Get-And-Touch command
+            _expire = ExpirationTimeUtils.Infinite;
         }
 
         public byte[] GetQueryBuffer()
@@ -65,15 +83,7 @@ namespace Criteo.Memcache.Requests
 
             // in case of Get and Touch, post the new TTL in extra
             if (RequestOpcode == Opcode.GAT)
-            {
-                uint expire;
-                if (Expire.CompareTo(TimeSpan.FromDays(30)) < 0)
-                    expire = (uint)Expire.TotalSeconds;
-                else
-                    expire = (uint)(DateTime.UtcNow.Add(Expire) - Epock).TotalSeconds;
-
-                buffer.CopyFrom(MemcacheRequestHeader.SIZE + sizeof(uint), expire);
-            }
+                buffer.CopyFrom(MemcacheRequestHeader.SIZE + sizeof(uint), ExpirationTimeUtils.MemcachedTTL(Expire));
 
             keyAsBytes.CopyTo(buffer, extraLength + MemcacheRequestHeader.SIZE);
 
