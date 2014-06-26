@@ -17,6 +17,7 @@
 */
 using System;
 using System.Net;
+using System.Threading;
 
 using NUnit.Framework;
 
@@ -53,35 +54,43 @@ namespace Criteo.Memcache.UTest.Tests
         [Test]
         public void MemcacheClientReplicasTest()
         {
+            var callbackMutex = new ManualResetEventSlim(false);
 
             var client = new MemcacheClient(_configuration);
 
-            for (int replicas = 0; replicas < _configuration.NodesEndPoints.Count; replicas++)
+            // The number of requests sent is capped by the number of nodes in the cluster.
+            // The last iteration of the loop below actually tests the case where the total
+            // number of copies (Replicas+1) is strictly greater than the number of nodes.
+            int nodeCount = _configuration.NodesEndPoints.Count;
+            for (int replicas = 0; replicas <= nodeCount; replicas++)
             {
                 _configuration.Replicas = replicas;
 
                 // SET
+                callbackMutex.Reset();
                 NodeMock.trySendCounter = 0;
-                Assert.IsTrue(client.Set("toto", new byte[0], TimeSpan.MaxValue, null));
-                Assert.AreEqual(replicas + 1, NodeMock.trySendCounter);
+                Assert.IsTrue(client.Set("toto", new byte[0], TimeSpan.MaxValue, s => callbackMutex.Set()));
+                Assert.AreEqual(Math.Min(replicas + 1, nodeCount), NodeMock.trySendCounter);
+                Assert.IsTrue(callbackMutex.Wait(1000),
+                    string.Format("The SET callback has not been received after 1 second (Replicas = {0})", replicas));
 
                 // GET
+                callbackMutex.Reset();
                 NodeMock.trySendCounter = 0;
-                Assert.IsTrue(client.Get("toto", null));
-                Assert.AreEqual(replicas + 1, NodeMock.trySendCounter);
+                Assert.IsTrue(client.Get("toto", (s, data) => callbackMutex.Set()));
+                Assert.AreEqual(Math.Min(replicas + 1, nodeCount), NodeMock.trySendCounter);
+                Assert.IsTrue(callbackMutex.Wait(1000),
+                    string.Format("The GET callback has not been received after 1 second (Replicas = {0})", replicas));
 
                 // DELETE
+                callbackMutex.Reset();
                 NodeMock.trySendCounter = 0;
-                Assert.IsTrue(client.Delete("toto", null));
-                Assert.AreEqual(replicas + 1, NodeMock.trySendCounter);
+                Assert.IsTrue(client.Delete("toto", s => callbackMutex.Set()));
+                Assert.AreEqual(Math.Min(replicas + 1, nodeCount), NodeMock.trySendCounter);
+                Assert.IsTrue(callbackMutex.Wait(1000),
+                    string.Format("The DELETE callback has not been received after 1 second (Replicas = {0})", replicas));
 
             }
-
-            // Set number of replicas to a number strictly greater than the number of nodes, minus one.
-            NodeMock.trySendCounter = 0;
-            _configuration.Replicas = _configuration.NodesEndPoints.Count;
-            Assert.IsTrue(client.Set("toto", new byte[0], TimeSpan.MaxValue, null));
-            Assert.AreEqual(_configuration.NodesEndPoints.Count, NodeMock.trySendCounter);
         }
 
     }

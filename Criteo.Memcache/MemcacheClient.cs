@@ -164,8 +164,8 @@ namespace Criteo.Memcache
             }
             else
             {
-                // Call Fail() on the request as many times as node.TrySend returned false
-                for (; countTrySendsOK < countTrySends; countTrySendsOK++)
+                // If the request was sent to less than Replicas+1 nodes, fail the remaining ones.
+                for (; countTrySendsOK <= request.Replicas; countTrySendsOK++)
                 {
                     request.Fail();
                 }
