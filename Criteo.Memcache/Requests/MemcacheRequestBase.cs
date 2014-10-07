@@ -22,14 +22,10 @@ namespace Criteo.Memcache.Requests
     /// <summary>
     /// Interface implemented by the requests
     /// </summary>
-    public interface IMemcacheRequest
+    public abstract class MemcacheRequestBase
     {
-        uint RequestId { get; set; }
-        byte[] Key { get; set; }
-        int Replicas { get; }
-
-        byte[] GetQueryBuffer();
-        void HandleResponse(MemcacheResponseHeader header, byte[] key, byte[] extra, byte[] message);
-        void Fail();
+        public virtual uint RequestId { get; set; }
+        public virtual byte[] Key { get; set; }
+        public virtual int Replicas { get; set; }
     }
 }

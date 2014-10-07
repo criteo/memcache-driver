@@ -17,6 +17,7 @@
 */
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading;
 
@@ -168,7 +169,7 @@ namespace Criteo.Memcache.UTest.Tests
                         RequestOpcode = Opcode.Set,
                         RequestId = 1,
                         Expire = TimeSpan.FromSeconds(1),
-                        Key = @"Key",
+                        Key = "Key".Select(c => (byte)c).ToArray(),
                         Message = new byte[] { 0, 1, 2, 3, 4 },
                         CallBack = s =>
                         {
@@ -218,7 +219,7 @@ namespace Criteo.Memcache.UTest.Tests
                         RequestOpcode = Opcode.Set,
                         RequestId = 1,
                         Expire = TimeSpan.FromSeconds(1),
-                        Key = @"Key",
+                        Key = "Key".Select(c => (byte)c).ToArray(),
                         Message = new byte[] { 0, 1, 2, 3, 4 },
                         CallBack = s =>
                         {
@@ -247,7 +248,7 @@ namespace Criteo.Memcache.UTest.Tests
                         RequestOpcode = Opcode.Set,
                         RequestId = 1,
                         Expire = TimeSpan.FromSeconds(1),
-                        Key = @"Key",
+                        Key = "Key".Select(c => (byte)c).ToArray(),
                         Message = new byte[] { 0, 1, 2, 3, 4 },
                         CallBack = s =>
                         {

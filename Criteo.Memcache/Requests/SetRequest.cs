@@ -26,9 +26,7 @@ namespace Criteo.Memcache.Requests
     {
         private const uint RawDataFlag = 0xfa52;
 
-        public string Key { get; set; }
         public byte[] Message { get; set; }
-        public uint RequestId { get; set; }
         public uint Flags { get; set; }
         public Opcode RequestOpcode { get; set; }
 
@@ -61,15 +59,11 @@ namespace Criteo.Memcache.Requests
 
         public byte[] GetQueryBuffer()
         {
-            var keyAsBytes = UTF8Encoding.Default.GetBytes(Key);
-            if (keyAsBytes.Length > ushort.MaxValue)
-                throw new ArgumentException("The key is too long for the memcache binary protocol : " + Key);
-
             var requestHeader = new MemcacheRequestHeader(RequestOpcode)
             {
-                KeyLength = (ushort)keyAsBytes.Length,
+                KeyLength = (ushort)Key.Length,
                 ExtraLength = 2 * sizeof(uint),
-                TotalBodyLength = (uint)(2 * sizeof(uint) + keyAsBytes.Length + (Message == null ? 0 : Message.Length)),
+                TotalBodyLength = (uint)(2 * sizeof(uint) + Key.Length + (Message == null ? 0 : Message.Length)),
                 Opaque = RequestId,
             };
 
@@ -77,15 +71,15 @@ namespace Criteo.Memcache.Requests
             requestHeader.ToData(buffer, 0);
             buffer.CopyFrom(MemcacheRequestHeader.SIZE, Flags);
             buffer.CopyFrom(MemcacheRequestHeader.SIZE + sizeof(uint), ExpirationTimeUtils.MemcachedTTL(Expire));
-            keyAsBytes.CopyTo(buffer, MemcacheRequestHeader.SIZE + requestHeader.ExtraLength);
+            Key.CopyTo(buffer, MemcacheRequestHeader.SIZE + requestHeader.ExtraLength);
             if(Message != null)
-                Message.CopyTo(buffer, MemcacheRequestHeader.SIZE + requestHeader.ExtraLength + keyAsBytes.Length);
+                Message.CopyTo(buffer, MemcacheRequestHeader.SIZE + requestHeader.ExtraLength + Key.Length);
 
             return buffer;
         }
 
         // nothing to do on set response
-        public void HandleResponse(MemcacheResponseHeader header, string key, byte[] extra, byte[] message)
+        public void HandleResponse(MemcacheResponseHeader header, byte[] key, byte[] extra, byte[] message)
         {
             if (CallCallback(header.Status) && CallBack != null)
                 CallBack(header.Status);

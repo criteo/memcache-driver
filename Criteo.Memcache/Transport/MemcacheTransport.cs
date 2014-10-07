@@ -18,10 +18,12 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+
 using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Exceptions;
 using Criteo.Memcache.Headers;
@@ -404,14 +406,19 @@ namespace Criteo.Memcache.Transport
                     Array.Copy(args.Buffer, 0, extra, 0, _currentResponse.ExtraLength);
                 }
 
-                string key = null;
+                byte[] key = null;
                 if (_currentResponse.KeyLength > 0)
-                    key = UTF8Encoding.Default.GetString(args.Buffer, _currentResponse.ExtraLength, _currentResponse.KeyLength);
+                {
+                    key = new byte[_currentResponse.KeyLength];
+                    Array.Copy(args.Buffer, (int)_currentResponse.ExtraLength, key, 0, _currentResponse.KeyLength);
+                }
 
                 var payloadLength = _currentResponse.TotalBodyLength - _currentResponse.KeyLength - _currentResponse.ExtraLength;
                 byte[] payload = null;
                 if (payloadLength == _currentResponse.TotalBodyLength)
+                {
                     payload = args.Buffer;
+                }
                 else if (payloadLength > 0)
                 {
                     payload = new byte[payloadLength];
@@ -419,6 +426,7 @@ namespace Criteo.Memcache.Transport
                 }
 
                 if (request != null)
+                {
                     try
                     {
                         request.HandleResponse(_currentResponse, key, extra, payload);
@@ -428,6 +436,7 @@ namespace Criteo.Memcache.Transport
                         if (TransportError != null)
                             TransportError(e);
                     }
+                }
 
                 // loop the read on the socket
                 ReceiveResponse();

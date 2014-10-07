@@ -21,17 +21,11 @@ using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.Requests
 {
-    internal class NoOpRequest : IMemcacheRequest
+    internal class NoOpRequest : MemcacheRequestBase, IMemcacheRequest
     {
-        public uint RequestId { get; set; }
-        public string Key { get; set; }
-        public Action<MemcacheResponseHeader> Callback { get; set; }
+        public override int Replicas { get { return 0; } }
 
-        public int Replicas
-        {
-            get { return 0; }
-            set { return;  }
-        }
+        public Action<MemcacheResponseHeader> Callback { get; set; }
 
         public byte[] GetQueryBuffer()
         {
@@ -46,7 +40,7 @@ namespace Criteo.Memcache.Requests
             return buffer;
         }
 
-        public void HandleResponse(MemcacheResponseHeader header, string key, byte[] extra, byte[] message)
+        public void HandleResponse(MemcacheResponseHeader header, byte[] key, byte[] extra, byte[] message)
         {
             if (Callback != null)
                 Callback(header);
@@ -55,7 +49,16 @@ namespace Criteo.Memcache.Requests
         public void Fail()
         {
             if (Callback != null)
-                Callback(new MemcacheResponseHeader { Opcode = Opcode.NoOp, Status = Status.InternalError, Opaque = RequestId });
+            {
+                var response = new MemcacheResponseHeader
+                {
+                    Opcode = Opcode.NoOp,
+                    Status = Status.InternalError,
+                    Opaque = RequestId
+                };
+
+                Callback(response);
+            }
         }
     }
 }

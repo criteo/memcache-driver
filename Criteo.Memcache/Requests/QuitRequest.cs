@@ -18,18 +18,16 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Mime;
 using System.Text;
 
 using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.Requests
 {
-    class QuitRequest : IMemcacheRequest
+    class QuitRequest : MemcacheRequestBase, IMemcacheRequest
     {
-        public uint RequestId { get; set; }
-        public string Key { get; set; }
-
-        public int Replicas
+        public override int Replicas
         {
             get { return 0; }
         }
@@ -42,7 +40,7 @@ namespace Criteo.Memcache.Requests
             return buffer;
         }
 
-        public void HandleResponse(MemcacheResponseHeader header, string key, byte[] extra, byte[] message)
+        public void HandleResponse(MemcacheResponseHeader header, byte[] key, byte[] extra, byte[] message)
         {
         }
 

@@ -24,13 +24,12 @@ namespace Criteo.Memcache.Requests
     /// <summary>
     /// Base class for all requests that can be sent concurrently to several nodes, and for which the user expects only one callback.
     /// </summary>
-    class RedundantRequest
+    abstract class RedundantRequest : MemcacheRequestBase
     {
         private int _receivedResponses = 0;         // Either a fail-to-send, a response from the node, or a transport fail.
         private int _ignoreNextResponses = 0;       // Integer used as a boolean: 0 --> false, !=0 --> true
 
         public CallBackPolicy CallBackPolicy { get; set; }
-        public int Replicas { get; set; }
 
         /// <summary>
         /// This function will return true if the callback associated with the request must be called, and

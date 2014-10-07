@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Text;
 
 using NUnit.Framework;
 
@@ -3329,22 +3330,25 @@ namespace Criteo.Memcache.UTest.Tests
 
         }
 
-        private void RunTestLocatorAllNodesAlive(List<IMemcacheNode> nodes, String[][] expected)
+        private void RunTestLocatorAllNodesAlive(List<IMemcacheNode> nodes, string[][] expected)
         {
             INodeLocator ketama = new KetamaLocator();
             ketama.Initialize(nodes);
 
             foreach (var tuple in expected)
             {
-                Assert.IsNotEmpty(ketama.Locate(tuple[0]), "KetamaLocator found no node");
-                var nodeEnumerator = ketama.Locate(tuple[0]).GetEnumerator();
-                IMemcacheNode node;
-                int idx = 1;
+                var keyAsBytes = UTF8Encoding.Default.GetBytes(tuple[0]);
 
-                while(idx < tuple.Length)
+                var locations = ketama.Locate(keyAsBytes);
+                Assert.IsNotEmpty(locations, "KetamaLocator found no node");
+
+                var nodeEnumerator = locations.GetEnumerator();
+
+                int idx = 1;
+                while (idx < tuple.Length)
                 {
                     nodeEnumerator.MoveNext();
-                    node = nodeEnumerator.Current;
+                    var node = nodeEnumerator.Current;
                     Assert.AreEqual(tuple[idx++], node.EndPoint.ToString(), "Unexpected node returned by the Ketama locator. Key: {0}", tuple[0]);
                 }
             }
@@ -3362,8 +3366,11 @@ namespace Criteo.Memcache.UTest.Tests
 
             foreach (var tuple in expected08)
             {
-                Assert.IsNotEmpty(ketama.Locate(tuple[0]), "KetamaLocator found no node");
-                var nodeEnumerator = ketama.Locate(tuple[0]).GetEnumerator();
+                var keyAsBytes = UTF8Encoding.Default.GetBytes(tuple[0]);
+
+                var locations = ketama.Locate(keyAsBytes);
+                Assert.IsNotEmpty(locations, "KetamaLocator found no node");
+                var nodeEnumerator = locations.GetEnumerator();
 
                 int expected_idx = 0;
                 foreach(var _ in Enumerable.Range(0,2))
@@ -3404,7 +3411,6 @@ namespace Criteo.Memcache.UTest.Tests
 
             CollectionAssert.AreEqual(expectedKeys.Replace(" ", String.Empty), String.Join(",", sortedKeys), "CleanRepeatedNodes failed");
         }
-
     }
 
     class MockNode : IMemcacheNode

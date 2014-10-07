@@ -84,14 +84,13 @@ namespace Criteo.Memcache.Locator
                 Reinitialize();
         }
 
-        private uint GetKeyHash(string key)
+        private uint GetKeyHash(byte[] key)
         {
-            var keyData = Encoding.UTF8.GetBytes(key);
             using (var hash = _hashPool.Hash)
-                return hash.Value.ComputeHash(keyData).CopyToUIntNoRevert(0);
+                return hash.Value.ComputeHash(key).CopyToUIntNoRevert(0);
         }
 
-        public IEnumerable<IMemcacheNode> Locate(string key)
+        public IEnumerable<IMemcacheNode> Locate(byte[] key)
         {
             if (key == null) throw new ArgumentNullException("key");
 

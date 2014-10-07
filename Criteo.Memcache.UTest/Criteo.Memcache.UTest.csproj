@@ -51,6 +51,7 @@
     <Compile Include="Derived\MemcacheTransportForTest.cs" />
     <Compile Include="Mocks\NodeMock.cs" />
     <Compile Include="Mocks\TransportMock.cs" />
+    <Compile Include="Tests\KeySerializerTest.cs" />
     <Compile Include="Tests\KetamaTests.cs" />
     <Compile Include="Tests\LocatorTests.cs" />
     <Compile Include="Mocks\NodeQueueMock.cs" />
@@ -79,6 +80,9 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="README.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
   </ItemGroup>
   <Import Project="$(SolutionDir)\.cbs\moab.targets" Condition="Exists('$(SolutionDir)\.cbs\moab.targets')" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -53,9 +53,14 @@ namespace Criteo.Memcache.UTest.Tests
 
             for (int i = 0; i < _nodes.Count; ++i)
             {
-                Assert.IsNotEmpty(locator.Locate(i.ToString()), "RoundRobinLocator found no node");
-                var chosenNode = locator.Locate(i.ToString()).First<IMemcacheNode>();
+                var key = i.ToString().Select(c => (byte)c).ToArray();
+
+                var locations = locator.Locate(key);
+                Assert.IsNotEmpty(locations, "RoundRobinLocator found no node");
+
+                var chosenNode = locations.First<IMemcacheNode>();
                 Assert.IsNotNull(chosenNode, "RoundRobinLocator found no node");
+
                 nodeSet.Add(chosenNode);
             }
 
@@ -74,7 +79,8 @@ namespace Criteo.Memcache.UTest.Tests
                 var nodeSet = new HashSet<IMemcacheNode>();
 
                 int nodeCount = 0;
-                foreach (var chosenNode in locator.Locate(idx.ToString()))
+                var keyAsBytes = idx.ToString().Select(c => (byte)c).ToArray();
+                foreach (var chosenNode in locator.Locate(keyAsBytes))
                 {
                     Assert.IsNotNull(chosenNode, "KetamaLocator found no node");
                     nodeSet.Add(chosenNode);
@@ -96,8 +102,12 @@ namespace Criteo.Memcache.UTest.Tests
 
             for (int i = 0; i < _nodes.Count; ++i)
             {
-                Assert.IsNotEmpty(locator.Locate(i.ToString()), "RoundRobinLocator found no node, but at least 1 is alive");
-                var chosenNode = locator.Locate(i.ToString()).First<IMemcacheNode>();
+                var keyAsBytes = i.ToString().Select(c => (byte)c).ToArray();
+
+                var locations = locator.Locate(keyAsBytes);
+                Assert.IsNotEmpty(locations, "RoundRobinLocator found no node, but at least 1 is alive");
+
+                var chosenNode = locations.First<IMemcacheNode>();
                 Assert.IsFalse(chosenNode.IsDead, "RoundRobinLocator returned a dead node");
             }
 
@@ -105,7 +115,8 @@ namespace Criteo.Memcache.UTest.Tests
 
             for (int i = 0; i < _nodes.Count; ++i)
             {
-                CollectionAssert.IsEmpty(locator.Locate(i.ToString()), "RoundRobinLocator found a node when all are dead");
+                var keyAsBytes = i.ToString().Select(c => (byte)c).ToArray();
+                CollectionAssert.IsEmpty(locator.Locate(keyAsBytes), "RoundRobinLocator found a node when all are dead");
             }
 
             for (int i = 0; i < _nodes.Count; ++i)
@@ -124,8 +135,12 @@ namespace Criteo.Memcache.UTest.Tests
 
             for (int i = 0; i < _nodes.Count; ++i)
             {
-                Assert.IsNotEmpty(locator.Locate(i.ToString()), "KetamaLocator found no node, but at least one is alive");
-                var chosenNode = locator.Locate(i.ToString()).First<IMemcacheNode>();
+                var keyAsBytes = i.ToString().Select(c => (byte)c).ToArray();
+
+                var locations = locator.Locate(keyAsBytes);
+                Assert.IsNotEmpty(locations, "KetamaLocator found no node, but at least one is alive");
+
+                var chosenNode = locations.First<IMemcacheNode>();
                 Assert.IsFalse(chosenNode.IsDead, "KetamaLocator returned a dead node");
             }
 
@@ -134,7 +149,8 @@ namespace Criteo.Memcache.UTest.Tests
 
             for (int i = 0; i < _nodes.Count; ++i)
             {
-                CollectionAssert.IsEmpty(locator.Locate(i.ToString()), "KetamaLocator found a node when all are dead");
+                var keyAsBytes = i.ToString().Select(c => (byte)c).ToArray();
+                CollectionAssert.IsEmpty(locator.Locate(keyAsBytes), "KetamaLocator found a node when all are dead");
             }
 
             for (int i = 0; i < _nodes.Count; ++i)
@@ -156,13 +172,17 @@ namespace Criteo.Memcache.UTest.Tests
 
                 j =  0;
                 HashSet<IMemcacheNode> nodesSet = new HashSet<IMemcacheNode>();
-                foreach (var chosenNode in locator.Locate(i.ToString()))
+
+                var keyAsBytes = i.ToString().Select(c => (byte)c).ToArray();
+                var locations = locator.Locate(keyAsBytes);
+                foreach (var chosenNode in locations)
                 {
                     nodesSet.Add(chosenNode);
                     Assert.IsFalse(chosenNode.IsDead, "KetamaLocator returned a dead node");
                     // Kill one of the nodes
                     (_nodes[j++] as NodeMock).IsDead = true;
                 }
+
                 Assert.AreNotEqual(0, nodesSet.Count, "KetamaLocator returned no node");
             }
 

@@ -32,7 +32,7 @@ namespace Criteo.Memcache.Locator
         }
 
         private int _lastPosition = 0;
-        public IEnumerable<IMemcacheNode> Locate(string key)
+        public IEnumerable<IMemcacheNode> Locate(byte[] key)
         {
             int position = Interlocked.Increment(ref _lastPosition) % _nodes.Count;
             position = position >= 0 ? position : position + _nodes.Count;
@@ -42,6 +42,7 @@ namespace Criteo.Memcache.Locator
                 var selectedNode = _nodes[position];
                 if (!selectedNode.IsDead)
                     yield return selectedNode;
+
                 position++;
                 if (position >= _nodes.Count)
                     position = 0;

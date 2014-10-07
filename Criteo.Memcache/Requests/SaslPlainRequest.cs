@@ -1,4 +1,5 @@
-﻿/* Licensed to the Apache Software Foundation (ASF) under one
+﻿using Criteo.Memcache.Headers;
+/* Licensed to the Apache Software Foundation (ASF) under one
    or more contributor license agreements.  See the NOTICE file
    distributed with this work for additional information
    regarding copyright ownership.  The ASF licenses this file
@@ -16,31 +17,18 @@
    under the License.
 */
 using System;
+using System.Linq;
 using System.Text;
-
-using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.Requests
 {
-    internal class SaslPlainRequest : IMemcacheRequest
+    internal class SaslPlainRequest : MemcacheRequestBase, IMemcacheRequest
     {
-        public uint RequestId
-        {
-            get { return 0; }
-            set { return; }
-        }
+        private static readonly byte[] DefaultKey = "PLAIN".Select(c => (byte) c).ToArray();
 
-        public string Key
-        {
-            get { return "PLAIN"; }
-            set { return; }
-        }
-
-        public int Replicas
-        {
-            get { return 0; }
-            set { return; }
-        }
+        public override byte[] Key { get { return DefaultKey; } }
+        public override uint RequestId { get { return 0; } }
+        public override int Replicas { get { return 0; } }
 
         public string Zone { get; set; }
         public string User { get; set; }
@@ -49,25 +37,24 @@ namespace Criteo.Memcache.Requests
 
         public byte[] GetQueryBuffer()
         {
-            var key = UTF8Encoding.Default.GetBytes(Key);
             var data = Encoding.UTF8.GetBytes(Zone + "\0" + User + "\0" + Password);
 
             var header = new MemcacheRequestHeader(Opcode.StartAuth)
             {
                 ExtraLength = 0,
-                KeyLength = (ushort)key.Length,
-                TotalBodyLength = (uint)(key.Length + data.Length),
+                KeyLength = (ushort)Key.Length,
+                TotalBodyLength = (uint)(Key.Length + data.Length),
             };
 
             var message = new byte[MemcacheRequestHeader.SIZE + header.TotalBodyLength];
             header.ToData(message);
-            Array.Copy(key, 0, message, MemcacheRequestHeader.SIZE, key.Length);
-            Array.Copy(data, 0, message, MemcacheRequestHeader.SIZE + key.Length, data.Length);
+            Key.CopyTo(message, MemcacheRequestHeader.SIZE);
+            data.CopyTo(message, MemcacheRequestHeader.SIZE + Key.Length);
 
             return message;
         }
 
-        public void HandleResponse(MemcacheResponseHeader header, string key, byte[] extra, byte[] message)
+        public void HandleResponse(MemcacheResponseHeader header, byte[] key, byte[] extra, byte[] message)
         {
             if (Callback != null)
                 Callback(header.Status);

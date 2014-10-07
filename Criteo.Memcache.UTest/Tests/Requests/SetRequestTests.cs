@@ -16,6 +16,7 @@
    under the License.
 */
 using System;
+using System.Linq;
 
 using NUnit.Framework;
 
@@ -55,7 +56,7 @@ namespace Criteo.Memcache.UTest.Tests
             Status status = Status.UnknownCommand;
             var request = new SetRequest
             {
-                Key = @"Hello",
+                Key = "Hello".Select(c => (byte)c).ToArray(),
                 Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"),
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
@@ -79,7 +80,7 @@ namespace Criteo.Memcache.UTest.Tests
             Status status = Status.UnknownCommand;
             var request = new SetRequest
             {
-                Key = @"Hello",
+                Key = "Hello".Select(c => (byte)c).ToArray(),
                 Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"),
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
@@ -103,7 +104,7 @@ namespace Criteo.Memcache.UTest.Tests
             Status status = Status.UnknownCommand;
             var request = new SetRequest
             {
-                Key = @"Hello",
+                Key = "Hello".Select(c => (byte)c).ToArray(),
                 Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"),
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
@@ -134,7 +135,7 @@ namespace Criteo.Memcache.UTest.Tests
             Status status = Status.UnknownCommand;
             var request = new SetRequest
             {
-                Key = @"Hello",
+                Key = "Hello".Select(c => (byte)c).ToArray(),
                 Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"),
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
@@ -161,7 +162,7 @@ namespace Criteo.Memcache.UTest.Tests
             status = Status.UnknownCommand;
             request = new SetRequest
             {
-                Key = @"Hello",
+                Key = "Hello".Select(c => (byte)c).ToArray(),
                 Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"),
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),

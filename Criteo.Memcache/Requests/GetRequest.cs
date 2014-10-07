@@ -25,9 +25,7 @@ namespace Criteo.Memcache.Requests
 {
     internal class GetRequest : RedundantRequest, IMemcacheRequest
     {
-        public string Key { get; set; }
         public Action<Status, byte[]> CallBack { get; set; }
-        public uint RequestId { get; set; }
         public Opcode RequestOpcode { get; set; }
         public uint Flag { get; private set; }
 
@@ -63,18 +61,14 @@ namespace Criteo.Memcache.Requests
             if (RequestOpcode != Opcode.Get && RequestOpcode != Opcode.GetK && RequestOpcode != Opcode.GAT)
                 throw new MemcacheException("Get request only supports Get, GetK or GAT opcodes");
 
-            var keyAsBytes = UTF8Encoding.Default.GetBytes(Key);
-            if (keyAsBytes.Length > ushort.MaxValue)
-                throw new ArgumentException("The key is too long for the memcache binary protocol : " + Key);
-
             int extraLength = RequestOpcode == Opcode.GAT ?
                 sizeof(uint) : 0;
 
             var requestHeader = new MemcacheRequestHeader(RequestOpcode)
             {
-                KeyLength = (ushort)keyAsBytes.Length,
+                KeyLength = (ushort)Key.Length,
                 ExtraLength = (byte)extraLength,
-                TotalBodyLength = (uint)(extraLength + keyAsBytes.Length),
+                TotalBodyLength = (uint)(extraLength + Key.Length),
                 Opaque = RequestId,
             };
 
@@ -85,12 +79,12 @@ namespace Criteo.Memcache.Requests
             if (RequestOpcode == Opcode.GAT)
                 buffer.CopyFrom(MemcacheRequestHeader.SIZE + sizeof(uint), ExpirationTimeUtils.MemcachedTTL(Expire));
 
-            keyAsBytes.CopyTo(buffer, extraLength + MemcacheRequestHeader.SIZE);
+            Key.CopyTo(buffer, extraLength + MemcacheRequestHeader.SIZE);
 
             return buffer;
         }
 
-        public void HandleResponse(MemcacheResponseHeader header, string key, byte[] extra, byte[] message)
+        public void HandleResponse(MemcacheResponseHeader header, byte[] key, byte[] extra, byte[] message)
         {
             if (header.Status == Status.NoError)
             {
@@ -98,6 +92,7 @@ namespace Criteo.Memcache.Requests
                     throw new MemcacheException("The get command flag is not present !");
                 else if (extra.Length != 4)
                     throw new MemcacheException("The get command flag is the wrong size !");
+
                 Flag = extra.CopyToUInt(0);
             }
 

@@ -15,6 +15,9 @@
    specific language governing permissions and limitations
    under the License.
 */
+
+using System.Linq;
+
 using Criteo.Memcache.Headers;
 using Criteo.Memcache.Requests;
 
@@ -47,7 +50,7 @@ namespace Criteo.Memcache.UTest.Tests.Requests
             Status status = Status.UnknownCommand;
             var request = new DeleteRequest 
             {
-                Key = @"Hello", 
+                Key = "Hello".Select(c => (byte)c).ToArray(),
                 RequestId = 0, 
                 CallBack = (s) => status = s,
             };
@@ -67,7 +70,7 @@ namespace Criteo.Memcache.UTest.Tests.Requests
             Status status = Status.UnknownCommand;
             var request = new DeleteRequest
             {
-                Key = @"Hello",
+                Key = "Hello".Select(c => (byte)c).ToArray(),
                 RequestId = 0,
                 CallBack = (s) => status = s,
             };

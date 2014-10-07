@@ -52,6 +52,9 @@
     <Compile Include="Headers\HeaderUtil.cs" />
     <Compile Include="Headers\MemcacheRequestHeader.cs" />
     <Compile Include="Headers\MemcacheResponseHeader.cs" />
+    <Compile Include="KeySerializer\IKeySerializer.cs" />
+    <Compile Include="KeySerializer\UTF8KeySerializer.cs" />
+    <Compile Include="KeySerializer\KeySerializerWithChecks.cs" />
     <Compile Include="Locator\HashPool.cs" />
     <Compile Include="Locator\INodeLocator.cs" />
     <Compile Include="Locator\KetamaLocator.cs" />
@@ -62,12 +65,13 @@
     <Compile Include="Locator\RoundRobinLocator.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Requests\ExpirationTimeUtils.cs" />
+    <Compile Include="Requests\IMemcacheRequest.cs" />
     <Compile Include="Requests\QuitRequest.cs" />
     <Compile Include="Requests\RedundantRequest.cs" />
     <Compile Include="Requests\StatRequest.cs" />
     <Compile Include="Requests\DeleteRequest.cs" />
     <Compile Include="Requests\GetRequest.cs" />
-    <Compile Include="Requests\IMemcacheRequest.cs" />
+    <Compile Include="Requests\MemcacheRequestBase.cs" />
     <Compile Include="Requests\NoOpRequest.cs" />
     <Compile Include="Requests\SaslPlainRequest.cs" />
     <Compile Include="Requests\SetRequest.cs" />

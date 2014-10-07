@@ -16,6 +16,7 @@
    under the License.
 */
 using System;
+using System.Linq;
 
 using NUnit.Framework;
 
@@ -57,7 +58,13 @@ namespace Criteo.Memcache.UTest.Tests
         public void GetRequestTest()
         {
             byte[] message = null;
-            var request = new GetRequest { Key = @"Hello", RequestId = 0, CallBack = (s, m) => message = m, CallBackPolicy = CallBackPolicy.AnyOK };
+            var request = new GetRequest
+            {
+                Key = "Hello".Select(c => (byte)c).ToArray(),
+                RequestId = 0,
+                CallBack = (s, m) => message = m,
+                CallBackPolicy = CallBackPolicy.AnyOK
+            };
 
             var queryBuffer = request.GetQueryBuffer();
 
@@ -75,7 +82,13 @@ namespace Criteo.Memcache.UTest.Tests
             Status status = Status.UnknownCommand;
             byte[] message = new byte[0];
 
-            var request = new GetRequest { Key = @"Hello", RequestId = 0, CallBack = (s, m) => { message = m; status = s; }, CallBackPolicy = CallBackPolicy.AnyOK };
+            var request = new GetRequest
+            {
+                Key = "Hello".Select(c => (byte)c).ToArray(),
+                RequestId = 0,
+                CallBack = (s, m) => { message = m; status = s; },
+                CallBackPolicy = CallBackPolicy.AnyOK,
+            };
 
             var queryBuffer = request.GetQueryBuffer();
 
@@ -98,7 +111,14 @@ namespace Criteo.Memcache.UTest.Tests
 
             // 1. Test redundancy = 3 and all gets are successful
 
-            var request = new GetRequest { Key = @"Hello", RequestId = 0, CallBack = (s, m) => { message = m; status = s; }, CallBackPolicy = CallBackPolicy.AnyOK, Replicas = 2 };
+            var request = new GetRequest
+            {
+                Key = "Hello".Select(c => (byte)c).ToArray(),
+                RequestId = 0,
+                CallBack = (s, m) => { message = m; status = s; },
+                CallBackPolicy = CallBackPolicy.AnyOK,
+                Replicas = 2,
+            };
 
             var queryBuffer = request.GetQueryBuffer();
             CollectionAssert.AreEqual(GET_QUERY, queryBuffer, "The get query buffer is different from the expected one");
@@ -117,7 +137,14 @@ namespace Criteo.Memcache.UTest.Tests
 
             // 2. Test redundancy = 3, the first get is failing
 
-            request = new GetRequest { Key = @"Hello", RequestId = 0, CallBack = (s, m) => { message = m; status = s; }, CallBackPolicy = CallBackPolicy.AnyOK, Replicas = 2 };
+            request = new GetRequest
+            {
+                Key = "Hello".Select(c => (byte)c).ToArray(),
+                RequestId = 0,
+                CallBack = (s, m) => { message = m; status = s; },
+                CallBackPolicy = CallBackPolicy.AnyOK,
+                Replicas = 2,
+            };
             status = Status.UnknownCommand;
 
             Assert.DoesNotThrow(() => request.HandleResponse(headerFail, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
@@ -133,7 +160,14 @@ namespace Criteo.Memcache.UTest.Tests
 
             // 3. Test redundancy = 3, the first and second gets are failing
 
-            request = new GetRequest { Key = @"Hello", RequestId = 0, CallBack = (s, m) => { message = m; status = s; }, CallBackPolicy = CallBackPolicy.AnyOK, Replicas = 2 };
+            request = new GetRequest
+            {
+                Key = "Hello".Select(c => (byte)c).ToArray(),
+                RequestId = 0,
+                CallBack = (s, m) => { message = m; status = s; },
+                CallBackPolicy = CallBackPolicy.AnyOK,
+                Replicas = 2,
+            };
             status = Status.UnknownCommand;
 
             Assert.DoesNotThrow(() => request.HandleResponse(headerFail, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
@@ -157,7 +191,14 @@ namespace Criteo.Memcache.UTest.Tests
 
             // 1. Test redundancy = 3 and all gets are failing, the last on InternalError
 
-            var request = new GetRequest { Key = @"Hello", RequestId = 0, CallBack = (s, m) => status = s, CallBackPolicy = CallBackPolicy.AnyOK, Replicas = 2 };
+            var request = new GetRequest
+            {
+                Key = "Hello".Select(c => (byte)c).ToArray(),
+                RequestId = 0,
+                CallBack = (s, m) => status = s,
+                CallBackPolicy = CallBackPolicy.AnyOK,
+                Replicas = 2,
+            };
 
             var queryBuffer = request.GetQueryBuffer();
             CollectionAssert.AreEqual(GET_QUERY, queryBuffer, "The get query buffer is different from the expected one");
@@ -173,7 +214,14 @@ namespace Criteo.Memcache.UTest.Tests
 
             // 2. Test redundancy = 3 and all gets are failing, the last on KeyNotFound
 
-            request = new GetRequest { Key = @"Hello", RequestId = 0, CallBack = (s, m) => status = s, CallBackPolicy = CallBackPolicy.AnyOK, Replicas = 2 };
+            request = new GetRequest
+            {
+                Key = "Hello".Select(c => (byte)c).ToArray(),
+                RequestId = 0,
+                CallBack = (s, m) => status = s,
+                CallBackPolicy = CallBackPolicy.AnyOK,
+                Replicas = 2,
+            };
             status = Status.UnknownCommand;
 
             Assert.DoesNotThrow(() => request.Fail(), "Handle request should not throw an exception");
@@ -196,7 +244,7 @@ namespace Criteo.Memcache.UTest.Tests
 
             // Valid requests
             Assert.DoesNotThrow(() => new GetRequest() { Expire = TimeSpan.Zero }, "Timestamp.Zero translates to infinite TTL");
-            Assert.DoesNotThrow(() => new GetRequest() { Expire =  ExpirationTimeUtils.Infinite }, "Timestamp.Zero translates to infinite TTL");
+            Assert.DoesNotThrow(() => new GetRequest() { Expire = ExpirationTimeUtils.Infinite }, "Timestamp.Zero translates to infinite TTL");
             Assert.DoesNotThrow(() => new GetRequest() { Expire = TimeSpan.MaxValue }, "Timestamp.MaxValue is considered valid, but the conversion to a timestamp will crash");
         }
 

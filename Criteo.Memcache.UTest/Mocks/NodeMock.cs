@@ -66,7 +66,13 @@ namespace Criteo.Memcache.UTest.Mocks
 
             if (timeout == 0)
             {
-                LastRequest.HandleResponse(new MemcacheResponseHeader { Status = DefaultResponse, ExtraLength = 4 }, request.Key, new byte[4], new byte[0]);
+                var response = new MemcacheResponseHeader
+                {
+                    Status = DefaultResponse,
+                    ExtraLength = 4,
+                };
+
+                LastRequest.HandleResponse(response, request.Key, new byte[4], new byte[0]);
             }
 
             return true;

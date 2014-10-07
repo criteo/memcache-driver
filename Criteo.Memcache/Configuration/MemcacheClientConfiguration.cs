@@ -25,6 +25,7 @@ using Criteo.Memcache.Cluster;
 using Criteo.Memcache.Locator;
 using Criteo.Memcache.Node;
 using Criteo.Memcache.Transport;
+using Criteo.Memcache.KeySerializer;
 
 namespace Criteo.Memcache.Configuration
 {
@@ -118,6 +119,8 @@ namespace Criteo.Memcache.Configuration
         public TimeSpan SocketTimeout { get; set; }
         public int Replicas { get; set; }
 
+        public IKeySerializer<string> KeySerializer { get; set; }
+
         public MemcacheClientConfiguration()
         {
             Authenticator = null;
@@ -130,6 +133,8 @@ namespace Criteo.Memcache.Configuration
             TransportReceiveBufferSize = 2 << 15;   // 32kB
             TransportSendBufferSize = 2 << 15;      // 32kB
             Replicas = 0;
+
+            KeySerializer = new UTF8KeySerializer();
         }
     }
 }

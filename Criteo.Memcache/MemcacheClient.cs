@@ -216,20 +216,30 @@ namespace Criteo.Memcache
 
         public bool Store(StoreMode mode, string key, byte[] message, TimeSpan expiration, Action<Status> callback = null, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
         {
-            switch (mode)
+            Opcode op;
+            if (mode == StoreMode.Add)
+                op = Opcode.Add;
+            else if (mode == StoreMode.Replace)
+                op = Opcode.Replace;
+            else if (mode == StoreMode.Set)
+                op = Opcode.Set;
+            else
+                throw new ArgumentException("Unsupported operation " + mode);
+
+            var keyAsBytes = _configuration.KeySerializer.SerializeToBytes(key);
+            var request = new SetRequest
             {
-                case StoreMode.Set:
-                    return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy, Replicas = _configuration.Replicas });
+                Key = keyAsBytes,
+                Message = message,
+                Expire = expiration,
+                RequestId = NextRequestId,
+                CallBack = callback,
+                CallBackPolicy = callbackPolicy,
+                Replicas = _configuration.Replicas,
+                RequestOpcode = op,
+            };
 
-                case StoreMode.Replace:
-                    return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy, Replicas = _configuration.Replicas, RequestOpcode = Opcode.Replace });
-
-                case StoreMode.Add:
-                    return SendRequest(new SetRequest { Key = key, Message = message, Expire = expiration, RequestId = NextRequestId, CallBack = callback, CallBackPolicy = callbackPolicy, Replicas = _configuration.Replicas, RequestOpcode = Opcode.Add });
-
-                default:
-                    return false;
-            }
+            return SendRequest(request);
         }
 
         /// <summary>
@@ -240,7 +250,17 @@ namespace Criteo.Memcache
         /// <returns></returns>
         public bool Get(string key, Action<Status, byte[]> callback, CallBackPolicy callbackPolicy = CallBackPolicy.AnyOK)
         {
-            return SendRequest(new GetRequest { Key = key, CallBack = callback, CallBackPolicy = callbackPolicy, RequestId = NextRequestId, Replicas = _configuration.Replicas });
+            var keyAsBytes = _configuration.KeySerializer.SerializeToBytes(key);
+            var request = new GetRequest
+            {
+                Key = keyAsBytes,
+                CallBack = callback,
+                CallBackPolicy = callbackPolicy,
+                RequestId = NextRequestId,
+                Replicas = _configuration.Replicas,
+            };
+
+            return SendRequest(request);
         }
 
         /// <summary>
@@ -253,16 +273,19 @@ namespace Criteo.Memcache
         /// <returns></returns>
         public bool GetAndTouch(string key, TimeSpan expire, Action<Status, byte[]> callback, CallBackPolicy callbackPolicy = CallBackPolicy.AnyOK)
         {
-            return SendRequest(new GetRequest
-                {
-                    RequestOpcode = Opcode.GAT,
-                    Expire = expire,
-                    Key = key,
-                    CallBack = callback,
-                    CallBackPolicy = callbackPolicy,
-                    RequestId = NextRequestId,
-                    Replicas = _configuration.Replicas
-                });
+            var keyAsBytes = _configuration.KeySerializer.SerializeToBytes(key);
+            var request = new GetRequest
+            {
+                RequestOpcode = Opcode.GAT,
+                Expire = expire,
+                Key = keyAsBytes,
+                CallBack = callback,
+                CallBackPolicy = callbackPolicy,
+                RequestId = NextRequestId,
+                Replicas = _configuration.Replicas
+            };
+
+            return SendRequest(request);
         }
 
         /// <summary>
@@ -273,7 +296,17 @@ namespace Criteo.Memcache
         /// <returns></returns>
         public bool Delete(string key, Action<Status> callback, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
         {
-            return SendRequest(new DeleteRequest { Key = key, CallBack = callback, CallBackPolicy = callbackPolicy, RequestId = NextRequestId, Replicas = _configuration.Replicas });
+            var keyAsBytes = _configuration.KeySerializer.SerializeToBytes(key);
+            var request = new DeleteRequest
+            {
+                Key = keyAsBytes,
+                CallBack = callback,
+                CallBackPolicy = callbackPolicy,
+                RequestId = NextRequestId,
+                Replicas = _configuration.Replicas
+            };
+
+            return SendRequest(request);
         }
 
         public void Ping(Action<EndPoint, Status> callback)
@@ -285,7 +318,13 @@ namespace Criteo.Memcache
                 else
                 {
                     var localNode = node;
-                    if (!node.TrySend(new NoOpRequest { Key = string.Empty, Callback = r => callback(localNode.EndPoint, r.Status), RequestId = NextRequestId }, _configuration.QueueTimeout))
+                    var request = new NoOpRequest
+                    {
+                        Callback = r => callback(localNode.EndPoint, r.Status),
+                        RequestId = NextRequestId
+                    };
+
+                    if (!node.TrySend(request, _configuration.QueueTimeout))
                         callback(node.EndPoint, Status.InternalError);
                 }
             }
@@ -297,14 +336,25 @@ namespace Criteo.Memcache
         /// <param name="callback"></param>
         public void Stats(string key, Action<EndPoint, IDictionary<string, string>> callback)
         {
+            var keyAsBytes = _configuration.KeySerializer.SerializeToBytes(key);
+
             foreach (var node in _cluster.Nodes)
             {
                 if (node.IsDead)
+                {
                     callback(node.EndPoint, null);
+                }
                 else
                 {
                     var localNode = node;
-                    if (!node.TrySend(new StatRequest { Key = key, Callback = r => callback(localNode.EndPoint, r), RequestId = NextRequestId }, _configuration.QueueTimeout))
+                    var request = new StatRequest
+                    {
+                        Key = keyAsBytes,
+                        Callback = r => callback(localNode.EndPoint, r),
+                        RequestId = NextRequestId
+                    };
+
+                    if (!node.TrySend(request, _configuration.QueueTimeout))
                         callback(node.EndPoint, null);
                 }
             }

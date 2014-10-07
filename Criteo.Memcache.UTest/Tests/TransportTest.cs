@@ -17,6 +17,7 @@
 */
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading;
 
@@ -147,14 +148,14 @@ namespace Criteo.Memcache.UTest.Tests
                 var request1 = new GetRequest
                 {
                     RequestId = (uint)42,
-                    Key = "Hello, world",
+                    Key = "Hello, world".Select(c => (byte)c).ToArray(),
                     RequestOpcode = Opcode.Get,
                     CallBack = (r, v) => clientMutex.Set(),
                 };
                 var request2 = new GetRequest
                 {
                     RequestId = (uint)42,
-                    Key = "Hello, world",
+                    Key = "Hello, world".Select(c => (byte)c).ToArray(),
                     RequestOpcode = Opcode.Get,
                     CallBack = (r, v) => { },
                 };
@@ -369,7 +370,7 @@ namespace Criteo.Memcache.UTest.Tests
                 request
                     .Setup(r => r.HandleResponse(
                         Moq.It.Is<Headers.MemcacheResponseHeader>(h => h.Status == Status.NoError),
-                        Moq.It.IsAny<string>(),
+                        Moq.It.IsAny<byte[]>(),
                         Moq.It.IsAny<byte[]>(),
                         Moq.It.IsAny<byte[]>()))
                     .Callback(() =>
