@@ -69,7 +69,7 @@ namespace Criteo.Memcache.UTest.Tests.Requests
             var queryBuffer = request.GetQueryBuffer();
 
             var header = new MemcacheResponseHeader { Opcode = Opcode.NoOp, Status = Status.NoError };
-            Assert.DoesNotThrow(() => request.Fail());
+            Assert.DoesNotThrow(request.Fail);
             Assert.AreEqual(Status.InternalError, status);
         }
     }

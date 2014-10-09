@@ -25,13 +25,13 @@ namespace Criteo.Memcache.Locator
     internal class RoundRobinLocator : INodeLocator
     {
         private IList<IMemcacheNode> _nodes;
+        private int _lastPosition = 0;
 
         public void Initialize(IList<IMemcacheNode> nodes)
         {
             _nodes = nodes;
         }
 
-        private int _lastPosition = 0;
         public IEnumerable<IMemcacheNode> Locate(byte[] key)
         {
             int position = Interlocked.Increment(ref _lastPosition) % _nodes.Count;

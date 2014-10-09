@@ -16,7 +16,6 @@
    under the License.
 */
 using System;
-using System.Text;
 
 using Criteo.Memcache.Exceptions;
 using Criteo.Memcache.Headers;
@@ -25,12 +24,11 @@ namespace Criteo.Memcache.Requests
 {
     internal class GetRequest : RedundantRequest, IMemcacheRequest
     {
+        private TimeSpan _expire;
+
         public Action<Status, byte[]> CallBack { get; set; }
         public Opcode RequestOpcode { get; set; }
         public uint Flag { get; private set; }
-
-        private TimeSpan _expire { get; set; }
-
         public TimeSpan Expire
         {
             get
@@ -40,10 +38,10 @@ namespace Criteo.Memcache.Requests
 
             set
             {
-                if(ExpirationTimeUtils.IsValid(value))
-                    _expire = value;
-                else
-                    throw new ArgumentException("Invalid expiration time: "  + value.ToString());
+                if (!ExpirationTimeUtils.IsValid(value))
+                    throw new ArgumentException("Invalid expiration time: " + value.ToString());
+
+                _expire = value;
             }
         }
 
@@ -61,8 +59,7 @@ namespace Criteo.Memcache.Requests
             if (RequestOpcode != Opcode.Get && RequestOpcode != Opcode.GetK && RequestOpcode != Opcode.GAT)
                 throw new MemcacheException("Get request only supports Get, GetK or GAT opcodes");
 
-            int extraLength = RequestOpcode == Opcode.GAT ?
-                sizeof(uint) : 0;
+            int extraLength = RequestOpcode == Opcode.GAT ? sizeof(uint) : 0;
 
             var requestHeader = new MemcacheRequestHeader(RequestOpcode)
             {
@@ -72,14 +69,14 @@ namespace Criteo.Memcache.Requests
                 Opaque = RequestId,
             };
 
-            var buffer = new byte[MemcacheRequestHeader.SIZE + requestHeader.TotalBodyLength];
-            requestHeader.ToData(buffer, 0);
+            var buffer = new byte[MemcacheRequestHeader.Size + requestHeader.TotalBodyLength];
+            requestHeader.ToData(buffer);
 
             // in case of Get and Touch, post the new TTL in extra
             if (RequestOpcode == Opcode.GAT)
-                buffer.CopyFrom(MemcacheRequestHeader.SIZE + sizeof(uint), ExpirationTimeUtils.MemcachedTTL(Expire));
+                buffer.CopyFrom(MemcacheRequestHeader.Size + sizeof(uint), ExpirationTimeUtils.MemcachedTTL(Expire));
 
-            Key.CopyTo(buffer, extraLength + MemcacheRequestHeader.SIZE);
+            Key.CopyTo(buffer, extraLength + MemcacheRequestHeader.Size);
 
             return buffer;
         }
@@ -90,7 +87,8 @@ namespace Criteo.Memcache.Requests
             {
                 if (extra == null || extra.Length == 0)
                     throw new MemcacheException("The get command flag is not present !");
-                else if (extra.Length != 4)
+
+                if (extra.Length != 4)
                     throw new MemcacheException("The get command flag is the wrong size !");
 
                 Flag = extra.CopyToUInt(0);

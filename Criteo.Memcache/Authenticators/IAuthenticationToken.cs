@@ -27,6 +27,7 @@ namespace Criteo.Memcache.Authenticators
         /// <summary>
         /// This method returns the authentication status and the next request for authentication
         /// </summary>
+        /// <param name="authTimeout">Time after which the authentication request times out</param>
         /// <param name="stepRequest">The next request to send for the authentication process</param>
         /// <returns>
         /// NoError when authentication is done

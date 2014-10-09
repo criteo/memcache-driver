@@ -27,7 +27,7 @@ namespace Criteo.Memcache.Cluster
     internal class StaticCluster : IMemcacheCluster
     {
         private IList<IMemcacheNode> _nodes;
-        private MemcacheClientConfiguration _configuration;
+        private readonly MemcacheClientConfiguration _configuration;
 
         public INodeLocator Locator { get; private set; }
 

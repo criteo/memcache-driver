@@ -72,7 +72,7 @@ namespace Criteo.Memcache.UTest.Tests.Requests
                 Callback = s => status = s,
             };
 
-            Assert.DoesNotThrow(() => request.Fail());
+            Assert.DoesNotThrow(request.Fail);
             Assert.AreEqual(Status.InternalError, status);
         }
     }

@@ -22,34 +22,30 @@ namespace Criteo.Memcache.Requests
 {
     internal static class ExpirationTimeUtils
     {
-        private static DateTime Epock = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        private static readonly DateTime Epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         public static TimeSpan Infinite = TimeSpan.FromMilliseconds(-1);    // = Timeout.InfiniteTimeSpan;  (On .NET Framework >= 4.5)
 
         /// <summary>
         /// Translate the request's exprire time to the memcached protocol format
         /// </summary>
-        public static uint MemcachedTTL(TimeSpan Expire)
+        public static uint MemcachedTTL(TimeSpan expire)
         {
-            uint expire;
+            if (expire < TimeSpan.FromDays(30))
+                return (uint)expire.TotalSeconds;
 
-            if (Expire.CompareTo(TimeSpan.FromDays(30)) < 0)
-                expire = (uint)Expire.TotalSeconds;
-            else
-                expire = (uint)(DateTime.UtcNow.Add(Expire) - Epock).TotalSeconds;
-
-            return expire;
+            return (uint)(DateTime.UtcNow.Add(expire) - Epoch).TotalSeconds;
         }
 
         /// <summary>
         /// Check that the request's expire time is valid.
         /// Reject negative expiration times, except for the Infinite TimeSpan
         /// </summary>
-        /// <param name="Expire"></param>
-        /// <returns>True if the Expire time is valid</returns>
-        public static bool IsValid(TimeSpan Expire)
+        /// <param name="expire" />
+        /// <returns>True if the expire time is valid</returns>
+        public static bool IsValid(TimeSpan expire)
         {
-            return (Expire.Ticks >= 0) || (Expire.CompareTo(Infinite) == 0);
+            return (expire.Ticks >= 0) || (expire.CompareTo(Infinite) == 0);
         }
     }
 }

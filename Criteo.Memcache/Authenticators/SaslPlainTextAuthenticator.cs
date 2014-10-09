@@ -31,8 +31,8 @@ namespace Criteo.Memcache.Authenticators
 
         private class SaslPlainTextToken : IAuthenticationToken
         {
-            private TaskCompletionSource<Status> _authenticationStatus;
-            private IMemcacheRequest _request;
+            private readonly TaskCompletionSource<Status> _authenticationStatus;
+            private readonly IMemcacheRequest _request;
             private bool _started = false;
 
             public SaslPlainTextToken(string zone, string user, string password)
@@ -52,17 +52,15 @@ namespace Criteo.Memcache.Authenticators
                 if (_started)
                 {
                     stepRequest = null;
-                    if (_authenticationStatus.Task.Wait(authTimeout))
-                        return _authenticationStatus.Task.Result;
-                    else
+                    if (!_authenticationStatus.Task.Wait(authTimeout))
                         throw new AuthenticationException("Authentication has timed out");
+
+                    return _authenticationStatus.Task.Result;
                 }
-                else
-                {
-                    _started = true;
-                    stepRequest = _request;
-                    return Status.StepRequired;
-                }
+
+                _started = true;
+                stepRequest = _request;
+                return Status.StepRequired;
             }
         }
 

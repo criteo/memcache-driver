@@ -15,6 +15,8 @@
    specific language governing permissions and limitations
    under the License.
 */
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -35,12 +37,14 @@ namespace Criteo.Memcache.UTest.Tests
         [TestFixtureSetUp]
         public void Setup()
         {
-            _nodes = new List<IMemcacheNode>();
-            _nodes.Add(new NodeMock { EndPoint = new IPEndPoint(new IPAddress(new byte[] { 192, 168, 18, 1 }), 11211) });
-            _nodes.Add(new NodeMock { EndPoint = new IPEndPoint(new IPAddress(new byte[] { 192, 168, 18, 2 }), 11211) });
-            _nodes.Add(new NodeMock { EndPoint = new IPEndPoint(new IPAddress(new byte[] { 192, 168, 18, 3 }), 11211) });
-            _nodes.Add(new NodeMock { EndPoint = new IPEndPoint(new IPAddress(new byte[] { 192, 168, 18, 4 }), 11211) });
-            _nodes.Add(new NodeMock { EndPoint = new IPEndPoint(new IPAddress(new byte[] { 192, 168, 18, 5 }), 11211) });
+            _nodes = new List<IMemcacheNode>
+            {
+                new NodeMock {EndPoint = new IPEndPoint(new IPAddress(new byte[] {192, 168, 18, 1}), 11211)},
+                new NodeMock {EndPoint = new IPEndPoint(new IPAddress(new byte[] {192, 168, 18, 2}), 11211)},
+                new NodeMock {EndPoint = new IPEndPoint(new IPAddress(new byte[] {192, 168, 18, 3}), 11211)},
+                new NodeMock {EndPoint = new IPEndPoint(new IPAddress(new byte[] {192, 168, 18, 4}), 11211)},
+                new NodeMock {EndPoint = new IPEndPoint(new IPAddress(new byte[] {192, 168, 18, 5}), 11211)},
+            };
         }
 
         [Test]
@@ -107,7 +111,7 @@ namespace Criteo.Memcache.UTest.Tests
                 var locations = locator.Locate(keyAsBytes);
                 Assert.IsNotEmpty(locations, "RoundRobinLocator found no node, but at least 1 is alive");
 
-                var chosenNode = locations.First<IMemcacheNode>();
+                var chosenNode = locations.First();
                 Assert.IsFalse(chosenNode.IsDead, "RoundRobinLocator returned a dead node");
             }
 
@@ -119,8 +123,8 @@ namespace Criteo.Memcache.UTest.Tests
                 CollectionAssert.IsEmpty(locator.Locate(keyAsBytes), "RoundRobinLocator found a node when all are dead");
             }
 
-            for (int i = 0; i < _nodes.Count; ++i)
-                (_nodes[i] as NodeMock).IsDead = false;
+            foreach (var node in _nodes)
+                (node as NodeMock).IsDead = false;
         }
 
         [Test]
@@ -153,8 +157,8 @@ namespace Criteo.Memcache.UTest.Tests
                 CollectionAssert.IsEmpty(locator.Locate(keyAsBytes), "KetamaLocator found a node when all are dead");
             }
 
-            for (int i = 0; i < _nodes.Count; ++i)
-                (_nodes[i] as NodeMock).IsDead = false;
+            foreach (var node in _nodes)
+                (node as NodeMock).IsDead = false;
         }
 
         // Same test but killing the nodes after the enumeration has started. The Locator should still filter the dead nodes.
@@ -166,15 +170,14 @@ namespace Criteo.Memcache.UTest.Tests
 
             for (int i = 0; i < _nodes.Count; ++i)
             {
-                int j;
-                for (j = 0; j < _nodes.Count; ++j)
-                    (_nodes[j] as NodeMock).IsDead = false;
-
-                j =  0;
-                HashSet<IMemcacheNode> nodesSet = new HashSet<IMemcacheNode>();
+                foreach (IMemcacheNode node in _nodes)
+                    (node as NodeMock).IsDead = false;
 
                 var keyAsBytes = i.ToString().Select(c => (byte)c).ToArray();
                 var locations = locator.Locate(keyAsBytes);
+
+                var j = 0;
+                var nodesSet = new HashSet<IMemcacheNode>();
                 foreach (var chosenNode in locations)
                 {
                     nodesSet.Add(chosenNode);
@@ -186,8 +189,8 @@ namespace Criteo.Memcache.UTest.Tests
                 Assert.AreNotEqual(0, nodesSet.Count, "KetamaLocator returned no node");
             }
 
-            for (int i = 0; i < _nodes.Count; ++i)
-                (_nodes[i] as NodeMock).IsDead = false;
+            foreach (var node in _nodes)
+                (node as NodeMock).IsDead = false;
         }
     }
 }

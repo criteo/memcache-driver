@@ -39,7 +39,7 @@ namespace Criteo.Memcache.Configuration
     /// after a request has been succesfully set or after the connection has been succesfully established</param>
     /// <param name="autoConnect">if set to true, it will set a timer to try to connect while connection fails
     /// else it will lazily and synchronously connect at first request sent</param>
-    /// <param name="ongoingDispose">Object for signaling that a dispose is requested</param>
+    /// <param name="nodeClosing">Object for signaling that a dispose is requested</param>
     /// <returns>The allocated transport</returns>
     public delegate IMemcacheTransport TransportAllocator(
         EndPoint endPoint,
@@ -58,7 +58,6 @@ namespace Criteo.Memcache.Configuration
     /// </summary>
     /// <param name="endPoint">Remote Memcached server listening endpoint</param>
     /// <param name="configuration">The MemcacheClientConfiguration passed to the client at construction</param>
-    /// <param name="ongoingDispose">Object for signaling that a dispose is requested</param>
     /// <returns>The allocated node</returns>
     public delegate IMemcacheNode NodeAllocator(EndPoint endPoint, MemcacheClientConfiguration configuration);
 
@@ -86,11 +85,6 @@ namespace Criteo.Memcache.Configuration
 
         internal static NodeLocatorAllocator DefaultLocatorFactory =
             () => new KetamaLocator();
-
-        internal static NodeLocatorAllocator KetamaLocatorFactory(string hashName)
-        {
-            return () => new KetamaLocator(hashName);
-        }
 
         public static NodeLocatorAllocator RoundRobinLocatorFactory =
             () => new RoundRobinLocator();
@@ -130,9 +124,11 @@ namespace Criteo.Memcache.Configuration
             QueueTimeout = Timeout.Infinite;
             QueueLength = 0;
             TransportConnectTimerPeriod = TimeSpan.FromMilliseconds(1000);
-            TransportReceiveBufferSize = 2 << 15;   // 32kB
-            TransportSendBufferSize = 2 << 15;      // 32kB
             Replicas = 0;
+
+            var sixtyFourKB = 1 << 16;
+            TransportReceiveBufferSize = sixtyFourKB;
+            TransportSendBufferSize = sixtyFourKB;
 
             KeySerializer = new UTF8KeySerializer();
         }

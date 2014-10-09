@@ -57,7 +57,7 @@ namespace Criteo.Memcache.UTest.Tests
             var request = new SetRequest
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
-                Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"),
+                Message = System.Text.Encoding.UTF8.GetBytes(@"World"),
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
                 CallBack = (s) => status = s,
@@ -81,7 +81,7 @@ namespace Criteo.Memcache.UTest.Tests
             var request = new SetRequest
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
-                Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"),
+                Message = System.Text.Encoding.UTF8.GetBytes(@"World"),
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
                 CallBack = (s) => status = s,
@@ -91,7 +91,7 @@ namespace Criteo.Memcache.UTest.Tests
             var queryBuffer = request.GetQueryBuffer();
             CollectionAssert.AreEqual(SET_QUERY, queryBuffer, "The set query buffer is different from the expected one");
 
-            Assert.DoesNotThrow(() => request.Fail());
+            Assert.DoesNotThrow(request.Fail);
             Assert.AreEqual(Status.InternalError, status, "The status sent by a fail should be InternalError");
         }
 
@@ -105,7 +105,7 @@ namespace Criteo.Memcache.UTest.Tests
             var request = new SetRequest
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
-                Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"),
+                Message = System.Text.Encoding.UTF8.GetBytes(@"World"),
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
                 CallBack = (s) => status = s,
@@ -136,7 +136,7 @@ namespace Criteo.Memcache.UTest.Tests
             var request = new SetRequest
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
-                Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"),
+                Message = System.Text.Encoding.UTF8.GetBytes(@"World"),
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
                 CallBack = (s) => status = s,
@@ -163,7 +163,7 @@ namespace Criteo.Memcache.UTest.Tests
             request = new SetRequest
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
-                Message = System.Text.UTF8Encoding.Default.GetBytes(@"World"),
+                Message = System.Text.Encoding.UTF8.GetBytes(@"World"),
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
                 CallBack = (s) => status = s,

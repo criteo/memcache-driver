@@ -16,7 +16,6 @@
    under the License.
 */
 using System;
-using System.Text;
 
 using Criteo.Memcache.Headers;
 
@@ -25,15 +24,12 @@ namespace Criteo.Memcache.Requests
     class SetRequest : RedundantRequest, IMemcacheRequest
     {
         private const uint RawDataFlag = 0xfa52;
+        private TimeSpan _expire;
 
         public byte[] Message { get; set; }
         public uint Flags { get; set; }
         public Opcode RequestOpcode { get; set; }
-
         public Action<Status> CallBack { get; set; }
-
-        private TimeSpan _expire { get; set; }
-
         public TimeSpan Expire
         {
             get
@@ -43,10 +39,10 @@ namespace Criteo.Memcache.Requests
 
             set
             {
-                if (ExpirationTimeUtils.IsValid(value))
-                    _expire = value;
-                else
+                if (!ExpirationTimeUtils.IsValid(value))
                     throw new ArgumentException("Invalid expiration time: " + value.ToString());
+
+                _expire = value;
             }
         }
 
@@ -67,13 +63,13 @@ namespace Criteo.Memcache.Requests
                 Opaque = RequestId,
             };
 
-            var buffer = new byte[MemcacheRequestHeader.SIZE + requestHeader.TotalBodyLength];
-            requestHeader.ToData(buffer, 0);
-            buffer.CopyFrom(MemcacheRequestHeader.SIZE, Flags);
-            buffer.CopyFrom(MemcacheRequestHeader.SIZE + sizeof(uint), ExpirationTimeUtils.MemcachedTTL(Expire));
-            Key.CopyTo(buffer, MemcacheRequestHeader.SIZE + requestHeader.ExtraLength);
-            if(Message != null)
-                Message.CopyTo(buffer, MemcacheRequestHeader.SIZE + requestHeader.ExtraLength + Key.Length);
+            var buffer = new byte[MemcacheRequestHeader.Size + requestHeader.TotalBodyLength];
+            requestHeader.ToData(buffer);
+            buffer.CopyFrom(MemcacheRequestHeader.Size, Flags);
+            buffer.CopyFrom(MemcacheRequestHeader.Size + sizeof(uint), ExpirationTimeUtils.MemcachedTTL(Expire));
+            Key.CopyTo(buffer, MemcacheRequestHeader.Size + requestHeader.ExtraLength);
+            if (Message != null)
+                Message.CopyTo(buffer, MemcacheRequestHeader.Size + requestHeader.ExtraLength + Key.Length);
 
             return buffer;
         }

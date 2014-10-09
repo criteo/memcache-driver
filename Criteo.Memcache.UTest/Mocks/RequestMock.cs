@@ -24,11 +24,7 @@ namespace Criteo.Memcache.UTest.Mocks
 {
     class RequestMock : MemcacheRequestBase, IMemcacheRequest
     {
-        public override int Replicas
-        {
-            get { return 0; }
-            set { return; }
-        }
+        public override int Replicas { get { return 0; } }
 
         public ManualResetEventSlim Mutex { get; private set; }
 

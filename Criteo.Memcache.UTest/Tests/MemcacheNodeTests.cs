@@ -99,8 +99,6 @@ namespace Criteo.Memcache.UTest.Tests
             Assert.DoesNotThrow(() => node.TrySend(new NoOpRequest(), 1000), "The TrySend should not throw an exception");
         }
 
-        private IPAddress LOCALHOST = new IPAddress(new byte[] { 127, 0, 0, 1 });
-
         [Test]
         public void ReceiveFailConsistency([Values(true, false)] bool failInBody)
         {
@@ -193,7 +191,7 @@ namespace Criteo.Memcache.UTest.Tests
                 Assert.IsInstanceOf<Memcache.Exceptions.MemcacheException>(expectedException, @"A bad response has not triggered a transport error. Expected a MemcacheException.");
                 Assert.AreEqual(0, nodeDeadCount, @"The node has been detected has dead before a new send has been made");
                 // After a short delay, the transport should be back in the transport pool (node.PoolSize == 1)
-                Assert.That(() => { return node.PoolSize; }, new DelayedConstraint(new EqualConstraint(1), 2000, 100), "After a while, the transport should be back in the pool");
+                Assert.That(() => node.PoolSize, new DelayedConstraint(new EqualConstraint(1), 2000, 100), "After a while, the transport should be back in the pool");
 
                 new MemcacheResponseHeader
                 {
@@ -238,7 +236,7 @@ namespace Criteo.Memcache.UTest.Tests
                 Assert.AreEqual(Status.InternalError, receivedStatus, @"The send operation should have detected that the socket is dead");
 
                 // After a short delay, the transport should connect
-                Assert.That(() => { return node.PoolSize; }, new DelayedConstraint(new EqualConstraint(1), 2000, 100), "After a while, the transport should manage to connect");
+                Assert.That(() => node.PoolSize, new DelayedConstraint(new EqualConstraint(1), 2000, 100), "After a while, the transport should manage to connect");
 
                 expectedException = null;
                 callbackMutex.Reset();
@@ -286,18 +284,11 @@ namespace Criteo.Memcache.UTest.Tests
             {
                 DeadTimeout = TimeSpan.FromSeconds(1),
                 TransportFactory = (_, __, ___, ____, _____, ______) =>
-                {
-                    return new MemcacheTransportForTest(_, __, ___, ____, _____, ______, () => { createdTransports++; }, () => { });
-                },
-                NodeFactory =  (_, __) =>
-                {
-                    var node = MemcacheClientConfiguration.DefaultNodeFactory(_, __);
-                    theNode = node as MemcacheNode;
-                    return node;
-                },
+                    new MemcacheTransportForTest(_, __, ___, ____, _____, ______, () => { createdTransports++; }, () => { }),
+                NodeFactory = (_, __) =>
+                    MemcacheClientConfiguration.DefaultNodeFactory(_, __) as MemcacheNode,
                 PoolSize = nbOfTransportsPerNode,
             };
-
 
             MemcacheClient memcacheClient;
             using (var serverMock1 = new ServerMock())
@@ -365,7 +356,7 @@ namespace Criteo.Memcache.UTest.Tests
                 serverMock2.ResponseBody = new byte[24];
 
                 // After some delay, the transport should connect
-                Assert.That(() => { return theNode.WorkingTransports; }, new DelayedConstraint(new EqualConstraint(nbOfTransportsPerNode), 4000, 100), "After a while, the transport should manage to connect");
+                Assert.That(() => theNode.WorkingTransports, new DelayedConstraint(new EqualConstraint(nbOfTransportsPerNode), 4000, 100), "After a while, the transport should manage to connect");
                 Assert.IsFalse(theNode.IsDead, "The node should be alive (4)");
                 Assert.AreEqual(1, memcacheClient.AliveNodes, "Number of alive nodes is incorrect (4)");
 

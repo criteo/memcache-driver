@@ -24,7 +24,7 @@ namespace Criteo.Memcache.Headers
 {
     public struct MemcacheRequestHeader : IEquatable<MemcacheRequestHeader>
     {
-        public static readonly int SIZE = 24;
+        public static readonly int Size = 24;
 
         public MemcacheRequestHeader(Opcode instruction)
         {
@@ -32,7 +32,7 @@ namespace Criteo.Memcache.Headers
             KeyLength = 0;
             ExtraLength = 0;
             DataType = 0;
-            Reserved = 0;
+            _reserved = 0;
             TotalBodyLength = 0;
             Opaque = 0;
             Cas = 0;
@@ -43,7 +43,7 @@ namespace Criteo.Memcache.Headers
         public ushort KeyLength;
         public byte ExtraLength;
         public byte DataType;
-        private ushort Reserved;
+        private ushort _reserved;
         public uint TotalBodyLength;
         public uint Opaque;
         public ulong Cas;
@@ -55,7 +55,7 @@ namespace Criteo.Memcache.Headers
                 .Append("KeyLength:").Append(KeyLength).Append('|')
                 .Append("ExtraLength:").Append(ExtraLength).Append('|')
                 .Append("DataType:").Append(DataType).Append('|')
-                .Append("Reserved:").Append(Reserved).Append('|')
+                .Append("Reserved:").Append(_reserved).Append('|')
                 .Append("TotalBodyLength:").Append(TotalBodyLength).Append('|')
                 .Append("Opaque:").Append(Opaque).Append('|')
                 .Append("Cas:").Append(Cas);
@@ -69,7 +69,7 @@ namespace Criteo.Memcache.Headers
             data.CopyFrom(2 + offset, KeyLength);
             data[4 + offset] = ExtraLength;
             data[5 + offset] = DataType;
-            data.CopyFrom(6 + offset, Reserved);
+            data.CopyFrom(6 + offset, _reserved);
             data.CopyFrom(8 + offset, TotalBodyLength);
             data.CopyFrom(12 + offset, Opaque);
             data.CopyFrom(16 + offset, Cas);
@@ -83,7 +83,7 @@ namespace Criteo.Memcache.Headers
             KeyLength = data.CopyToUShort(2 + offset);
             ExtraLength = data[4 + offset];
             DataType = data[5 + offset];
-            Reserved = data.CopyToUShort(6 + offset);
+            _reserved = data.CopyToUShort(6 + offset);
             TotalBodyLength = data.CopyToUInt(8 + offset);
             Opaque = data.CopyToUInt(12 + offset);
             Cas = data.CopyToULong(16 + offset);
@@ -101,7 +101,7 @@ namespace Criteo.Memcache.Headers
                 && other.KeyLength == KeyLength
                 && other.ExtraLength == ExtraLength
                 && other.DataType == DataType
-                && other.Reserved == Reserved
+                && other._reserved == _reserved
                 && other.TotalBodyLength == TotalBodyLength
                 && other.Opaque == Opaque
                 && other.Cas == Cas;
@@ -113,7 +113,7 @@ namespace Criteo.Memcache.Headers
                 ^ KeyLength.GetHashCode()
                 ^ ExtraLength.GetHashCode()
                 ^ DataType.GetHashCode()
-                ^ Reserved.GetHashCode()
+                ^ _reserved.GetHashCode()
                 ^ TotalBodyLength.GetHashCode()
                 ^ Opaque.GetHashCode()
                 ^ Cas.GetHashCode();

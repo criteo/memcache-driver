@@ -9,7 +9,7 @@ namespace Criteo.Memcache.KeySerializer
             if (value == null)
                 return null;
 
-            return UTF8Encoding.Default.GetBytes(value);
+            return Encoding.UTF8.GetBytes(value);
         }
     }
 }

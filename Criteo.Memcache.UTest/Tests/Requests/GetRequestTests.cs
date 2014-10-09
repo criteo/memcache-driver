@@ -94,7 +94,7 @@ namespace Criteo.Memcache.UTest.Tests
 
             CollectionAssert.AreEqual(GET_QUERY, queryBuffer, "The get query buffer is different from the expected one");
 
-            Assert.DoesNotThrow(() => request.Fail(), "Fail should not throw an exception");
+            Assert.DoesNotThrow(request.Fail, "Fail should not throw an exception");
 
             Assert.AreEqual(Status.InternalError, status, "Returned status should be InternalError after a fail");
             Assert.IsNull(message, "Returned message should be a null reference after a fail");

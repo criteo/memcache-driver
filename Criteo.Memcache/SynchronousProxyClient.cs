@@ -27,8 +27,8 @@ namespace Criteo.Memcache
     /// </summary>
     public class SynchronousProxyClient
     {
-        private MemcacheClient _client;
-        private int _receiveTimeout;
+        private readonly MemcacheClient _client;
+        private readonly int _receiveTimeout;
 
         /// <summary>
         /// The constructor
@@ -50,21 +50,13 @@ namespace Criteo.Memcache
         {
             var taskSource = new TaskCompletionSource<byte[]>();
 
-            if (!_client.Get(
-                key: key,
-                callback: (s, m) =>
-                {
-                    if (s == Status.NoError)
-                        taskSource.SetResult(m);
-                    else
-                        taskSource.SetResult(null);
-                }))
+            if (!_client.Get(key, (s, m) => taskSource.SetResult(s == Status.NoError ? m : null)))
                 taskSource.SetResult(null);
 
-            if (taskSource.Task.Wait(_receiveTimeout))
-                return taskSource.Task.Result;
-            else
+            if (!taskSource.Task.Wait(_receiveTimeout))
                 return null;
+
+            return taskSource.Task.Result;
         }
 
         /// <summary>
@@ -79,24 +71,13 @@ namespace Criteo.Memcache
         {
             var taskSource = new TaskCompletionSource<bool>();
 
-            if (!_client.Store(
-                mode: mode,
-                key: key,
-                message: value,
-                expiration: expire,
-                callback: s =>
-                {
-                    if (s == Status.NoError)
-                        taskSource.SetResult(true);
-                    else
-                        taskSource.SetResult(false);
-                }))
+            if (!_client.Store(mode, key, value, expire, s => taskSource.SetResult(s == Status.NoError)))
                 taskSource.SetResult(false);
 
-            if (taskSource.Task.Wait(_receiveTimeout))
-                return taskSource.Task.Result;
-            else
+            if (!taskSource.Task.Wait(_receiveTimeout))
                 return false;
+
+            return taskSource.Task.Result;
         }
 
         /// <summary>
@@ -108,21 +89,13 @@ namespace Criteo.Memcache
         {
             var taskSource = new TaskCompletionSource<bool>();
 
-            if (!_client.Delete(
-                key: key,
-                callback: s =>
-                {
-                    if (s == Status.NoError)
-                        taskSource.SetResult(true);
-                    else
-                        taskSource.SetResult(false);
-                }))
+            if (!_client.Delete(key, s => taskSource.SetResult(s == Status.NoError)))
                 taskSource.SetResult(false);
 
-            if (taskSource.Task.Wait(_receiveTimeout))
-                return taskSource.Task.Result;
-            else
+            if (!taskSource.Task.Wait(_receiveTimeout))
                 return false;
+
+            return taskSource.Task.Result;
         }
     }
 }

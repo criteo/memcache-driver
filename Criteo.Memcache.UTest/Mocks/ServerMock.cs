@@ -42,7 +42,6 @@ namespace Criteo.Memcache.UTest.Mocks
         public byte[] ResponseBody { private get; set; }
         public ManualResetEventSlim ReceiveMutex { get; set; }
         public IPEndPoint ListenEndPoint { get; private set; }
-        public int LastConnectionPort { get; private set; }
 
         public int MaxSent { get; set; }
 
@@ -66,9 +65,9 @@ namespace Criteo.Memcache.UTest.Mocks
             _socket.Listen((int)SocketOptionName.MaxConnections);
             var acceptEventArgs = GetAcceptEventArgs();
             if (!_socket.AcceptAsync(acceptEventArgs))
-                throw new Exception("Unable to listen on " + ListenEndPoint.ToString());
+                throw new Exception("Unable to listen on " + ListenEndPoint);
             _acceptedSockets = new List<Socket>();
-            ResponseHeader = new byte[MemcacheResponseHeader.SIZE];
+            ResponseHeader = new byte[MemcacheResponseHeader.Size];
         }
 
 
@@ -76,7 +75,7 @@ namespace Criteo.Memcache.UTest.Mocks
         private SocketAsyncEventArgs GetAcceptEventArgs()
         {
             var acceptEventArgs = new SocketAsyncEventArgs();
-            acceptEventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnAccept);
+            acceptEventArgs.Completed += OnAccept;
             return acceptEventArgs;
         }
 
@@ -94,7 +93,7 @@ namespace Criteo.Memcache.UTest.Mocks
             var acceptedSocket = e.AcceptSocket;
             _acceptedSockets.Add(acceptedSocket);
             var eventArg = new SocketAsyncEventArgs();
-            eventArg.SetBuffer(new byte[MemcacheRequestHeader.SIZE], 0, MemcacheRequestHeader.SIZE);
+            eventArg.SetBuffer(new byte[MemcacheRequestHeader.Size], 0, MemcacheRequestHeader.Size);
             eventArg.Completed += new EventHandler<SocketAsyncEventArgs>(OnReceive);
             acceptedSocket.ReceiveAsync(eventArg);
 
@@ -128,8 +127,8 @@ namespace Criteo.Memcache.UTest.Mocks
                 // ends request header transfer
                 var socket = sender as Socket;
                 int transfered = e.BytesTransferred;
-                while (transfered < MemcacheRequestHeader.SIZE && !_disposed)
-                    transfered += socket.Receive(e.Buffer, transfered, MemcacheRequestHeader.SIZE - transfered, SocketFlags.None);
+                while (transfered < MemcacheRequestHeader.Size && !_disposed)
+                    transfered += socket.Receive(e.Buffer, transfered, MemcacheRequestHeader.Size - transfered, SocketFlags.None);
 
                 // read the request header
                 var header = new MemcacheRequestHeader();
@@ -152,9 +151,9 @@ namespace Criteo.Memcache.UTest.Mocks
 
                 // send the response header
                 transfered = 0;
-                while (transfered < MemcacheResponseHeader.SIZE && !_disposed)
+                while (transfered < MemcacheResponseHeader.Size && !_disposed)
                 {
-                    var toTransfer = MemcacheResponseHeader.SIZE - transfered;
+                    var toTransfer = MemcacheResponseHeader.Size - transfered;
                     if (MaxSent != 0 && MaxSent < toTransfer)
                         toTransfer = MaxSent;
                     transfered += socket.Send(ResponseHeader, transfered, toTransfer, SocketFlags.None);

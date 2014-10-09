@@ -68,25 +68,25 @@ namespace Criteo.Memcache.UTest.Tests
 
                 // SET
                 callbackMutex.Reset();
-                NodeMock.trySendCounter = 0;
+                NodeMock.TrySendCounter = 0;
                 Assert.IsTrue(client.Set("toto", new byte[0], TimeSpan.MaxValue, s => callbackMutex.Set()));
-                Assert.AreEqual(Math.Min(replicas + 1, nodeCount), NodeMock.trySendCounter);
+                Assert.AreEqual(Math.Min(replicas + 1, nodeCount), NodeMock.TrySendCounter);
                 Assert.IsTrue(callbackMutex.Wait(1000),
                     string.Format("The SET callback has not been received after 1 second (Replicas = {0})", replicas));
 
                 // GET
                 callbackMutex.Reset();
-                NodeMock.trySendCounter = 0;
+                NodeMock.TrySendCounter = 0;
                 Assert.IsTrue(client.Get("toto", (s, data) => callbackMutex.Set()));
-                Assert.AreEqual(Math.Min(replicas + 1, nodeCount), NodeMock.trySendCounter);
+                Assert.AreEqual(Math.Min(replicas + 1, nodeCount), NodeMock.TrySendCounter);
                 Assert.IsTrue(callbackMutex.Wait(1000),
                     string.Format("The GET callback has not been received after 1 second (Replicas = {0})", replicas));
 
                 // DELETE
                 callbackMutex.Reset();
-                NodeMock.trySendCounter = 0;
+                NodeMock.TrySendCounter = 0;
                 Assert.IsTrue(client.Delete("toto", s => callbackMutex.Set()));
-                Assert.AreEqual(Math.Min(replicas + 1, nodeCount), NodeMock.trySendCounter);
+                Assert.AreEqual(Math.Min(replicas + 1, nodeCount), NodeMock.TrySendCounter);
                 Assert.IsTrue(callbackMutex.Wait(1000),
                     string.Format("The DELETE callback has not been received after 1 second (Replicas = {0})", replicas));
 

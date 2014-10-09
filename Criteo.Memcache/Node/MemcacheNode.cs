@@ -17,10 +17,10 @@
 */
 using System;
 using System.Collections.Concurrent;
+using System.Linq;
 using System.Net;
 using System.Threading;
 
-using Criteo.Memcache;
 using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Headers;
 using Criteo.Memcache.Requests;
@@ -33,7 +33,7 @@ namespace Criteo.Memcache.Node
         private readonly BlockingCollection<IMemcacheTransport> _transportPool;
         private volatile bool _isAlive = false;
         private volatile CancellationTokenSource _tokenSource;
-        private MemcacheClientConfiguration _configuration;
+        private readonly MemcacheClientConfiguration _configuration;
         private volatile bool _ongoingDispose = false;
         private volatile bool _forceShutDown = false;
         private volatile bool _ongoingShutdown = false;
@@ -92,7 +92,7 @@ namespace Criteo.Memcache.Node
                     if (NodeDead != null)
                         NodeDead(this);
 
-                    if(!_tokenSource.IsCancellationRequested)
+                    if (!_tokenSource.IsCancellationRequested)
                         _tokenSource.Cancel();
                 }
             }
@@ -173,18 +173,16 @@ namespace Criteo.Memcache.Node
 
         public bool TrySend(IMemcacheRequest request, int timeout)
         {
-            IMemcacheTransport transport;
             try
             {
-                int tries = 0;
+                var tries = 0;
+                IMemcacheTransport transport;
                 while (!IsClosing()
                     && !_tokenSource.IsCancellationRequested
                     && ++tries <= _configuration.PoolSize
                     && _transportPool.TryTake(out transport, timeout, _tokenSource.Token))
                 {
-                    bool sent = transport.TrySend(request);
-
-                    if (sent)
+                    if (transport.TrySend(request))
                         return true;
                 }
             }
@@ -202,13 +200,7 @@ namespace Criteo.Memcache.Node
             _forceShutDown = force;
             _ongoingShutdown = true;
 
-            foreach(var transport in _transportPool)
-            {
-                if (!transport.Shutdown(force))
-                    return false;
-            }
-
-            return true;
+            return _transportPool.All(transport => transport.Shutdown(force));
         }
 
         internal bool IsClosing()

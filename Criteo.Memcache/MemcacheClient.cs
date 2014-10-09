@@ -69,8 +69,8 @@ namespace Criteo.Memcache
     /// </summary>
     public class MemcacheClient : IDisposable
     {
-        private MemcacheClientConfiguration _configuration;
-        private IMemcacheCluster _cluster;
+        private readonly MemcacheClientConfiguration _configuration;
+        private readonly IMemcacheCluster _cluster;
         private bool _disposed = false;
 
         /// <summary>
@@ -157,20 +157,15 @@ namespace Criteo.Memcache
                 }
             }
 
+            // The callback will not be called
             if (countTrySendsOK == 0)
-            {
-                // The callback will not be called
                 return false;
-            }
-            else
-            {
-                // If the request was sent to less than Replicas+1 nodes, fail the remaining ones.
-                for (; countTrySendsOK <= request.Replicas; countTrySendsOK++)
-                {
-                    request.Fail();
-                }
-                return true;
-            }
+
+            // If the request was sent to less than Replicas+1 nodes, fail the remaining ones.
+            for (; countTrySendsOK <= request.Replicas; countTrySendsOK++)
+                request.Fail();
+
+            return true;
         }
 
         /// <summary>
@@ -180,6 +175,7 @@ namespace Criteo.Memcache
         /// <param name="message" />
         /// <param name="expiration" />
         /// <param name="callback">Will be called after the memcached respond</param>
+        /// <param name="callbackPolicy" />
         /// <returns></returns>
         public bool Set(string key, byte[] message, TimeSpan expiration, Action<Status> callback = null, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
         {
@@ -194,6 +190,7 @@ namespace Criteo.Memcache
         /// <param name="message" />
         /// <param name="expiration" />
         /// <param name="callback">Will be called after the memcached respond</param>
+        /// <param name="callbackPolicy" />
         /// <returns></returns>
         public bool Update(string key, byte[] message, TimeSpan expiration, Action<Status> callback = null, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
         {
@@ -208,6 +205,7 @@ namespace Criteo.Memcache
         /// <param name="message" />
         /// <param name="expiration" />
         /// <param name="callback">Will be called after the memcached respond</param>
+        /// <param name="callbackPolicy" />
         /// <returns></returns>
         public bool Add(string key, byte[] message, TimeSpan expiration, Action<Status> callback = null, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
         {
@@ -247,6 +245,7 @@ namespace Criteo.Memcache
         /// </summary>
         /// <param name="key" />
         /// <param name="callback">Will be called after the memcached respond</param>
+        /// <param name="callbackPolicy" />
         /// <returns></returns>
         public bool Get(string key, Action<Status, byte[]> callback, CallBackPolicy callbackPolicy = CallBackPolicy.AnyOK)
         {
@@ -270,6 +269,7 @@ namespace Criteo.Memcache
         /// <param name="key" />
         /// <param name="expire" />
         /// <param name="callback">Will be called after the memcached respond</param>
+        /// <param name="callbackPolicy" />
         /// <returns></returns>
         public bool GetAndTouch(string key, TimeSpan expire, Action<Status, byte[]> callback, CallBackPolicy callbackPolicy = CallBackPolicy.AnyOK)
         {
@@ -293,6 +293,7 @@ namespace Criteo.Memcache
         /// </summary>
         /// <param name="key" />
         /// <param name="callback">Will be called after the memcached respond</param>
+        /// <param name="callbackPolicy" />
         /// <returns></returns>
         public bool Delete(string key, Action<Status> callback, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
         {
@@ -333,7 +334,8 @@ namespace Criteo.Memcache
         /// <summary>
         /// Retrieve stats from all alive nodes
         /// </summary>
-        /// <param name="callback"></param>
+        /// <param name="key" />
+        /// <param name="callback" />
         public void Stats(string key, Action<EndPoint, IDictionary<string, string>> callback)
         {
             var keyAsBytes = _configuration.KeySerializer.SerializeToBytes(key);
@@ -370,11 +372,8 @@ namespace Criteo.Memcache
         public bool Shutdown(bool force = false)
         {
             // Shutdown all nodes, don't stop on the first one returning false!
-            bool success = true;
-            foreach (var node in _cluster.Nodes)
-                success &= node.Shutdown(force);
-
-            return success;
+            // Do not reverse '.Shutdown' and 'done'.
+            return _cluster.Nodes.Aggregate(true, (done, node) => node.Shutdown(force) && done);
         }
 
         /// <summary>
@@ -408,14 +407,13 @@ namespace Criteo.Memcache
 
         protected virtual void Dispose(bool disposing)
         {
-            if (!_disposed)
-            {
-                if (disposing)
-                {
-                    _cluster.Dispose();
-                }
-                _disposed = true;
-            }
+            if (_disposed)
+                return;
+
+            if (disposing)
+                _cluster.Dispose();
+
+            _disposed = true;
         }
 
         #endregion IDisposable

@@ -17,7 +17,7 @@ namespace Criteo.Memcache.UTest.Tests
 
         #region exp[][]
 
-        private static String[][] expected07 = new[]
+        private static String[][] _expected07 =
         {
             new [] { "263057", "10.0.1.6:11211", "10.0.1.4:11211", "10.0.1.2:11211", "10.0.1.1:11211" },    // Key hash:    2284190  (smaller than all ketama keys)
             new [] { "332957", "10.0.1.4:11211", "10.0.1.2:11211", "10.0.1.1:11211", "10.0.1.7:11211" },    // Key hash:    4105050
@@ -33,7 +33,7 @@ namespace Criteo.Memcache.UTest.Tests
         };
 
         // This is from spymemcached's tests
-        private static String[][] expected08 = new[]
+        private static String[][] _expected08 =
         {
             new [] { "691777", "10.0.1.5:11211", "10.0.1.6:11211", "10.0.1.4:11211" },    // Key hash:     811258
             new [] { "280532", "10.0.1.5:11211", "10.0.1.6:11211", "10.0.1.4:11211" },    // Key hash:     973176
@@ -3282,7 +3282,8 @@ namespace Criteo.Memcache.UTest.Tests
         #endregion
 
         // This is a list of 7 servers for which we know the first and the last ketama key point to different servers
-        private static String[] test07Servers = new[] {
+        private static String[] _test07Servers =
+        {
                 "10.0.1.1:11211",
                 "10.0.1.2:11211",
                 "10.0.1.3:11211",
@@ -3293,7 +3294,8 @@ namespace Criteo.Memcache.UTest.Tests
         };
 
         // In this list of 8 servers, the first and the last ketama key point to the same server 10.0.1.5:11211
-        private static String[] test08Servers = new[] {
+        private static String[] _test08Servers =
+        {
                 "10.0.1.1:11211",
                 "10.0.1.2:11211",
                 "10.0.1.3:11211",
@@ -3304,19 +3306,19 @@ namespace Criteo.Memcache.UTest.Tests
                 "10.0.1.8:11211",
         };
 
-        private static List<IMemcacheNode> test07Nodes;
-        private static List<IMemcacheNode> test08Nodes;
+        private static List<IMemcacheNode> _test07Nodes;
+        private static List<IMemcacheNode> _test08Nodes;
 
         [TestFixtureSetUp]
         public void Setup()
         {
-            test07Nodes = test07Servers.
-                        Select(s => new MockNode(new IPEndPoint(IPAddress.Parse(s.Substring(0, s.IndexOf(":"))), 11211))).
+            _test07Nodes = _test07Servers.
+                        Select(s => new MockNode(new IPEndPoint(IPAddress.Parse(s.Substring(0, s.IndexOf(':'))), 11211))).
                         Cast<IMemcacheNode>().
                         ToList();
 
-            test08Nodes = test08Servers.
-                        Select(s => new MockNode(new IPEndPoint(IPAddress.Parse(s.Substring(0, s.IndexOf(":"))), 11211))).
+            _test08Nodes = _test08Servers.
+                        Select(s => new MockNode(new IPEndPoint(IPAddress.Parse(s.Substring(0, s.IndexOf(':'))), 11211))).
                         Cast<IMemcacheNode>().
                         ToList();
         }
@@ -3325,19 +3327,19 @@ namespace Criteo.Memcache.UTest.Tests
         [Test]
         public void TestLocatorAllNodesAlive()
         {
-            RunTestLocatorAllNodesAlive(test07Nodes, expected07);
-            RunTestLocatorAllNodesAlive(test08Nodes, expected08);
+            RunTestLocatorAllNodesAlive(_test07Nodes, _expected07);
+            RunTestLocatorAllNodesAlive(_test08Nodes, _expected08);
 
         }
 
-        private void RunTestLocatorAllNodesAlive(List<IMemcacheNode> nodes, string[][] expected)
+        private void RunTestLocatorAllNodesAlive(List<IMemcacheNode> nodes, IEnumerable<string[]> expected)
         {
             INodeLocator ketama = new KetamaLocator();
             ketama.Initialize(nodes);
 
             foreach (var tuple in expected)
             {
-                var keyAsBytes = UTF8Encoding.Default.GetBytes(tuple[0]);
+                var keyAsBytes = Encoding.UTF8.GetBytes(tuple[0]);
 
                 var locations = ketama.Locate(keyAsBytes);
                 Assert.IsNotEmpty(locations, "KetamaLocator found no node");
@@ -3360,13 +3362,13 @@ namespace Criteo.Memcache.UTest.Tests
             INodeLocator ketama = new KetamaLocator();
 
             // Kill node 10.0.1.7:11211 by removing it from the list.
-            test08Nodes.RemoveAt(6);
+            _test08Nodes.RemoveAt(6);
 
-            ketama.Initialize(test08Nodes);
+            ketama.Initialize(_test08Nodes);
 
-            foreach (var tuple in expected08)
+            foreach (var tuple in _expected08)
             {
-                var keyAsBytes = UTF8Encoding.Default.GetBytes(tuple[0]);
+                var keyAsBytes = Encoding.UTF8.GetBytes(tuple[0]);
 
                 var locations = ketama.Locate(keyAsBytes);
                 Assert.IsNotEmpty(locations, "KetamaLocator found no node");
@@ -3385,8 +3387,6 @@ namespace Criteo.Memcache.UTest.Tests
                     }
                     Assert.AreEqual(tuple[expected_idx], node.EndPoint.ToString(), "Unexpected node returned by the Ketama locator. Key: {0}", tuple[0]);
                 }
-
-
             }
         }
 
@@ -3402,10 +3402,10 @@ namespace Criteo.Memcache.UTest.Tests
             List<int> serverOrderList = new List<int>(serverOrder.Replace(" ", String.Empty)
                                                                  .Split(',')
                                                                  .Where(s => s != "")
-                                                                 .Select(s => Int32.Parse(s)));
+                                                                 .Select(Int32.Parse));
 
             Dictionary<uint, IMemcacheNode> keyToServer  = serverOrderList.Select((value, index) => new { value, index })
-                                                                      .ToDictionary(pair => (uint)pair.index, pair => test08Nodes[pair.value-1]);
+                                                                      .ToDictionary(pair => (uint)pair.index, pair => _test08Nodes[pair.value-1]);
 
             uint[] sortedKeys = KetamaLocator.CleanRepeatedNodes(Enumerable.Range(0, serverOrderList.Count).Select(x => (uint)x).ToList(), keyToServer);
 

@@ -16,7 +16,6 @@
    under the License.
 */
 using System;
-using System.Text;
 
 using Criteo.Memcache.Headers;
 
@@ -36,9 +35,9 @@ namespace Criteo.Memcache.Requests
                 Opaque = RequestId,
             };
 
-            var buffer = new byte[MemcacheRequestHeader.SIZE + requestHeader.TotalBodyLength];
-            requestHeader.ToData(buffer, 0);
-            Key.CopyTo(buffer, MemcacheResponseHeader.SIZE);
+            var buffer = new byte[MemcacheRequestHeader.Size + requestHeader.TotalBodyLength];
+            requestHeader.ToData(buffer);
+            Key.CopyTo(buffer, MemcacheResponseHeader.Size);
 
             return buffer;
         }

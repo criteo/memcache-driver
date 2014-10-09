@@ -46,10 +46,10 @@ namespace Criteo.Memcache.Requests
                 TotalBodyLength = (uint)(Key.Length + data.Length),
             };
 
-            var message = new byte[MemcacheRequestHeader.SIZE + header.TotalBodyLength];
+            var message = new byte[MemcacheRequestHeader.Size + header.TotalBodyLength];
             header.ToData(message);
-            Key.CopyTo(message, MemcacheRequestHeader.SIZE);
-            data.CopyTo(message, MemcacheRequestHeader.SIZE + Key.Length);
+            Key.CopyTo(message, MemcacheRequestHeader.Size);
+            data.CopyTo(message, MemcacheRequestHeader.Size + Key.Length);
 
             return message;
         }

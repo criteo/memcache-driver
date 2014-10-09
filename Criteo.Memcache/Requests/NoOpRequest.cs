@@ -34,8 +34,8 @@ namespace Criteo.Memcache.Requests
                 Opaque = RequestId,
             };
 
-            var buffer = new byte[MemcacheRequestHeader.SIZE];
-            requestHeader.ToData(buffer, 0);
+            var buffer = new byte[MemcacheRequestHeader.Size];
+            requestHeader.ToData(buffer);
 
             return buffer;
         }

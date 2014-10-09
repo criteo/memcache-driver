@@ -35,9 +35,9 @@ namespace Criteo.Memcache.Requests
         /// This function will return true if the callback associated with the request must be called, and
         /// false otherwise. It must be called on receiving a response from a node, or failing to receive it.
         /// </summary>
-        /// <param name="resp_status"></param>
+        /// <param name="respStatus"></param>
         /// <returns></returns>
-        protected bool CallCallback(Status resp_status)
+        protected bool CallCallback(Status respStatus)
         {
             int receivedResponses = Interlocked.Increment(ref _receivedResponses);
 
@@ -58,10 +58,10 @@ namespace Criteo.Memcache.Requests
             switch (CallBackPolicy)
             {
                 case CallBackPolicy.AnyOK:
-                    ignoreNextResponses = (resp_status == Status.NoError);
+                    ignoreNextResponses = (respStatus == Status.NoError);
                     break;
                 case CallBackPolicy.AllOK:
-                    ignoreNextResponses = (resp_status != Status.NoError);
+                    ignoreNextResponses = (respStatus != Status.NoError);
                     break;
                 default:
                     ignoreNextResponses = false;

@@ -15,7 +15,6 @@
    specific language governing permissions and limitations
    under the License.
 */
-using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.Requests
 {

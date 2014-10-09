@@ -32,7 +32,7 @@ namespace Criteo.Memcache.Requests
 
         public byte[] GetQueryBuffer()
         {
-            var message = new byte[MemcacheRequestHeader.SIZE + (Key == null ? 0 : Key.Length)];
+            var message = new byte[MemcacheRequestHeader.Size + (Key == null ? 0 : Key.Length)];
             new MemcacheRequestHeader(Opcode.Stat)
             {
                 Opaque = RequestId,
@@ -40,7 +40,7 @@ namespace Criteo.Memcache.Requests
             }.ToData(message);
 
             if (Key != null)
-                Key.CopyTo(message, MemcacheRequestHeader.SIZE);
+                Key.CopyTo(message, MemcacheRequestHeader.Size);
 
             return message;
         }
@@ -52,8 +52,8 @@ namespace Criteo.Memcache.Requests
                 if (_result == null)
                     _result = new Dictionary<string, string>();
 
-                var keyAsString = UTF8Encoding.Default.GetString(key);
-                var messageAsString = message != null ? UTF8Encoding.Default.GetString(message) : null;
+                var keyAsString = Encoding.UTF8.GetString(key);
+                var messageAsString = message != null ? Encoding.UTF8.GetString(message) : null;
                 _result.Add(keyAsString, messageAsString);
             }
             else if (Callback != null)

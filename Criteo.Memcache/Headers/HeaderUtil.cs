@@ -142,6 +142,7 @@ namespace Criteo.Memcache.Headers
             byte* bufferIn = (byte*)&value;
             for (int i = 0; i < sizeof(ushort); ++i)
                 bufferIn[i] = data[offset + sizeof(ushort) - i - 1];
+
             return value;
         }
 
@@ -151,6 +152,7 @@ namespace Criteo.Memcache.Headers
             byte* bufferIn = (byte*)&value;
             for (int i = 0; i < sizeof(uint); ++i)
                 bufferIn[i] = data[offset + sizeof(uint) - i - 1];
+
             return value;
         }
 
@@ -166,6 +168,7 @@ namespace Criteo.Memcache.Headers
             byte* bufferIn = (byte*)&value;
             for (int i = 0; i < sizeof(ulong); ++i)
                 bufferIn[i] = data[offset + sizeof(ulong) - i - 1];
+
             return value;
         }
 

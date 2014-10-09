@@ -24,7 +24,7 @@ namespace Criteo.Memcache.Headers
 {
     public struct MemcacheResponseHeader : IEquatable<MemcacheResponseHeader>
     {
-        public static readonly int SIZE = 24;
+        public static readonly int Size = 24;
 
         private const byte Magic = 0x81;
         public Opcode Opcode;

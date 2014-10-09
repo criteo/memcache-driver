@@ -32,12 +32,11 @@ namespace Criteo.Memcache.UTest.Tests.Requests
         {
             Assert.AreEqual(0, ExpirationTimeUtils.MemcachedTTL(ExpirationTimeUtils.Infinite), "Infinite TTL");
 
-            TimeSpan Expire;
-            Expire = TimeSpan.FromHours(48);
-            Assert.AreEqual(Expire.TotalSeconds, ExpirationTimeUtils.MemcachedTTL(Expire), "A TimeSpan smaller than 30 days should be kept as is");
+            var expire = TimeSpan.FromHours(48);
+            Assert.AreEqual(expire.TotalSeconds, ExpirationTimeUtils.MemcachedTTL(expire), "A TimeSpan smaller than 30 days should be kept as is");
 
-            Expire = TimeSpan.FromDays(50);
-            Assert.Less(UNIX_TIME_20141305_045320PM, ExpirationTimeUtils.MemcachedTTL(Expire), "A TimeSpan greater than 30 days should be converted to a timestamp");
+            expire = TimeSpan.FromDays(50);
+            Assert.Less(UNIX_TIME_20141305_045320PM, ExpirationTimeUtils.MemcachedTTL(expire), "A TimeSpan greater than 30 days should be converted to a timestamp");
         }
     }
 }

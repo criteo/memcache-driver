@@ -1,22 +1,19 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace Criteo.Memcache.KeySerializer
 {
     /// <summary>
     /// Generic key value serializer which checks for maximum length.
     /// </summary>
-    /// <typeparam name="KeyType">Type of the Key value to be serialized</typeparam>
-    public abstract class KeySerializerWithChecks<KeyType> : IKeySerializer<KeyType>
+    /// <typeparam name="TKeyType">Type of the Key value to be serialized</typeparam>
+    public abstract class KeySerializerWithChecks<TKeyType> : IKeySerializer<TKeyType>
     {
         public int MaxKeyLength { get; set; }
 
         /// <summary>
         /// Empty constructor. Sets MaxKeyLength to 250 (memcached implementation).
         /// </summary>
-        public KeySerializerWithChecks()
+        protected KeySerializerWithChecks()
         {
             MaxKeyLength = 250;
         }
@@ -25,12 +22,12 @@ namespace Criteo.Memcache.KeySerializer
         /// Constructor
         /// </summary>
         /// <param name="maxKeyLength">Maximum key length</param>
-        public KeySerializerWithChecks(int maxKeyLength)
+        protected KeySerializerWithChecks(int maxKeyLength)
         {
             MaxKeyLength = maxKeyLength;
         }
 
-        public byte[] SerializeToBytes(KeyType value)
+        public byte[] SerializeToBytes(TKeyType value)
         {
             var bytes = DoSerializeToBytes(value);
             if (bytes != null && bytes.Length > MaxKeyLength)
@@ -39,6 +36,6 @@ namespace Criteo.Memcache.KeySerializer
             return bytes;
         }
 
-        protected abstract byte[] DoSerializeToBytes(KeyType value);
+        protected abstract byte[] DoSerializeToBytes(TKeyType value);
     }
 }

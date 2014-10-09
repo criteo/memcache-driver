@@ -18,10 +18,8 @@
 
 using System;
 using System.Collections.Concurrent;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
 
 using Criteo.Memcache.Configuration;
@@ -58,12 +56,12 @@ namespace Criteo.Memcache.Transport
         private volatile bool _initialized = false;
         private int _ongoingShutdown = 0;          // Integer used as a boolean
         private int _transportAvailableInReceive = 0;
-        private ConcurrentQueue<IMemcacheRequest> _pendingRequests;
+        private readonly ConcurrentQueue<IMemcacheRequest> _pendingRequests;
         private Socket _socket;
 
-        private SocketAsyncEventArgs _sendAsynchEvtArgs;
-        private SocketAsyncEventArgs _receiveHeaderAsynchEvtArgs;
-        private SocketAsyncEventArgs _receiveBodyAsynchEvtArgs;
+        private readonly SocketAsyncEventArgs _sendAsynchEvtArgs;
+        private readonly SocketAsyncEventArgs _receiveHeaderAsynchEvtArgs;
+        private readonly SocketAsyncEventArgs _receiveBodyAsynchEvtArgs;
 
         private MemcacheResponseHeader _currentResponse;
 
@@ -82,10 +80,10 @@ namespace Criteo.Memcache.Transport
         /// <param name="endpoint" />
         /// <param name="clientConfig">The client configuration</param>
         /// <param name="registerEvents">Delegate to call to register the transport</param>
-        /// <param name="tranportAvailable">Delegate to call when the transport is alive</param>
+        /// <param name="transportAvailable">Delegate to call when the transport is alive</param>
         /// <param name="planToConnect">If true, connect in a timer handler started immediately and call transportAvailable.
         ///                             Otherwise, the transport will connect synchronously at the first request</param>
-        /// <param name="nodeDispose">Interface to check if the node is being disposed"</param>
+        /// <param name="nodeClosing">Interface to check if the node is being disposed of</param>
         public MemcacheTransport(EndPoint endpoint, MemcacheClientConfiguration clientConfig, Action<IMemcacheTransport> registerEvents, Action<IMemcacheTransport> transportAvailable, bool planToConnect, Func<bool> nodeClosing)
         {
             if (clientConfig == null)
@@ -108,8 +106,8 @@ namespace Criteo.Memcache.Transport
             _sendAsynchEvtArgs.Completed += OnSendRequestComplete;
 
             _receiveHeaderAsynchEvtArgs = new SocketAsyncEventArgs();
-            _receiveHeaderAsynchEvtArgs.SetBuffer(new byte[MemcacheResponseHeader.SIZE], 0, MemcacheResponseHeader.SIZE);
-            _receiveHeaderAsynchEvtArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnReceiveHeaderComplete);
+            _receiveHeaderAsynchEvtArgs.SetBuffer(new byte[MemcacheResponseHeader.Size], 0, MemcacheResponseHeader.Size);
+            _receiveHeaderAsynchEvtArgs.Completed += OnReceiveHeaderComplete;
 
             _receiveBodyAsynchEvtArgs = new SocketAsyncEventArgs();
             _receiveBodyAsynchEvtArgs.Completed += OnReceiveBodyComplete;
@@ -261,39 +259,35 @@ namespace Criteo.Memcache.Transport
 
         private IMemcacheRequest DequeueToMatch(MemcacheResponseHeader header)
         {
-            IMemcacheRequest result = null;
-
             if (header.Opcode.IsQuiet())
-            {
                 throw new MemcacheException("No way we can match a quiet request !");
+
+            IMemcacheRequest result;
+
+            // hacky case on partial response for stat command
+            if (header.Opcode == Opcode.Stat && header.TotalBodyLength != 0 && header.Status == Status.NoError)
+            {
+                if (!_pendingRequests.TryPeek(out result))
+                    throw new MemcacheException("Received a response when no request is pending");
             }
             else
             {
-                // hacky case on partial response for stat command
-                if (header.Opcode == Opcode.Stat && header.TotalBodyLength != 0 && header.Status == Status.NoError)
-                {
-                    if (!_pendingRequests.TryPeek(out result))
-                        throw new MemcacheException("Received a response when no request is pending");
-                }
-                else
-                {
-                    if (!_pendingRequests.TryDequeue(out result))
-                        throw new MemcacheException("Received a response when no request is pending");
-                }
+                if (!_pendingRequests.TryDequeue(out result))
+                    throw new MemcacheException("Received a response when no request is pending");
+            }
 
-                if (result.RequestId != header.Opaque)
+            if (result.RequestId != header.Opaque)
+            {
+                try
                 {
-                    try
-                    {
-                        result.Fail();
-                    }
-                    catch (Exception e)
-                    {
-                        if (TransportError != null)
-                            TransportError(e);
-                    }
-                    throw new MemcacheException("Received a response that doesn't match with the sent request queue : sent " + result.ToString() + " received " + header.ToString());
+                    result.Fail();
                 }
+                catch (Exception e)
+                {
+                    if (TransportError != null)
+                        TransportError(e);
+                }
+                throw new MemcacheException("Received a response that doesn't match with the sent request queue : sent " + result + " received " + header);
             }
 
             AvailableInReceive();
@@ -306,7 +300,7 @@ namespace Criteo.Memcache.Transport
         {
             try
             {
-                _receiveHeaderAsynchEvtArgs.SetBuffer(0, MemcacheResponseHeader.SIZE);
+                _receiveHeaderAsynchEvtArgs.SetBuffer(0, MemcacheResponseHeader.Size);
                 if (!_socket.ReceiveAsync(_receiveHeaderAsynchEvtArgs))
                     OnReceiveHeaderComplete(_socket, _receiveHeaderAsynchEvtArgs);
             }
@@ -328,16 +322,16 @@ namespace Criteo.Memcache.Transport
                     throw new SocketException((int)args.SocketError);
 
                 // check if we read a full header, else continue
-                if (args.BytesTransferred + args.Offset < MemcacheResponseHeader.SIZE)
+                if (args.BytesTransferred + args.Offset < MemcacheResponseHeader.Size)
                 {
                     int offset = args.BytesTransferred + args.Offset;
-                    args.SetBuffer(offset, MemcacheResponseHeader.SIZE - offset);
+                    args.SetBuffer(offset, MemcacheResponseHeader.Size - offset);
                     if (!socket.ReceiveAsync(args))
                         OnReceiveHeaderComplete(socket, args);
                     return;
                 }
 
-                ReceiveBody(socket, args.Buffer);
+                ReceiveBody(args.Buffer);
             }
             catch (Exception e)
             {
@@ -348,14 +342,11 @@ namespace Criteo.Memcache.Transport
 
         #endregion Reads
 
-        private static ArraySegment<byte> EmptySegment = new ArraySegment<byte>(new byte[0]);
-
-        private void ReceiveBody(Socket socket, byte[] headerBytes)
+        private void ReceiveBody(byte[] headerBytes)
         {
             _currentResponse = new MemcacheResponseHeader(headerBytes);
 
             var body = _currentResponse.TotalBodyLength == 0 ? null : new byte[_currentResponse.TotalBodyLength];
-
             _receiveBodyAsynchEvtArgs.SetBuffer(body, 0, (int)_currentResponse.TotalBodyLength);
 
             try
@@ -410,7 +401,7 @@ namespace Criteo.Memcache.Transport
                 if (_currentResponse.KeyLength > 0)
                 {
                     key = new byte[_currentResponse.KeyLength];
-                    Array.Copy(args.Buffer, (int)_currentResponse.ExtraLength, key, 0, _currentResponse.KeyLength);
+                    Array.Copy(args.Buffer, _currentResponse.ExtraLength, key, 0, _currentResponse.KeyLength);
                 }
 
                 var payloadLength = _currentResponse.TotalBodyLength - _currentResponse.KeyLength - _currentResponse.ExtraLength;
@@ -470,11 +461,11 @@ namespace Criteo.Memcache.Transport
                         catch (Exception ex)
                         {
                             if (TransportError != null)
-                                TransportError(new MemcacheException("Exception disconnecting the socket on " + this.ToString(), ex));
+                                TransportError(new MemcacheException("Exception disconnecting the socket on " + this, ex));
                         }
 
                         if (TransportError != null)
-                            TransportError(new MemcacheException("TransportFailureOnReceive on " + this.ToString(), e));
+                            TransportError(new MemcacheException("TransportFailureOnReceive on " + this, e));
 
                         FailPending();
                     }
@@ -489,41 +480,38 @@ namespace Criteo.Memcache.Transport
 
         private bool Authenticate()
         {
-            bool authDone = false;
-            IMemcacheRequest request = null;
-            Status authStatus = Status.NoError;
+            if (_clientConfig.Authenticator == null)
+                return true;
 
-            if (_clientConfig.Authenticator != null)
+            using (var mre = new ManualResetEventSlim(true))
             {
-                using (var mre = new ManualResetEventSlim(true))
+                bool authDone = false;
+                var authenticationToken = _clientConfig.Authenticator.CreateToken();
+                while (authenticationToken != null && !authDone)
                 {
-                    var authenticationToken = _clientConfig.Authenticator.CreateToken();
-                    while (authenticationToken != null && !authDone)
+                    IMemcacheRequest request;
+                    var authStatus = authenticationToken.StepAuthenticate(_clientConfig.SocketTimeout, out request);
+                    switch (authStatus)
                     {
-                        authStatus = authenticationToken.StepAuthenticate(_clientConfig.SocketTimeout, out request);
-
-                        switch (authStatus)
-                        {
+                        case Status.NoError:
                             // auth OK, clear the token
-                            case Status.NoError:
-                                authenticationToken = null;
-                                authDone = true;
-                                break;
+                            authenticationToken = null;
+                            authDone = true;
+                            break;
 
-                            case Status.StepRequired:
-                                if (request == null)
-                                    throw new AuthenticationException("Unable to authenticate : step required but no request from token");
-                                mre.Reset();
-                                if (!SendRequest(request, mre))
-                                    throw new AuthenticationException("Unable to authenticate : unable to send authentication request");
-                                break;
+                        case Status.StepRequired:
+                            if (request == null)
+                                throw new AuthenticationException("Unable to authenticate : step required but no request from token");
+                            mre.Reset();
+                            if (!SendRequest(request, mre))
+                                throw new AuthenticationException("Unable to authenticate : unable to send authentication request");
+                            break;
 
-                            default:
-                                throw new AuthenticationException("Unable to authenticate : status " + authStatus.ToString());
-                        }
+                        default:
+                            throw new AuthenticationException("Unable to authenticate : status " + authStatus);
                     }
-                    mre.Wait();
                 }
+                mre.Wait();
             }
 
             return true;
@@ -531,7 +519,6 @@ namespace Criteo.Memcache.Transport
 
         private void TryConnect(object dummy)
         {
-
             // If the node is closing, dispose this transport, which will terminate the reconnect timer.
             // If we do not know if the node is closed (_nodeClosing == null) then we also dispose, to prevent leaks.
             if (_nodeClosing == null || _nodeClosing())
@@ -592,12 +579,11 @@ namespace Criteo.Memcache.Transport
 
         private bool SendRequest(IMemcacheRequest request, ManualResetEventSlim callAvailable = null)
         {
-            byte[] buffer;
             try
             {
-                buffer = request.GetQueryBuffer();
+                var buffer = request.GetQueryBuffer();
 
-                if(_clientConfig.QueueLength > 0 &&
+                if (_clientConfig.QueueLength > 0 &&
                     _pendingRequests.Count >= _clientConfig.QueueLength)
                 {
                     // The request queue is full, the transport will be put back in the pool after the queue is not full anymore
@@ -642,25 +628,32 @@ namespace Criteo.Memcache.Transport
 
         private void TransportFailureOnSend(Exception e)
         {
-            if (!_disposed)
-                lock (this)
-                    if (!_disposed)
-                    {
-                        if (TransportError != null)
-                            TransportError(new MemcacheException("TransportFailureOnSend on " + this.ToString(), e));
+            if (_disposed)
+                return;
 
-                        // If the node hasn't been disposed, allocate a new transport that will attempt to reconnect
-                        if (_nodeClosing != null && !_nodeClosing())
-                        {
-                            var newTransport =  (_clientConfig.TransportFactory ?? DefaultAllocator)(_endPoint, _clientConfig, _registerEvents, _transportAvailable, true, _nodeClosing);
-                        }
+            lock (this)
+            {
+                if (_disposed)
+                    return;
 
-                        // Shutdown and dispose this transport
-                        if (TransportDead != null)
-                            TransportDead(this);
-                        FailPending();
-                        Dispose();
-                    }
+                if (TransportError != null)
+                    TransportError(new MemcacheException("TransportFailureOnSend on " + this, e));
+
+                // If the node hasn't been disposed, allocate a new transport that will attempt to reconnect
+                if (_nodeClosing != null && !_nodeClosing())
+                {
+                    // The transport constructor will add the new transport to the pool by calling the _transportAvailable delegate
+                    var factory = _clientConfig.TransportFactory ?? DefaultAllocator;
+                    factory(_endPoint, _clientConfig, _registerEvents, _transportAvailable, true, _nodeClosing);
+                }
+
+                // Shutdown and dispose this transport
+                if (TransportDead != null)
+                    TransportDead(this);
+
+                FailPending();
+                Dispose();
+            }
         }
 
         public override string ToString()

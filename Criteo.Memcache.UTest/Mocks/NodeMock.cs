@@ -57,12 +57,12 @@ namespace Criteo.Memcache.UTest.Mocks
 
         public IMemcacheRequest LastRequest { get; private set; }
 
-        public static int trySendCounter;
+        public static int TrySendCounter;
 
         public bool TrySend(IMemcacheRequest request, int timeout)
         {
             LastRequest = request;
-            trySendCounter++;
+            TrySendCounter++;
 
             if (timeout == 0)
             {

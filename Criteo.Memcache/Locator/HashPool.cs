@@ -23,8 +23,8 @@ namespace Criteo.Memcache.Locator
 {
     internal class HashPool
     {
-        private ConcurrentBag<HashAlgorithm> _hashAlgoPool;
-        private Func<HashAlgorithm> _hashFactory;
+        private readonly ConcurrentBag<HashAlgorithm> _hashAlgoPool;
+        private readonly Func<HashAlgorithm> _hashFactory;
 
         public HashPool(Func<HashAlgorithm> hashFactory)
         {
@@ -34,8 +34,8 @@ namespace Criteo.Memcache.Locator
 
         public struct HashProxy : IDisposable
         {
-            private HashAlgorithm _value;
-            private ConcurrentBag<HashAlgorithm> _pool;
+            private readonly HashAlgorithm _value;
+            private readonly ConcurrentBag<HashAlgorithm> _pool;
 
             public HashProxy(ConcurrentBag<HashAlgorithm> pool, Func<HashAlgorithm> hashFactory)
             {

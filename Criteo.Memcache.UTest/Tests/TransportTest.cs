@@ -61,9 +61,9 @@ namespace Criteo.Memcache.UTest.Tests
                 var requestBody = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
 
                 // build the request buffer
-                var requestBuffer = new byte[MemcacheRequestHeader.SIZE + requestHeader.TotalBodyLength];
+                var requestBuffer = new byte[MemcacheRequestHeader.Size + requestHeader.TotalBodyLength];
                 requestHeader.ToData(requestBuffer);
-                Array.Copy(requestBody, 0, requestBuffer, MemcacheRequestHeader.SIZE, requestHeader.TotalBodyLength);
+                Array.Copy(requestBody, 0, requestBuffer, MemcacheRequestHeader.Size, requestHeader.TotalBodyLength);
 
                 // build the response header
                 var responseHeader = new MemcacheResponseHeader
@@ -186,8 +186,8 @@ namespace Criteo.Memcache.UTest.Tests
 
             using (var serverMock = new ServerMock())
             using (var transport = new MemcacheTransport(serverMock.ListenEndPoint, config,
-                t => {},
-                t => {}, false, null))
+                t => { },
+                t => { }, false, null))
             {
                 var mutex = new ManualResetEventSlim();
                 new MemcacheResponseHeader
@@ -219,9 +219,7 @@ namespace Criteo.Memcache.UTest.Tests
                 DeadTimeout = TimeSpan.FromSeconds(1),
                 TransportConnectTimerPeriod = TimeSpan.FromMilliseconds(100),
                 TransportFactory = (_, __, ___, ____, _____, ______) =>
-                {
-                    return new MemcacheTransportForTest(_, __, ___, ____, _____, ______, () => { createdTransports++; }, () => { disposedTransports++; });
-                },
+                    new MemcacheTransportForTest(_, __, ___, ____, _____, ______, () => { createdTransports++; }, () => { disposedTransports++; }),
                 PoolSize = nbOfTransportsPerNode,
             };
 
@@ -272,9 +270,7 @@ namespace Criteo.Memcache.UTest.Tests
                 DeadTimeout = TimeSpan.FromSeconds(1),
                 TransportConnectTimerPeriod = TimeSpan.FromMilliseconds(100),
                 TransportFactory = (_, __, ___, ____, _____, ______) =>
-                {
-                    return new MemcacheTransportForTest(_, __, ___, ____, _____, ______, () => { createdTransports++; }, () => { disposedTransports++; mutex1.Set(); });
-                },
+                    new MemcacheTransportForTest(_, __, ___, ____, _____, ______, () => { createdTransports++; }, () => { disposedTransports++; mutex1.Set(); }),
                 PoolSize = 1,
             };
 
@@ -330,7 +326,7 @@ namespace Criteo.Memcache.UTest.Tests
         {
             var sentMutex = new ManualResetEventSlim(false);
 
-            using(var serverStub = new ServerMock())
+            using (var serverStub = new ServerMock())
             {
                 IMemcacheRequest authenticationRequest = null;
                 // a token that fails
@@ -378,7 +374,7 @@ namespace Criteo.Memcache.UTest.Tests
                             requestAchieved = true;
                             sentMutex.Set();
                         });
-                var queryBuffer = new byte[MemcacheRequestHeader.SIZE];
+                var queryBuffer = new byte[MemcacheRequestHeader.Size];
                 new MemcacheRequestHeader().ToData(queryBuffer);
                 request
                     .Setup(r => r.GetQueryBuffer())
@@ -394,9 +390,9 @@ namespace Criteo.Memcache.UTest.Tests
                     },
                     _ => { },
                     t =>
-                        {
-                            Interlocked.Exchange(ref transportToWork, t);
-                        },
+                    {
+                        Interlocked.Exchange(ref transportToWork, t);
+                    },
                     false,
                     () => false);
                 new MemcacheResponseHeader
@@ -407,18 +403,15 @@ namespace Criteo.Memcache.UTest.Tests
 
                 Exception raised = null;
                 transportToFail.TransportError += e =>
-                    {
                         // when the transport fails collect the exception
                         Interlocked.Exchange(ref raised, e);
-                    };
-
                 var sent = transportToFail.TrySend(request.Object);
 
                 Assert.IsFalse(sent, "The request send should fail");
                 Assert.IsNotNull(raised, "The authentication should have failed");
 
                 // wait for reconnection to happen (should be done in a instant timer)
-                Assert.That(ref transportToWork , (!Is.Null).After(1000, 10), "The working transport should have been set");
+                Assert.That(ref transportToWork, (!Is.Null).After(1000, 10), "The working transport should have been set");
 
                 sent = transportToWork.TrySend(request.Object);
                 Assert.IsTrue(sent, "The request should have been sent");
