@@ -16,7 +16,6 @@
    under the License.
 */
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -59,7 +58,7 @@ namespace Criteo.Memcache.UTest.Tests
             {
                 var key = i.ToString().Select(c => (byte)c).ToArray();
 
-                var locations = locator.Locate(key);
+                var locations = locator.Locate(new RequestKeyWrapper(key));
                 Assert.IsNotEmpty(locations, "RoundRobinLocator found no node");
 
                 var chosenNode = locations.First<IMemcacheNode>();
@@ -84,7 +83,7 @@ namespace Criteo.Memcache.UTest.Tests
 
                 int nodeCount = 0;
                 var keyAsBytes = idx.ToString().Select(c => (byte)c).ToArray();
-                foreach (var chosenNode in locator.Locate(keyAsBytes))
+                foreach (var chosenNode in locator.Locate(new RequestKeyWrapper(keyAsBytes)))
                 {
                     Assert.IsNotNull(chosenNode, "KetamaLocator found no node");
                     nodeSet.Add(chosenNode);
@@ -108,7 +107,7 @@ namespace Criteo.Memcache.UTest.Tests
             {
                 var keyAsBytes = i.ToString().Select(c => (byte)c).ToArray();
 
-                var locations = locator.Locate(keyAsBytes);
+                var locations = locator.Locate(new RequestKeyWrapper(keyAsBytes));
                 Assert.IsNotEmpty(locations, "RoundRobinLocator found no node, but at least 1 is alive");
 
                 var chosenNode = locations.First();
@@ -120,7 +119,7 @@ namespace Criteo.Memcache.UTest.Tests
             for (int i = 0; i < _nodes.Count; ++i)
             {
                 var keyAsBytes = i.ToString().Select(c => (byte)c).ToArray();
-                CollectionAssert.IsEmpty(locator.Locate(keyAsBytes), "RoundRobinLocator found a node when all are dead");
+                CollectionAssert.IsEmpty(locator.Locate(new RequestKeyWrapper(keyAsBytes)), "RoundRobinLocator found a node when all are dead");
             }
 
             foreach (var node in _nodes)
@@ -141,7 +140,7 @@ namespace Criteo.Memcache.UTest.Tests
             {
                 var keyAsBytes = i.ToString().Select(c => (byte)c).ToArray();
 
-                var locations = locator.Locate(keyAsBytes);
+                var locations = locator.Locate(new RequestKeyWrapper(keyAsBytes));
                 Assert.IsNotEmpty(locations, "KetamaLocator found no node, but at least one is alive");
 
                 var chosenNode = locations.First<IMemcacheNode>();
@@ -154,7 +153,7 @@ namespace Criteo.Memcache.UTest.Tests
             for (int i = 0; i < _nodes.Count; ++i)
             {
                 var keyAsBytes = i.ToString().Select(c => (byte)c).ToArray();
-                CollectionAssert.IsEmpty(locator.Locate(keyAsBytes), "KetamaLocator found a node when all are dead");
+                CollectionAssert.IsEmpty(locator.Locate(new RequestKeyWrapper(keyAsBytes)), "KetamaLocator found a node when all are dead");
             }
 
             foreach (var node in _nodes)
@@ -174,7 +173,7 @@ namespace Criteo.Memcache.UTest.Tests
                     (node as NodeMock).IsDead = false;
 
                 var keyAsBytes = i.ToString().Select(c => (byte)c).ToArray();
-                var locations = locator.Locate(keyAsBytes);
+                var locations = locator.Locate(new RequestKeyWrapper(keyAsBytes));
 
                 var j = 0;
                 var nodesSet = new HashSet<IMemcacheNode>();

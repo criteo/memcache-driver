@@ -15,32 +15,31 @@
    specific language governing permissions and limitations
    under the License.
 */
-using Criteo.Memcache.Headers;
+using System;
+using System.Collections.Generic;
 
-namespace Criteo.Memcache.Requests
+namespace Criteo.Memcache.Util
 {
-    class QuitRequest : MemcacheRequestBase, IMemcacheRequest
+    public static class ArrayUtil
     {
-        public override int Replicas
+        [ThreadStatic]
+        private static Random random;
+
+        private static Random Random
         {
-            get { return 0; }
+            get
+            {
+                random = random ?? new Random();
+                return random;
+            }
         }
 
-        public byte[] GetQueryBuffer()
+        public static T GetRandom<T>(this IList<T> list)
         {
-            var buffer = new byte[MemcacheRequestHeader.Size];
-            new MemcacheRequestHeader(Opcode.Quit)
-                .ToData(buffer);
+            if (list.Count == 0)
+                throw new ArgumentException("GetRandom cannot be called on empty containers", "list");
 
-            return buffer;
-        }
-
-        public void HandleResponse(MemcacheResponseHeader header, byte[] key, byte[] extra, byte[] message)
-        {
-        }
-
-        public void Fail()
-        {
+            return list[Random.Next(list.Count)];
         }
     }
 }

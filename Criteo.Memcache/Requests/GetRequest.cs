@@ -63,6 +63,7 @@ namespace Criteo.Memcache.Requests
 
             var requestHeader = new MemcacheRequestHeader(RequestOpcode)
             {
+                VBucket = VBucket,
                 KeyLength = (ushort)Key.Length,
                 ExtraLength = (byte)extraLength,
                 TotalBodyLength = (uint)(extraLength + Key.Length),

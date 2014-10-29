@@ -19,7 +19,6 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading;
-
 using Criteo.Memcache.Authenticators;
 using Criteo.Memcache.Cluster;
 using Criteo.Memcache.Locator;
@@ -50,6 +49,8 @@ namespace Criteo.Memcache.Configuration
         Func<bool> nodeClosing);
 
     public delegate IMemcacheCluster ClusterAllocator(MemcacheClientConfiguration configuration);
+
+    public delegate ClusterAllocator CouchbaseClusterAllocatorFactory(string bucket, IPEndPoint[] hosts);
 
     public delegate INodeLocator NodeLocatorAllocator();
 
@@ -86,16 +87,19 @@ namespace Criteo.Memcache.Configuration
         internal static NodeLocatorAllocator DefaultLocatorFactory =
             () => new KetamaLocator();
 
-        public static NodeLocatorAllocator RoundRobinLocatorFactory =
+        public static readonly NodeLocatorAllocator RoundRobinLocatorFactory =
             () => new RoundRobinLocator();
 
-        public static AuthenticatorAllocator SaslPlainAuthenticatorFactory =
+        public static readonly AuthenticatorAllocator SaslPlainAuthenticatorFactory =
             (zone, user, password) => new SaslPlainTextAuthenticator { Zone = zone, User = user, Password = password };
+
+        public static readonly CouchbaseClusterAllocatorFactory CouchbaseClusterFactory =
+            (bucket, hosts) => config => new CouchbaseCluster(config, bucket, hosts);
 
         #endregion factories
 
         private readonly IList<IPEndPoint> _nodesEndPoints = new List<IPEndPoint>();
-        public IList<IPEndPoint> NodesEndPoints { get { return _nodesEndPoints;} }
+        public IList<IPEndPoint> NodesEndPoints { get { return _nodesEndPoints; } }
 
         public NodeLocatorAllocator NodeLocatorFactory { get; set; }
         public TransportAllocator TransportFactory { get; set; }
@@ -126,9 +130,9 @@ namespace Criteo.Memcache.Configuration
             TransportConnectTimerPeriod = TimeSpan.FromMilliseconds(1000);
             Replicas = 0;
 
-            var sixtyFourKB = 1 << 16;
-            TransportReceiveBufferSize = sixtyFourKB;
-            TransportSendBufferSize = sixtyFourKB;
+            const int sixtyFourKb = 1 << 16;
+            TransportReceiveBufferSize = sixtyFourKb;
+            TransportSendBufferSize = sixtyFourKb;
 
             KeySerializer = new UTF8KeySerializer();
         }

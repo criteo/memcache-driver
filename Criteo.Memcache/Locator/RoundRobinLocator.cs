@@ -19,6 +19,7 @@ using System.Collections.Generic;
 using System.Threading;
 
 using Criteo.Memcache.Node;
+using Criteo.Memcache.Requests;
 
 namespace Criteo.Memcache.Locator
 {
@@ -32,7 +33,7 @@ namespace Criteo.Memcache.Locator
             _nodes = nodes;
         }
 
-        public IEnumerable<IMemcacheNode> Locate(byte[] key)
+        public IEnumerable<IMemcacheNode> Locate(IMemcacheRequest req)
         {
             int position = Interlocked.Increment(ref _lastPosition) % _nodes.Count;
             position = position >= 0 ? position : position + _nodes.Count;

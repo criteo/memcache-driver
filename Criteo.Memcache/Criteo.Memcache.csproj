@@ -12,6 +12,8 @@
     <AssemblyName>Criteo.Memcache</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\</SolutionDir>
+    <RestorePackages>true</RestorePackages>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -33,6 +35,10 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="ServiceStack.Text, Version=3.9.34.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>$(SolutionDir)\packages\ServiceStack.Text.3.9.34\lib\net35\ServiceStack.Text.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -45,6 +51,12 @@
     <Compile Include="Authenticators\IAuthenticationToken.cs" />
     <Compile Include="Authenticators\IMemcacheAuthenticator.cs" />
     <Compile Include="Authenticators\SaslPlainTextAuthenticator.cs" />
+    <Compile Include="Cluster\CouchbaseCluster.cs" />
+    <Compile Include="Cluster\Couchbase\CouchbaseSerialization.cs" />
+    <Compile Include="Cluster\Couchbase\AsyncLinesStreamReader.cs" />
+    <Compile Include="Locator\VBucketServerMapLocator.cs" />
+    <Compile Include="Util\ArrayUtil.cs" />
+    <Compile Include="Util\VBucketHash.cs" />
     <Compile Include="Exceptions\AuthenticationException.cs" />
     <Compile Include="Exceptions\MemcacheException.cs" />
     <Compile Include="Cluster\IMemcacheCluster.cs" />
@@ -83,11 +95,19 @@
     <None Include="Criteo.MemcacheClient.nuspec">
       <SubType>Designer</SubType>
     </None>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(SolutionDir)\.cbs\moab.targets" Condition="Exists('$(SolutionDir)\.cbs\moab.targets')" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\.cbs\Checks.targets" Condition="Exists('$(SolutionDir)\.cbs\Checks.targets')" />
   <Import Project="$(CBS_DIR)\MSBuild\targets\Criteo.CSharp.targets" Condition="Exists('$(CBS_DIR)\MSBuild\targets\Criteo.CSharp.targets')" />
+  <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Enable NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('$(SolutionDir)\.nuget\NuGet.targets')" Text="$([System.String]::Format('$(ErrorText)', '$(SolutionDir)\.nuget\NuGet.targets'))" />
+  </Target>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

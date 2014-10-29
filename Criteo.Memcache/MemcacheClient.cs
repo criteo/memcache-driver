@@ -113,6 +113,13 @@ namespace Criteo.Memcache
             node.NodeDead += OnNodeError;
         }
 
+        private void UnregisterEvents(IMemcacheNode node)
+        {
+            node.MemcacheError -= OnMemcacheError;
+            node.TransportError -= OnTransportError;
+            node.NodeDead -= OnNodeError;
+        }
+
         /// <summary>
         /// The constructor, see @MemcacheClientConfiguration for details
         /// </summary>
@@ -125,6 +132,7 @@ namespace Criteo.Memcache
             _configuration = configuration;
             _cluster = (configuration.ClusterFactory ?? MemcacheClientConfiguration.DefaultClusterFactory)(configuration);
             _cluster.NodeAdded += RegisterEvents;
+            _cluster.NodeRemoved += UnregisterEvents;
             _cluster.Initialize();
         }
 
@@ -142,19 +150,15 @@ namespace Criteo.Memcache
             int countTrySends = 0;
             int countTrySendsOK = 0;
 
-            foreach (var node in _cluster.Locator.Locate(request.Key))
+            foreach (var node in _cluster.Locator.Locate(request))
             {
                 countTrySends++;
                 if (node.TrySend(request, _configuration.QueueTimeout))
-                {
                     countTrySendsOK++;
-                }
 
                 // Break after trying to send the request to replicas+1 nodes
                 if (countTrySends > request.Replicas)
-                {
                     break;
-                }
             }
 
             // The callback will not be called

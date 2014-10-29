@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text;
-
+using Criteo.Memcache.UTest.Mocks;
 using NUnit.Framework;
 
 using Criteo.Memcache.Locator;
@@ -3341,7 +3341,7 @@ namespace Criteo.Memcache.UTest.Tests
             {
                 var keyAsBytes = Encoding.UTF8.GetBytes(tuple[0]);
 
-                var locations = ketama.Locate(keyAsBytes);
+                var locations = ketama.Locate(new RequestKeyWrapper(keyAsBytes));
                 Assert.IsNotEmpty(locations, "KetamaLocator found no node");
 
                 var nodeEnumerator = locations.GetEnumerator();
@@ -3370,22 +3370,21 @@ namespace Criteo.Memcache.UTest.Tests
             {
                 var keyAsBytes = Encoding.UTF8.GetBytes(tuple[0]);
 
-                var locations = ketama.Locate(keyAsBytes);
+                var locations = ketama.Locate(new RequestKeyWrapper(keyAsBytes));
                 Assert.IsNotEmpty(locations, "KetamaLocator found no node");
                 var nodeEnumerator = locations.GetEnumerator();
 
-                int expected_idx = 0;
+                int expectedIdx = 0;
                 foreach(var _ in Enumerable.Range(0,2))
                 {
                     nodeEnumerator.MoveNext();
                     var node = nodeEnumerator.Current;
                     Assert.IsNotNull(node, "Null node");
 
-                    if (tuple[++expected_idx] ==  "10.0.1.7:11211")
-                    {
-                        expected_idx++;
-                    }
-                    Assert.AreEqual(tuple[expected_idx], node.EndPoint.ToString(), "Unexpected node returned by the Ketama locator. Key: {0}", tuple[0]);
+                    if (tuple[++expectedIdx] ==  "10.0.1.7:11211")
+                        expectedIdx++;
+
+                    Assert.AreEqual(tuple[expectedIdx], node.EndPoint.ToString(), "Unexpected node returned by the Ketama locator. Key: {0}", tuple[0]);
                 }
             }
         }

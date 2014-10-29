@@ -26,5 +26,6 @@ namespace Criteo.Memcache.Requests
         public virtual uint RequestId { get; set; }
         public virtual byte[] Key { get; set; }
         public virtual int Replicas { get; set; }
+        public virtual ushort VBucket { get; set; }
     }
 }

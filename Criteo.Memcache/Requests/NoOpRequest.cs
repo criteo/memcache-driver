@@ -31,6 +31,7 @@ namespace Criteo.Memcache.Requests
         {
             var requestHeader = new MemcacheRequestHeader(Opcode.NoOp)
             {
+                VBucket = VBucket,
                 Opaque = RequestId,
             };
 

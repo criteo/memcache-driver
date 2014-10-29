@@ -17,7 +17,6 @@
 */
 using System;
 using System.Collections.Generic;
-
 using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Locator;
 using Criteo.Memcache.Node;

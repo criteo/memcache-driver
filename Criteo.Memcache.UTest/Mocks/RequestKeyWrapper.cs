@@ -15,32 +15,42 @@
    specific language governing permissions and limitations
    under the License.
 */
+using System;
 using Criteo.Memcache.Headers;
+using Criteo.Memcache.Requests;
 
-namespace Criteo.Memcache.Requests
+namespace Criteo.Memcache.UTest.Mocks
 {
-    class QuitRequest : MemcacheRequestBase, IMemcacheRequest
+    /// <summary>
+    /// Wraps a binary key into a request.
+    /// Used to test locators and other features that may access and modify properties,
+    /// but should not be calling any methods.
+    /// </summary>
+    class RequestKeyWrapper : IMemcacheRequest
     {
-        public override int Replicas
+        public uint RequestId { get; set; }
+        public byte[] Key { get; set; }
+        public int Replicas { get; private set; }
+        public ushort VBucket { get; set; }
+
+        public RequestKeyWrapper(byte[] key)
         {
-            get { return 0; }
+            Key = key;
         }
 
         public byte[] GetQueryBuffer()
         {
-            var buffer = new byte[MemcacheRequestHeader.Size];
-            new MemcacheRequestHeader(Opcode.Quit)
-                .ToData(buffer);
-
-            return buffer;
+            throw new NotImplementedException();
         }
 
         public void HandleResponse(MemcacheResponseHeader header, byte[] key, byte[] extra, byte[] message)
         {
+            throw new NotImplementedException();
         }
 
         public void Fail()
         {
+            throw new NotImplementedException();
         }
     }
 }

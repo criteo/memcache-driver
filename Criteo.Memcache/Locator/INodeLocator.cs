@@ -18,6 +18,7 @@
 using System.Collections.Generic;
 
 using Criteo.Memcache.Node;
+using Criteo.Memcache.Requests;
 
 namespace Criteo.Memcache.Locator
 {
@@ -32,8 +33,8 @@ namespace Criteo.Memcache.Locator
         /// <summary>
         /// This method should return the node where belongs the key or null if the they're all dead
         /// </summary>
-        /// <param name="key"></param>
+        /// <param name="req">Request</param>
         /// <returns></returns>
-        IEnumerable<IMemcacheNode> Locate(byte[] key);
+        IEnumerable<IMemcacheNode> Locate(IMemcacheRequest req);
     }
 }

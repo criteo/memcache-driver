@@ -35,6 +35,7 @@ namespace Criteo.Memcache.Requests
             var message = new byte[MemcacheRequestHeader.Size + (Key == null ? 0 : Key.Length)];
             new MemcacheRequestHeader(Opcode.Stat)
             {
+                VBucket = VBucket,
                 Opaque = RequestId,
                 KeyLength = (ushort)(Key == null ? 0 : Key.Length),
             }.ToData(message);

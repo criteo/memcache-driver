@@ -27,6 +27,7 @@ namespace Criteo.Memcache.Requests
         uint RequestId { get; set; }
         byte[] Key { get; set; }
         int Replicas { get; }
+        ushort VBucket { get; set; }
 
         byte[] GetQueryBuffer();
         void HandleResponse(MemcacheResponseHeader header, byte[] key, byte[] extra, byte[] message);

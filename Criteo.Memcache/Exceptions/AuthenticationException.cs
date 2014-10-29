@@ -15,11 +15,10 @@
    specific language governing permissions and limitations
    under the License.
 */
-using System;
 
 namespace Criteo.Memcache.Exceptions
 {
-    internal class AuthenticationException : Exception
+    internal class AuthenticationException : MemcacheException
     {
         public AuthenticationException(string message)
             : base(message)

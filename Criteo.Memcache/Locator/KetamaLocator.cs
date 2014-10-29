@@ -7,6 +7,7 @@ using System.Threading;
 
 using Criteo.Memcache.Headers;
 using Criteo.Memcache.Node;
+using Criteo.Memcache.Requests;
 
 namespace Criteo.Memcache.Locator
 {
@@ -73,8 +74,9 @@ namespace Criteo.Memcache.Locator
                 return hash.Value.ComputeHash(key).CopyToUIntNoRevert(0);
         }
 
-        public IEnumerable<IMemcacheNode> Locate(byte[] key)
+        public IEnumerable<IMemcacheNode> Locate(IMemcacheRequest req)
         {
+            var key = req.Key;
             if (key == null)
                 throw new ArgumentNullException("key");
 
@@ -90,7 +92,7 @@ namespace Criteo.Memcache.Locator
                     yield break;
             }
 
-            // Return alive Nodes only.
+            // Return alive JsonNodes only.
             foreach (var retNode in LocateNode(ld, GetKeyHash(key)))
             {
                 if (retNode != null && !retNode.IsDead)
@@ -131,7 +133,7 @@ namespace Criteo.Memcache.Locator
             if (foundIndex < 0 || foundIndex >= ld.SortedKeys.Length)
                 yield break;
 
-            // Return distinct Nodes. Exit after a complete loop over the keys.
+            // Return distinct JsonNodes. Exit after a complete loop over the keys.
             int startingIndex = foundIndex;
             do
             {

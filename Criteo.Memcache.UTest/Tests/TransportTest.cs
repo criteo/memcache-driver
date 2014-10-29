@@ -28,7 +28,6 @@ using Criteo.Memcache.Headers;
 using Criteo.Memcache.Requests;
 using Criteo.Memcache.Transport;
 using Criteo.Memcache.UTest.Mocks;
-using Criteo.Memcache.Exceptions;
 using Criteo.Memcache.Authenticators;
 
 namespace Criteo.Memcache.UTest.Tests
@@ -36,8 +35,6 @@ namespace Criteo.Memcache.UTest.Tests
     [TestFixture]
     public class TransportTest
     {
-        private IPAddress LOCALHOST = new IPAddress(new byte[] { 127, 0, 0, 1 });
-
         [Test]
         public void MemcacheSocketTest([Values(0, 2, 10)]int maxByteSentByServer)
         {

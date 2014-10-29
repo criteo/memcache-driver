@@ -57,6 +57,7 @@ namespace Criteo.Memcache.Requests
         {
             var requestHeader = new MemcacheRequestHeader(RequestOpcode)
             {
+                VBucket = VBucket,
                 KeyLength = (ushort)Key.Length,
                 ExtraLength = 2 * sizeof(uint),
                 TotalBodyLength = (uint)(2 * sizeof(uint) + Key.Length + (Message == null ? 0 : Message.Length)),
@@ -89,7 +90,7 @@ namespace Criteo.Memcache.Requests
 
         public override string ToString()
         {
-            return RequestOpcode.ToString() + ";Id=" + RequestId + ";Key=" + Key;
+            return RequestOpcode + ";Id=" + RequestId + ";Key=" + Key;
         }
     }
 }

@@ -17,7 +17,6 @@
 */
 using System;
 using System.Collections.Generic;
-
 using Criteo.Memcache.Locator;
 using Criteo.Memcache.Node;
 
@@ -27,8 +26,13 @@ namespace Criteo.Memcache.Cluster
     {
         void Initialize();
 
-        IEnumerable<IMemcacheNode> Nodes { get; }
+        /// <summary>
+        /// This property should be used every time someone wants to use the locator,
+        /// as the locator may be swapped at any time by dynamic cluster implementations.
+        /// </summary>
         INodeLocator Locator { get; }
+
+        IEnumerable<IMemcacheNode> Nodes { get; }
 
         event Action<IMemcacheNode> NodeAdded;
         event Action<IMemcacheNode> NodeRemoved;
