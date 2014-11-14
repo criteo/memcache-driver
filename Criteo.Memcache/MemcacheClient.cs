@@ -336,6 +336,38 @@ namespace Criteo.Memcache
         }
 
         /// <summary>
+        /// Warmup connection to each node
+        /// </summary>
+        /// <param name="callback">called when all nodes have been contacted</param>
+        public void Warmup(Action callback)
+        {
+            var aliveNodes = _cluster.Nodes.Where(n => !n.IsDead).ToList();
+            var answerToGet = aliveNodes.Count;
+
+            Action<MemcacheResponseHeader> onResponse = r =>
+                    {
+                        if (Interlocked.Decrement(ref answerToGet) == 0)
+                        {
+                            callback();
+                        }
+                    };
+
+            foreach (var node in aliveNodes)
+            {
+                var request = new NoOpRequest
+                {
+                    Callback = onResponse,
+                    RequestId = NextRequestId
+                };
+
+                if (!node.TrySend(request, _configuration.QueueTimeout))
+                {
+                    onResponse(default(MemcacheResponseHeader));
+                }
+            }
+        }
+
+        /// <summary>
         /// Retrieve stats from all alive nodes
         /// </summary>
         /// <param name="key" />
