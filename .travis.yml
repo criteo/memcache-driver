@@ -8,7 +8,8 @@ before_install:
   - mozroots --import --sync
 
 script:
-  - mono --runtime=v4.0 .nuget/NuGet.exe install Criteo.Memcache.UTest/packages.config -OutputDirectory packages
+  - wget http://nuget.org/nuget.exe
+  - mono --runtime=v4.0 nuget.exe restore
   - xbuild /property:Configuration=Release
-  - mono --runtime=v4.0 .nuget/NuGet.exe install NUnit.Runners -Version 2.6.1 -o packages
+  - mono --runtime=v4.0 nuget.exe install NUnit.Runners -Version 2.6.1 -o packages
   - mono --runtime=v4.0 packages/NUnit.Runners.2.6.1/tools/nunit-console.exe -noxml -nodots -labels -stoponerror Criteo.Memcache.UTest/bin/Release/Criteo.Memcache.UTest.dll
