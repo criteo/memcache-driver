@@ -12,10 +12,7 @@ No
 
 ##What are the features we want to add?
 * Support of more memcache requests (see https://code.google.com/p/memcached/wiki/BinaryProtocolRevamped)
-* vBucket key locator
-* Automatic configuration via Couchbase REST API
 * Very simple UDP transport
-* Support other types than byte[]
 
 ##What we do not want to support
 * Multi-get: multi-get as it's implemented in other binary memcache drivers is just a way to multiplex requests to reach better performance. This driver multiplexes all the requests, so there is no use to add a multi-get.
