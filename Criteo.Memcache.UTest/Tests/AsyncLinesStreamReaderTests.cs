@@ -31,13 +31,15 @@ namespace Criteo.Memcache.UTest.Tests
         private int _chunks;
         private Stream _stream;
         private AsyncLinesStreamReader _reader;
+        private MemoryStream _memoryStream;
 
         [SetUp]
         public void SetUp()
         {
             _errors = _chunks = 0;
 
-            _stream = Stream.Synchronized(new MemoryStream());
+            _memoryStream = new MemoryStream();
+            _stream = Stream.Synchronized(_memoryStream);
 
             _reader = new AsyncLinesStreamReader(_stream);
             _reader.OnError += _ => { _errors++; };
@@ -69,6 +71,12 @@ namespace Criteo.Memcache.UTest.Tests
         public void TestError()
         {
             _stream.Close();
+
+            if (_stream.CanRead) //special case for mono (SynchronizedStream.Close does not work)
+            {
+                _memoryStream.Close();
+                Assert.False(_stream.CanRead);
+            }
 
             // Make sure that an asynchronous read happens
             Assert.That(() => _errors, Is.EqualTo(1).After(5000, 10));
