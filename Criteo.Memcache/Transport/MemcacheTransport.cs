@@ -190,6 +190,7 @@ namespace Criteo.Memcache.Transport
         {
             var socket = new Socket(_endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             socket.Connect(_endPoint);
+            socket.NoDelay = true;
 
             socket.ReceiveBufferSize = _clientConfig.TransportReceiveBufferSize;
             socket.SendBufferSize = _clientConfig.TransportReceiveBufferSize;
