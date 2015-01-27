@@ -118,7 +118,7 @@ namespace Criteo.Memcache.UTest.Tests
             _reader.OnChunk += c => receivedStream = c;
 
             Send(sentA + Delimiter + sentB + Delimiter);
-            Assert.IsNotNull(receivedStream);
+            Assert.That(() => receivedStream, Is.Not.Null.After(5000, 10));
 
             // Check that the last received chunk is the one we expect
             var received = new StreamReader(receivedStream).ReadToEnd();
