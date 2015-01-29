@@ -40,8 +40,6 @@ namespace Criteo.Memcache.Node
 
         private int _workingTransports;
 
-        public int WorkingTransports { get { return _workingTransports; } }
-
         #region Events
 
         public event Action<Exception> TransportError;
@@ -249,6 +247,7 @@ namespace Criteo.Memcache.Node
 
         // for testing purpose only !!!
         internal int PoolSize { get { return _transportPool.Count; } }
+        internal int WorkingTransports { get { return _workingTransports; } }
 
         public override string ToString()
         {

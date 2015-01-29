@@ -81,15 +81,16 @@ namespace Criteo.Memcache.Locator
                 throw new ArgumentNullException("key");
 
             var ld = _lookupData;
-            switch (ld.Nodes.Length)
+            if (ld.Nodes.Length == 0)
             {
-                case 0:
-                    yield break;
-                case 1:
-                    var firstNode = ld.Nodes[0];
-                    if (!firstNode.IsDead)
-                        yield return firstNode;
-                    yield break;
+                yield break;
+            }
+            if (ld.Nodes.Length == 1)
+            {
+                var firstNode = ld.Nodes[0];
+                if (!firstNode.IsDead)
+                    yield return firstNode;
+                yield break;
             }
 
             // Return alive JsonNodes only.

@@ -37,10 +37,12 @@ namespace Criteo.Memcache.Requests
 
         public void HandleResponse(MemcacheResponseHeader header, byte[] key, byte[] extra, byte[] message)
         {
+            // nothing to handle on a quit response
         }
 
         public void Fail()
         {
+            // same as on a response
         }
     }
 }
