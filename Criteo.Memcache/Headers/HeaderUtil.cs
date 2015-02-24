@@ -111,6 +111,10 @@ namespace Criteo.Memcache.Headers
         TAP_VBucket_Set = 0x45,
         TAP_Checkpoint_Start = 0x46,
         TAP_Checkpoint_End = 0x47,
+
+        // couchbase specific commands
+        // http://www.couchbase.com/wiki/display/couchbase/Replica+Read
+        ReplicaRead = 0x83,
     }
 
     public static class HeaderUtil

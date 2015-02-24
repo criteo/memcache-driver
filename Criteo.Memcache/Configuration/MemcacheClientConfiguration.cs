@@ -50,7 +50,7 @@ namespace Criteo.Memcache.Configuration
 
     public delegate IMemcacheCluster ClusterAllocator(MemcacheClientConfiguration configuration);
 
-    public delegate ClusterAllocator CouchbaseClusterAllocatorFactory(string bucket, IPEndPoint[] hosts);
+    public delegate ClusterAllocator CouchbaseClusterAllocatorFactory(string bucket, params IPEndPoint[] hosts);
 
     public delegate INodeLocator NodeLocatorAllocator();
 

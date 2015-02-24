@@ -173,6 +173,32 @@ namespace Criteo.Memcache
         }
 
         /// <summary>
+        /// Sends a request (no client replication handled)
+        /// If the master node in dead, try to sends a fallback request to the failover node
+        /// sending the failover request
+        /// </summary>
+        /// <param name="request">A memcache request</param>
+        /// <param name="requestReplica">The failover request to send to a replica</param>
+        /// <returns>
+        /// True if the request was sent to at least one node. The caller will receive a callback (if not null).
+        /// False if the request could not be sent to any node. In that case, the callback will not be called.
+        /// </returns>
+        protected bool SendRequestWithReplica(ICouchbaseRequest request, ICouchbaseRequest requestReplica)
+        {
+            var req = request;
+            foreach (var node in _cluster.Locator.Locate(request))
+            {
+                if (!node.IsDead && node.TrySend(req, _configuration.QueueTimeout))
+                    return true;
+
+                req = requestReplica;
+                requestReplica.VBucket = request.VBucket;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Sets the key with the given message with the given TTL
         /// </summary>
         /// <param name="key" />
@@ -264,6 +290,36 @@ namespace Criteo.Memcache
             };
 
             return SendRequest(request);
+        }
+
+        /// <summary>
+        /// Fetch the value for the given key, fallback with replica read if the master is not rechable
+        /// Only usable with couchbase, not with a memcached cluster
+        /// </summary>
+        /// <param name="key" />
+        /// <param name="callback">Will be called after the memcached respond</param>
+        /// <returns></returns>
+        public bool GetWithReplica(string key, Action<Status, byte[]> callback)
+        {
+            var keyAsBytes = _configuration.KeySerializer.SerializeToBytes(key);
+            var request = new GetRequest
+            {
+                Key = keyAsBytes,
+                CallBack = callback,
+                RequestId = NextRequestId,
+                RequestOpcode = Opcode.Get,
+            };
+
+            var replicaRequest = new GetRequest
+            {
+                Key = keyAsBytes,
+                CallBack = callback,
+                RequestId = NextRequestId,
+                RequestOpcode = Opcode.ReplicaRead,
+            };
+
+
+            return SendRequestWithReplica(request, replicaRequest);
         }
 
         /// <summary>

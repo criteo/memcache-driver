@@ -50,9 +50,12 @@ namespace Criteo.Memcache.Locator
             // Compute the vBucket's index using a modified CRC32
             var vBucketIndex = Hash.Compute(req.Key) & HashMask;
             var couchbaseReq = req as ICouchbaseRequest;
-            if(couchbaseReq != null)
+            if (couchbaseReq != null)
                 couchbaseReq.VBucket = (ushort)vBucketIndex;
 
+            // the call to the yield is done in another method in order to
+            // have the VBucket changed before we start iterating over the
+            // located nodes
             return YieldingLocate(req, vBucketIndex);
         }
 
@@ -62,13 +65,12 @@ namespace Criteo.Memcache.Locator
             if (Nodes == null || Nodes.Count == 0 || VBucketMap == null || VBucketMap.Length != 1024)
                 yield break;
 
-            // Yield replica in the same order (the first one being the master),
-            // a node index of -1 means "take a random node" (see CouchBase)
+            // Yield replica in the same order (the first one being the master)
             foreach (var node in VBucketMap[vBucketIndex])
                 if (0 <= node && node < Nodes.Count)
                     yield return Nodes[node];
                 else
-                    yield return Nodes.GetRandom();
+                    continue;
         }
     }
 }

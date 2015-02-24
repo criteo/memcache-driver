@@ -56,8 +56,8 @@ namespace Criteo.Memcache.Requests
 
         public byte[] GetQueryBuffer()
         {
-            if (RequestOpcode != Opcode.Get && RequestOpcode != Opcode.GetK && RequestOpcode != Opcode.GAT)
-                throw new MemcacheException("Get request only supports Get, GetK or GAT opcodes");
+            if (RequestOpcode != Opcode.Get && RequestOpcode != Opcode.GetK && RequestOpcode != Opcode.GAT && RequestOpcode != Opcode.ReplicaRead)
+                throw new MemcacheException("Get request only supports Get, GetK, GAT or ReplicaRead opcodes");
 
             int extraLength = RequestOpcode == Opcode.GAT ? sizeof(uint) : 0;
 
