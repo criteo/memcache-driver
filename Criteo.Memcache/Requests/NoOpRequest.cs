@@ -21,7 +21,7 @@ using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.Requests
 {
-    internal class NoOpRequest : MemcacheRequestBase, IMemcacheRequest
+    internal class NoOpRequest : MemcacheRequestBase, IMemcacheRequest, ICouchbaseRequest
     {
         public override int Replicas { get { return 0; } }
 

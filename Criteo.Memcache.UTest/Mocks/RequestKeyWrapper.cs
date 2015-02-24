@@ -26,7 +26,7 @@ namespace Criteo.Memcache.UTest.Mocks
     /// Used to test locators and other features that may access and modify properties,
     /// but should not be calling any methods.
     /// </summary>
-    class RequestKeyWrapper : IMemcacheRequest
+    class RequestKeyWrapper : IRedundantRequest, ICouchbaseRequest
     {
         public uint RequestId { get; set; }
         public byte[] Key { get; set; }

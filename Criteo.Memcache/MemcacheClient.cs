@@ -145,7 +145,7 @@ namespace Criteo.Memcache
         /// True if the request was sent to at least one node. The caller will receive a callback (if not null).
         /// False if the request could not be sent to any node. In that case, the callback will not be called.
         /// </returns>
-        protected bool SendRequest(IMemcacheRequest request)
+        protected bool SendRequest(IRedundantRequest request)
         {
             int countTrySends = 0;
             int countTrySendsOK = 0;
@@ -153,7 +153,7 @@ namespace Criteo.Memcache
             foreach (var node in _cluster.Locator.Locate(request))
             {
                 countTrySends++;
-                if (node.TrySend(request, _configuration.QueueTimeout))
+                if (!node.IsDead && node.TrySend(request, _configuration.QueueTimeout))
                     countTrySendsOK++;
 
                 // Break after trying to send the request to replicas+1 nodes

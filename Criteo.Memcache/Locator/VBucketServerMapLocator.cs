@@ -49,7 +49,9 @@ namespace Criteo.Memcache.Locator
         {
             // Compute the vBucket's index using a modified CRC32
             var vBucketIndex = Hash.Compute(req.Key) & HashMask;
-            req.VBucket = (ushort)vBucketIndex;
+            var couchbaseReq = req as ICouchbaseRequest;
+            if(couchbaseReq != null)
+                couchbaseReq.VBucket = (ushort)vBucketIndex;
 
             return YieldingLocate(req, vBucketIndex);
         }

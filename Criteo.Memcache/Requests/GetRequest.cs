@@ -22,7 +22,7 @@ using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.Requests
 {
-    internal class GetRequest : RedundantRequest, IMemcacheRequest
+    internal class GetRequest : RedundantRequest, IRedundantRequest, ICouchbaseRequest
     {
         private TimeSpan _expire;
 

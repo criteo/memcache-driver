@@ -21,7 +21,7 @@ using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.Requests
 {
-    class SetRequest : RedundantRequest, IMemcacheRequest
+    class SetRequest : RedundantRequest, IRedundantRequest, ICouchbaseRequest
     {
         private const uint RawDataFlag = 0xfa52;
         private TimeSpan _expire;

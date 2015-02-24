@@ -21,7 +21,7 @@ using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.Requests
 {
-    class DeleteRequest : RedundantRequest, IMemcacheRequest
+    class DeleteRequest : RedundantRequest, IRedundantRequest, ICouchbaseRequest
     {
         public Action<Status> CallBack { get; set; }
 
