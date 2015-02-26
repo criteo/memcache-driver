@@ -116,16 +116,8 @@ namespace Criteo.Memcache.Node
             _transportPool = new BlockingCollection<IMemcacheTransport>(new ConcurrentStack<IMemcacheTransport>());
 
             for (int i = 0; i < configuration.PoolSize; ++i)
-            {
-                var transport = (configuration.TransportFactory ?? MemcacheTransport.DefaultAllocator)
-                                    (endPoint,
-                                    configuration,
-                                    RegisterEvents,
-                                    TransportAvailable,
-                                    false,
-                                    IsClosing);
-                TransportAvailable(transport);
-            }
+                (configuration.TransportFactory ?? MemcacheTransport.DefaultAllocator)
+                    (endPoint, configuration, RegisterEvents, TransportAvailable, false, IsClosing);
         }
 
         private void TransportAvailable(IMemcacheTransport transport)

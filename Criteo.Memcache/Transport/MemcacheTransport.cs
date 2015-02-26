@@ -53,6 +53,7 @@ namespace Criteo.Memcache.Transport
 
         private volatile bool _disposed = false;
         private volatile bool _initialized = false;
+        private volatile bool _alive;
         private int _ongoingShutdown = 0;          // Integer used as a boolean
         private int _transportAvailableInReceive = 0;
         private readonly ConcurrentQueue<IMemcacheRequest> _pendingRequests;
@@ -113,6 +114,9 @@ namespace Criteo.Memcache.Transport
 
             if (planToConnect)
                 _connectTimer.Change(0, Timeout.Infinite);
+            else if (transportAvailable != null)
+                transportAvailable(this);
+            _alive = !planToConnect;
         }
 
         /// <summary>
@@ -236,6 +240,11 @@ namespace Criteo.Memcache.Transport
                         if (!_disposed)
                             _connectTimer.Change((int)_clientConfig.TransportConnectTimerPeriod.TotalMilliseconds, Timeout.Infinite);
 
+                        if (_alive && TransportDead != null)
+                            TransportDead(this);
+
+                        _alive = false;
+
                         return false;
                     }
 
@@ -243,6 +252,7 @@ namespace Criteo.Memcache.Transport
                     {
                         Start();
                         _initialized = true;
+                        _alive = true;
                     }
                     catch (Exception e)
                     {

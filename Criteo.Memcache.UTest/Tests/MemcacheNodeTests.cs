@@ -29,6 +29,7 @@ using Criteo.Memcache.Headers;
 using Criteo.Memcache.Node;
 using Criteo.Memcache.Requests;
 using Criteo.Memcache.UTest.Mocks;
+using Criteo.Memcache.Transport;
 
 namespace Criteo.Memcache.UTest.Tests
 {
@@ -50,6 +51,8 @@ namespace Criteo.Memcache.UTest.Tests
                     {
                         var transport = new TransportMock(r) { IsAlive = aliveness, Setup = s };
                         transportMocks.Add(transport);
+                        if (s != null)
+                            s(transport);
                         return transport;
                     },
                 PoolSize = 2,
@@ -57,20 +60,20 @@ namespace Criteo.Memcache.UTest.Tests
             var node = new MemcacheNode(null, config);
             CollectionAssert.IsNotEmpty(transportMocks, "No transport has been created by the node");
 
-            Assert.IsTrue(node.TrySend(new NoOpRequest(), Timeout.Infinite), "Unable to send a request through the node");
+            Assert.IsTrue(node.TrySend(new NoOpRequest(), 5000), "Unable to send a request through the node");
 
             // creation of new transport will set them as dead
             aliveness = false;
             foreach (var transport in transportMocks)
                 transport.IsAlive = false;
 
-            Assert.IsFalse(node.TrySend(new NoOpRequest(), Timeout.Infinite), "The node did not failed with all transport deads");
+            Assert.IsFalse(node.TrySend(new NoOpRequest(), 5000), "The node did not failed with all transport deads");
 
             foreach (var transport in transportMocks)
                 transport.IsAlive = true;
 
             Assert.IsFalse(node.IsDead, "The node is still dead, should be alive now !");
-            Assert.IsTrue(node.TrySend(new NoOpRequest(), Timeout.Infinite), "Unable to send a request throught the node after it's alive");
+            Assert.IsTrue(node.TrySend(new NoOpRequest(), 5000), "Unable to send a request throught the node after it's alive");
         }
 
         // Test the dispose of a node
@@ -83,6 +86,8 @@ namespace Criteo.Memcache.UTest.Tests
                 TransportFactory = (_, __, r, s, ___, ____) =>
                 {
                     var transport = new TransportMock(r) { IsAlive = true, Setup = s };
+                    if (s != null)
+                        s(transport);
                     return transport;
                 },
                 PoolSize = 1,
@@ -90,7 +95,7 @@ namespace Criteo.Memcache.UTest.Tests
             var node = new MemcacheNode(null, config);
 
             // TransportMock does not put back the transport in the pool after the TrySend
-            Assert.IsTrue(node.TrySend(new NoOpRequest(), Timeout.Infinite), "Unable to send a request through the node");
+            Assert.IsTrue(node.TrySend(new NoOpRequest(), 5000), "Unable to send a request through the node");
 
             // Dispose the node after a certain delay
             ThreadPool.QueueUserWorkItem((o) => { Thread.Sleep(500); node.Dispose(); });
@@ -286,7 +291,7 @@ namespace Criteo.Memcache.UTest.Tests
                 TransportFactory = (_, __, ___, ____, _____, ______) =>
                     new MemcacheTransportForTest(_, __, ___, ____, _____, ______, () => { createdTransports++; }, () => { }),
                 NodeFactory = (_, __) =>
-                    MemcacheClientConfiguration.DefaultNodeFactory(_, __) as MemcacheNode,
+                    theNode = MemcacheClientConfiguration.DefaultNodeFactory(_, __) as MemcacheNode,
                 PoolSize = nbOfTransportsPerNode,
             };
 
@@ -374,6 +379,102 @@ namespace Criteo.Memcache.UTest.Tests
                 // Dispose the client
                 memcacheClient.Dispose();
             }
+        }
+
+        private class FakeTransport : IMemcacheTransport
+        {
+            public FakeTransport Factory(EndPoint endPoint,
+                MemcacheClientConfiguration clientConfig,
+                Action<IMemcacheTransport> registerEvents,
+                Action<IMemcacheTransport> transportAvailable,
+                bool autoConnect,
+                Func<bool> nodeClosing)
+            {
+                registerEvents(this);
+                _transportAvailable = transportAvailable;
+                if (transportAvailable != null)
+                    transportAvailable(this);
+                return this;
+            }
+
+            private Action<IMemcacheTransport> _transportAvailable;
+
+            public bool _broken;
+
+            public event Action<Exception> TransportError;
+
+            public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError;
+
+            public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheResponse;
+
+            public event Action<IMemcacheTransport> TransportDead;
+
+            public bool Registered { get; set; }
+
+            public bool TrySend(IMemcacheRequest req)
+            {
+                if (!_broken)
+                    return true;
+
+                if (TransportDead != null)
+                    TransportDead(this);
+                return false;
+            }
+
+            public bool Shutdown(bool force)
+            {
+                throw new NotImplementedException();
+            }
+
+            public void Dispose()
+            {
+                throw new NotImplementedException();
+            }
+
+            public void Resurect()
+            {
+                _broken = false;
+                if (_transportAvailable != null)
+                    _transportAvailable(this);
+            }
+
+            public void Kill()
+            {
+                _broken = true;
+                if (TransportDead != null)
+                    TransportDead(this);
+            }
+        }
+
+        [Test]
+        public void TransportDeadThenAliveTest()
+        {
+            IMemcacheNode theNode = null;
+            FakeTransport transport = new FakeTransport();
+            transport.Kill();
+
+            // Memcache client config
+            var config = new MemcacheClientConfiguration
+            {
+                DeadTimeout = TimeSpan.FromSeconds(1),
+                TransportFactory = transport.Factory,
+                NodeFactory = (e, c) =>  MemcacheClientConfiguration.DefaultNodeFactory(e, c),
+                PoolSize = 1,
+            };
+
+            theNode = config.NodeFactory(null, config);
+            Assert.IsFalse(theNode.IsDead, "The node should be alive before any failure");
+
+            Assert.IsFalse(theNode.TrySend(null, 1), "The TrySend should fail with a broken transport");
+            Assert.IsTrue(theNode.IsDead, "The node should be dead after the first send failed");
+
+            transport.Resurect();
+            Assert.IsFalse(theNode.IsDead, "The node should be alive after the transport resurected");
+            Assert.IsTrue(theNode.TrySend(null, 1), "The TrySend should be able to send a request after the transport is up again");
+
+            transport.Kill();
+            Assert.IsFalse(theNode.TrySend(null, 1), "The TrySend should fail with a killed transport");
+            Assert.IsTrue(theNode.IsDead, "The node should be dead after the a send failed");
         }
     }
 }

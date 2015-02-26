@@ -159,17 +159,17 @@ namespace Criteo.Memcache.UTest.Tests
 
                 // we sent a first request and let the server wait before respond
                 Assert.IsTrue(transportToTest.TrySend(request1), "The first request failed to be sent");
-                Assert.That(() => transportAvailablized, Is.EqualTo(1).After(1000, 50));
+                Assert.That(() => transportAvailablized, Is.EqualTo(2).After(1000, 50));
                 // we check that the queue is full, and the transport fail to send a new request
                 Assert.IsFalse(transportToTest.TrySend(request2), "The second request should not have been sent");
                 // unblocks both server response and callback from client
                 serverMock.ReceiveMutex.Set();
                 Assert.IsTrue(clientMutex.Wait(1000), "The response callback has not been triggered for the first request");
                 // make sure that we triggered the transport available after the queue is not full anymore
-                Assert.That(() => transportAvailablized, Is.EqualTo(2).After(1000, 50));
+                Assert.That(() => transportAvailablized, Is.EqualTo(3).After(1000, 50));
                 // checks if we can send a new request since the queue is not full anymore
                 Assert.IsTrue(transportToTest.TrySend(request2), "The third request failed to be sent");
-                Assert.That(() => transportAvailablized, Is.EqualTo(3).After(1000, 50));
+                Assert.That(() => transportAvailablized, Is.EqualTo(4).After(1000, 50));
             }
         }
 
