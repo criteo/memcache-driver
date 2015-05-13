@@ -77,7 +77,7 @@ namespace Criteo.Memcache.UTest.Tests
                 // GET
                 callbackMutex.Reset();
                 NodeMock.TrySendCounter = 0;
-                Assert.IsTrue(client.Get("toto", (s, data) => callbackMutex.Set()));
+                Assert.IsTrue(client.Get("toto", (Status s, byte[] data) => callbackMutex.Set()));
                 Assert.AreEqual(Math.Min(replicas + 1, nodeCount), NodeMock.TrySendCounter);
                 Assert.IsTrue(callbackMutex.Wait(1000),
                     string.Format("The GET callback has not been received after 1 second (Replicas = {0})", replicas));

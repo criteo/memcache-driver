@@ -319,7 +319,7 @@ namespace Criteo.Memcache.UTest.Tests
                 Assert.AreEqual(1, memcacheClient.AliveNodes, "Number of alive nodes is incorrect (1)");
 
                 // Do a get to initialize one of the transports
-                Assert.IsTrue(memcacheClient.Get("whatever", (s, o) => { returnStatus = s; mutex.Set(); }), "The request should be sent correctly (1)");
+                Assert.IsTrue(memcacheClient.Get("whatever", (Status s, byte[] o) => { returnStatus = s; mutex.Set(); }), "The request should be sent correctly (1)");
                 Assert.IsTrue(mutex.Wait(1000), "Timeout on the get request");
                 Assert.AreEqual(Status.InternalError, returnStatus, "The status of the request should be InternalError (1)");
                 mutex.Reset();
@@ -335,7 +335,7 @@ namespace Criteo.Memcache.UTest.Tests
 
             // Attempt to send a request to take one of the transports out of the pool
             // After that the transport should be dead
-            Assert.IsTrue(memcacheClient.Get("whatever", (s, o) => { returnStatus = s; mutex.Set(); }), "The request should be sent correctly (2)");
+            Assert.IsTrue(memcacheClient.Get("whatever", (Status s, byte[] o) => { returnStatus = s; mutex.Set(); }), "The request should be sent correctly (2)");
             Assert.IsTrue(mutex.Wait(1000), "Timeout on the get request");
             Assert.AreEqual(Status.InternalError, returnStatus, "The status of the request should be InternalError (2)");
             mutex.Reset();
@@ -366,7 +366,7 @@ namespace Criteo.Memcache.UTest.Tests
                 Assert.AreEqual(1, memcacheClient.AliveNodes, "Number of alive nodes is incorrect (4)");
 
                 // Attempt a get
-                Assert.IsTrue(memcacheClient.Get("whatever", (s, o) => { returnStatus = s; mutex.Set(); }), "The request should be sent correctly (4)");
+                Assert.IsTrue(memcacheClient.Get("whatever", (Status s, byte[] o) => { returnStatus = s; mutex.Set(); }), "The request should be sent correctly (4)");
                 Assert.IsTrue(mutex.Wait(1000), "Timeout on the get request");
                 Assert.AreEqual(Status.InternalError, returnStatus, "The status of the request should be InternalError (4)");
                 mutex.Reset();

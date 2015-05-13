@@ -46,15 +46,15 @@ namespace Criteo.Memcache
         /// </summary>
         /// <param name="key" />
         /// <returns>The fetched value, null if not present or any error was raised from memcached</returns>
-        public byte[] Get(string key)
+        public T Get<T>(string key)
         {
-            var taskSource = new TaskCompletionSource<byte[]>();
+            var taskSource = new TaskCompletionSource<T>();
 
-            if (!_client.Get(key, (s, m) => taskSource.SetResult(s == Status.NoError ? m : null)))
-                taskSource.SetResult(null);
+            if (!_client.Get(key, (Status s, T m) => taskSource.SetResult(s == Status.NoError ? m : default(T))))
+                taskSource.SetResult(default(T));
 
             if (!taskSource.Task.Wait(_receiveTimeout))
-                return null;
+                return default(T);
 
             return taskSource.Task.Result;
         }
@@ -67,7 +67,7 @@ namespace Criteo.Memcache
         /// <param name="value" />
         /// <param name="expire">Expiration of the value</param>
         /// <returns></returns>
-        public bool Store(StoreMode mode, string key, byte[] value, TimeSpan expire)
+        public bool Store<T>(StoreMode mode, string key, T value, TimeSpan expire)
         {
             var taskSource = new TaskCompletionSource<bool>();
 

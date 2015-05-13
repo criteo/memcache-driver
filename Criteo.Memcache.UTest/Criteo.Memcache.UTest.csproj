@@ -52,6 +52,7 @@
     <Compile Include="Mocks\RequestKeyWrapper.cs" />
     <Compile Include="Mocks\TransportMock.cs" />
     <Compile Include="Tests\AsyncLinesStreamReaderTests.cs" />
+    <Compile Include="Tests\ClientTests.cs" />
     <Compile Include="Tests\CouchbaseClusterConfigurationTests.cs" />
     <Compile Include="Tests\CouchbaseCrcTests.cs" />
     <Compile Include="Tests\KeySerializerTest.cs" />

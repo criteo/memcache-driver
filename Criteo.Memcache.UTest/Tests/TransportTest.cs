@@ -284,7 +284,7 @@ namespace Criteo.Memcache.UTest.Tests
                 Assert.AreEqual(1, createdTransports);
 
                 // Do a get to initialize the transport
-                Assert.IsTrue(memcacheClient.Get("whatever", (s, o) => { returnStatus = s; mutex2.Set(); }));
+                Assert.IsTrue(memcacheClient.Get("whatever", (Status s, byte[] o) => { returnStatus = s; mutex2.Set(); }));
                 Assert.IsTrue(mutex2.Wait(1000), "Timeout on the get request");
                 Assert.AreEqual(Status.InternalError, returnStatus);
                 mutex2.Reset();
@@ -294,7 +294,7 @@ namespace Criteo.Memcache.UTest.Tests
             Thread.Sleep(100);
 
             // Attempt to send a request to take the transport out of the pool
-            Assert.IsTrue(memcacheClient.Get("whatever", (s, o) => { returnStatus = s; mutex2.Set(); }));
+            Assert.IsTrue(memcacheClient.Get("whatever", (Status s, byte[] o) => { returnStatus = s; mutex2.Set(); }));
             Assert.IsTrue(mutex2.Wait(1000), "Timeout on the get request");
             Assert.AreEqual(Status.InternalError, returnStatus);
             mutex2.Reset();

@@ -26,6 +26,7 @@ using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Headers;
 using Criteo.Memcache.Node;
 using Criteo.Memcache.Requests;
+using Criteo.Memcache.Serializer;
 
 namespace Criteo.Memcache
 {
@@ -104,6 +105,65 @@ namespace Criteo.Memcache
         {
             if (NodeError != null)
                 NodeError(node);
+        }
+
+        /// <summary>
+        /// Raised when a client callback thrown an exception
+        /// It is the only to not let crash the IO Completion port thread and let the client know something went wrong
+        /// </summary>
+        public event Action<Exception> CallbackError;
+
+        private void OnCallbackError(Exception e)
+        {
+            if (CallbackError != null)
+                CallbackError(e);
+        }
+
+        /// <summary>
+        /// Used to easily prevent unhandled exception from client callback
+        /// </summary>
+        /// <param name="callback"></param>
+        /// <returns></returns>
+        private Action<Status> SanitizeCallback(Action<Status> callback)
+        {
+            if (callback == null)
+                return null;
+            return v =>
+            {
+                try
+                {
+                    callback(v);
+                }
+                catch (Exception e)
+                {
+                    OnCallbackError(e);
+                }
+            };
+        }
+
+        /// <summary>
+        /// Used to easily prevent unhandled exception from client callback or serializer
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="callback"></param>
+        /// <param name="serializer"></param>
+        /// <returns></returns>
+        private Action<Status, byte[]> SanitizeCallback<T>(Action<Status, T> callback, ISerializer<T> serializer)
+        {
+            if (callback == null)
+                return null;
+            return (Status s, byte[] m) =>
+            {
+                try
+                {
+                    T value = serializer.FromBytes(m);
+                    callback(s, value);
+                }
+                catch (Exception e)
+                {
+                    OnCallbackError(e);
+                }
+            };
         }
 
         private void RegisterEvents(IMemcacheNode node)
@@ -207,9 +267,9 @@ namespace Criteo.Memcache
         /// <param name="callback">Will be called after the memcached respond</param>
         /// <param name="callbackPolicy" />
         /// <returns></returns>
-        public bool Set(string key, byte[] message, TimeSpan expiration, Action<Status> callback = null, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
+        public bool Set<T>(string key, T message, TimeSpan expiration, Action<Status> callback = null, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
         {
-            return Store(StoreMode.Set, key, message, expiration, callback, callbackPolicy);
+            return Store<T>(StoreMode.Set, key, message, expiration, callback, callbackPolicy);
         }
 
         /// <summary>
@@ -222,7 +282,7 @@ namespace Criteo.Memcache
         /// <param name="callback">Will be called after the memcached respond</param>
         /// <param name="callbackPolicy" />
         /// <returns></returns>
-        public bool Update(string key, byte[] message, TimeSpan expiration, Action<Status> callback = null, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
+        public bool Update<T>(string key, T message, TimeSpan expiration, Action<Status> callback = null, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
         {
             return Store(StoreMode.Replace, key, message, expiration, callback, callbackPolicy);
         }
@@ -237,12 +297,12 @@ namespace Criteo.Memcache
         /// <param name="callback">Will be called after the memcached respond</param>
         /// <param name="callbackPolicy" />
         /// <returns></returns>
-        public bool Add(string key, byte[] message, TimeSpan expiration, Action<Status> callback = null, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
+        public bool Add<T>(string key, T message, TimeSpan expiration, Action<Status> callback = null, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
         {
             return Store(StoreMode.Add, key, message, expiration, callback, callbackPolicy);
         }
 
-        public bool Store(StoreMode mode, string key, byte[] message, TimeSpan expiration, Action<Status> callback = null, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
+        public bool Store<T>(StoreMode mode, string key, T message, TimeSpan expiration, Action<Status> callback = null, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
         {
             Opcode op;
             if (mode == StoreMode.Add)
@@ -255,13 +315,15 @@ namespace Criteo.Memcache
                 throw new ArgumentException("Unsupported operation " + mode);
 
             var keyAsBytes = _configuration.KeySerializer.SerializeToBytes(key);
+            var serializer = _configuration.SerializerOf<T>();
             var request = new SetRequest
             {
                 Key = keyAsBytes,
-                Message = message,
+                Message = serializer.ToBytes(message),
+                Flags = serializer.TypeFlag,
                 Expire = expiration,
                 RequestId = NextRequestId,
-                CallBack = callback,
+                CallBack = SanitizeCallback(callback),
                 CallBackPolicy = callbackPolicy,
                 Replicas = _configuration.Replicas,
                 RequestOpcode = op,
@@ -277,13 +339,14 @@ namespace Criteo.Memcache
         /// <param name="callback">Will be called after the memcached respond</param>
         /// <param name="callbackPolicy" />
         /// <returns></returns>
-        public bool Get(string key, Action<Status, byte[]> callback, CallBackPolicy callbackPolicy = CallBackPolicy.AnyOK)
+        public bool Get<T>(string key, Action<Status, T> callback, CallBackPolicy callbackPolicy = CallBackPolicy.AnyOK)
         {
             var keyAsBytes = _configuration.KeySerializer.SerializeToBytes(key);
+            var serializer = _configuration.SerializerOf<T>();
             var request = new GetRequest
             {
                 Key = keyAsBytes,
-                CallBack = callback,
+                CallBack = SanitizeCallback(callback, serializer),
                 CallBackPolicy = callbackPolicy,
                 RequestId = NextRequestId,
                 Replicas = _configuration.Replicas,
@@ -299,13 +362,14 @@ namespace Criteo.Memcache
         /// <param name="key" />
         /// <param name="callback">Will be called after the memcached respond</param>
         /// <returns></returns>
-        public bool GetWithReplica(string key, Action<Status, byte[]> callback)
+        public bool GetWithReplica<T>(string key, Action<Status, T> callback)
         {
             var keyAsBytes = _configuration.KeySerializer.SerializeToBytes(key);
+            var serializer = _configuration.SerializerOf<T>();
             var request = new GetRequest
             {
                 Key = keyAsBytes,
-                CallBack = callback,
+                CallBack = SanitizeCallback(callback, serializer),
                 RequestId = NextRequestId,
                 RequestOpcode = Opcode.Get,
             };
@@ -313,11 +377,10 @@ namespace Criteo.Memcache
             var replicaRequest = new GetRequest
             {
                 Key = keyAsBytes,
-                CallBack = callback,
+                CallBack = SanitizeCallback(callback, serializer),
                 RequestId = NextRequestId,
                 RequestOpcode = Opcode.ReplicaRead,
             };
-
 
             return SendRequestWithReplica(request, replicaRequest);
         }
@@ -331,15 +394,16 @@ namespace Criteo.Memcache
         /// <param name="callback">Will be called after the memcached respond</param>
         /// <param name="callbackPolicy" />
         /// <returns></returns>
-        public bool GetAndTouch(string key, TimeSpan expire, Action<Status, byte[]> callback, CallBackPolicy callbackPolicy = CallBackPolicy.AnyOK)
+        public bool GetAndTouch<T>(string key, TimeSpan expire, Action<Status, T> callback, CallBackPolicy callbackPolicy = CallBackPolicy.AnyOK)
         {
             var keyAsBytes = _configuration.KeySerializer.SerializeToBytes(key);
+            var serializer = _configuration.SerializerOf<T>();
             var request = new GetRequest
             {
                 RequestOpcode = Opcode.GAT,
                 Expire = expire,
                 Key = keyAsBytes,
-                CallBack = callback,
+                CallBack = SanitizeCallback(callback, serializer),
                 CallBackPolicy = callbackPolicy,
                 RequestId = NextRequestId,
                 Replicas = _configuration.Replicas
@@ -361,7 +425,7 @@ namespace Criteo.Memcache
             var request = new DeleteRequest
             {
                 Key = keyAsBytes,
-                CallBack = callback,
+                CallBack = SanitizeCallback(callback),
                 CallBackPolicy = callbackPolicy,
                 RequestId = NextRequestId,
                 Replicas = _configuration.Replicas

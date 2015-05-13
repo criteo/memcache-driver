@@ -25,6 +25,7 @@ using Criteo.Memcache.Locator;
 using Criteo.Memcache.Node;
 using Criteo.Memcache.Transport;
 using Criteo.Memcache.KeySerializer;
+using Criteo.Memcache.Serializer;
 
 namespace Criteo.Memcache.Configuration
 {
@@ -99,6 +100,11 @@ namespace Criteo.Memcache.Configuration
         #endregion factories
 
         private readonly IList<IPEndPoint> _nodesEndPoints = new List<IPEndPoint>();
+        private readonly IDictionary<Type, ISerializer> _serializers = new Dictionary<Type, ISerializer>
+            {
+                { typeof(byte[]), new ByteSerializer()},
+            };
+
         public IList<IPEndPoint> NodesEndPoints { get { return _nodesEndPoints; } }
 
         public NodeLocatorAllocator NodeLocatorFactory { get; set; }
@@ -118,6 +124,20 @@ namespace Criteo.Memcache.Configuration
         public int Replicas { get; set; }
 
         public IKeySerializer<string> KeySerializer { get; set; }
+
+        public void SetSerializer<T>(ISerializer<T> serializer)
+        {
+            _serializers[typeof(T)] = serializer;
+        }
+
+        internal ISerializer<T> SerializerOf<T>()
+        {
+            ISerializer result;
+            if (_serializers.TryGetValue(typeof(T), out result) && result != null)
+                return result as ISerializer<T>;
+
+            throw new NotSupportedException(string.Format("The type {0} is not supported", typeof(T)));
+        }
 
         public MemcacheClientConfiguration()
         {

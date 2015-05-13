@@ -81,12 +81,16 @@ namespace Criteo.Memcache.Headers
         Touch = 0x1c,
         GAT = 0x1d,
         GATQ = 0x1e,
+
+        // authentication opcodes
         SASL_list_mechs = 0x20,
         ListAuth = SASL_list_mechs,
         SASL_Auth = 0x21,
         StartAuth = SASL_Auth,
         SASL_Step = 0x22,
         StepAuth = SASL_Step,
+
+        // range opcodes
         RGet = 0x30,
         RSet = 0x31,
         RSetQ = 0x32,
@@ -100,9 +104,13 @@ namespace Criteo.Memcache.Headers
         RIncrQ = 0x3a,
         RDecr = 0x3b,
         RDecrQ = 0x3c,
+
+        // VBucket opcodes
         Set_VBucket = 0x3d,
         Get_VBucket = 0x3e,
         Del_VBucket = 0x3f,
+
+        // replication opcodes
         TAP_Connect = 0x40,
         TAP_Mutation = 0x41,
         TAP_Delete = 0x42,
