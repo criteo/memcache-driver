@@ -20,22 +20,27 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
+using Criteo.Memcache.Headers;
+
 namespace Criteo.Memcache.Serializer
 {
-    class ByteSerializer : ISerializer<byte[]>
+    class ULongSerializer : ISerializer<ulong>
     {
-        private const uint RawDataFlag = 0xfa52;
-
-        public byte[] ToBytes(byte[] value)
+        public byte[] ToBytes(ulong value)
         {
-            return value;
+            var serialized = new byte[4];
+            serialized.CopyFrom(0, value);
+            return serialized;
         }
 
-        public byte[] FromBytes(byte[] value)
+        public ulong FromBytes(byte[] value)
         {
-            return value;
+            return value == null ? 0 : value.CopyToULong(0);
         }
 
-        public uint TypeFlag { get { return RawDataFlag; } }
+        public uint TypeFlag
+        {
+            get { throw new NotImplementedException(); }
+        }
     }
 }

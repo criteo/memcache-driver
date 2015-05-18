@@ -333,6 +333,60 @@ namespace Criteo.Memcache
         }
 
         /// <summary>
+        /// This command will add the specified amount to the requested counter.
+        /// </summary>
+        /// <remarks>
+        /// If you want to set the value of the counter with add/set/replace, the objects data must be the ascii representation of the value and not the byte values of a 64 bit integer.
+        /// </remarks>
+        /// <param name="key" />
+        /// <param name="delta" />
+        /// <param name="initial"/>
+        /// <param name="expiration" />
+        /// <param name="callback" />
+        /// <returns>False if synchronously failed</returns>
+        public bool Increment(string key, ulong delta, ulong initial, TimeSpan expiration, Action<Status, ulong> callback)
+        {
+            return IncrementInternal(key, delta, initial, expiration, callback, Opcode.Increment);
+        }
+
+        /// <summary>
+        /// This command will remove the specified amount to the requested counter.
+        /// </summary>
+        /// <remarks>
+        /// If you want to set the value of the counter with add/set/replace, the objects data must be the ascii representation of the value and not the byte values of a 64 bit integer.
+        /// Decrementing a counter will never result in a "negative value" (or cause the counter to "wrap"). instead the counter is set to 0. Incrementing the counter may cause the counter to wrap.
+        /// </remarks>
+        /// <param name="key" />
+        /// <param name="delta" />
+        /// <param name="initial"/>
+        /// <param name="expiration" />
+        /// <param name="callback" />
+        /// <returns>False if synchronously failed</returns>
+        public bool Decrement(string key, ulong delta, ulong initial, TimeSpan expiration, Action<Status, ulong> callback)
+        {
+            return IncrementInternal(key, delta, initial, expiration, callback, Opcode.Decrement);
+        }
+
+        internal bool IncrementInternal(string key, ulong increment, ulong seed, TimeSpan expiration, Action<Status, ulong> callback, Opcode code)
+        {
+            var keyAsBytes = _configuration.KeySerializer.SerializeToBytes(key);
+            var serializer = _configuration.SerializerOf<ulong>();
+            var request = new IncrementRequest
+            {
+                Key = keyAsBytes,
+                CallBack = SanitizeCallback(callback, serializer),
+                Expire = expiration,
+                RequestId = NextRequestId,
+                Replicas = _configuration.Replicas,
+                RequestOpcode = code,
+                Delta = increment,
+                Initial = seed,
+            };
+
+            return SendRequest(request);
+        }
+
+        /// <summary>
         /// Fetch the value for the given key
         /// </summary>
         /// <param name="key" />

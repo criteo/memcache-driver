@@ -103,6 +103,7 @@ namespace Criteo.Memcache.Configuration
         private readonly IDictionary<Type, ISerializer> _serializers = new Dictionary<Type, ISerializer>
             {
                 { typeof(byte[]), new ByteSerializer()},
+                { typeof(ulong), new ULongSerializer()},
             };
 
         public IList<IPEndPoint> NodesEndPoints { get { return _nodesEndPoints; } }
