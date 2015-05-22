@@ -476,9 +476,9 @@ namespace Criteo.Memcache.Transport
 
                         if (TransportError != null)
                             TransportError(new MemcacheException("TransportFailureOnReceive on " + this, e));
-
-                        FailPending();
                     }
+
+            FailPending();
             AvailableInReceive();
         }
 
@@ -661,9 +661,10 @@ namespace Criteo.Memcache.Transport
                 if (TransportDead != null)
                     TransportDead(this);
 
-                FailPending();
                 Dispose();
             }
+
+            FailPending();
         }
 
         public override string ToString()
