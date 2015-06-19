@@ -30,7 +30,6 @@ namespace Criteo.Memcache.Cluster.Couchbase
         private readonly byte[] _buffer;
         private MemoryStream _chunk;
         private int _delimiters;
-        private readonly Timer _timer;
 
         public TimeSpan PushCheckInterval { get; set; }
         public event Action<Stream> OnChunk;
@@ -42,7 +41,6 @@ namespace Criteo.Memcache.Cluster.Couchbase
             _buffer = new byte[1024];
             _chunk = new MemoryStream();
             _delimiters = 0;
-            _timer = new Timer(_ => StartReading(), null, Timeout.Infinite, Timeout.Infinite);
 
             PushCheckInterval = TimeSpan.FromMilliseconds(20);
         }
@@ -80,7 +78,7 @@ namespace Criteo.Memcache.Cluster.Couchbase
             // Delay the next read attempt to avoid consuming too much CPU for nothing
             if (byteCount == 0)
             {
-                _timer.Change(PushCheckInterval, TimeSpan.FromMilliseconds(Timeout.Infinite));
+                StartReading();
                 return;
             }
 
@@ -113,13 +111,12 @@ namespace Criteo.Memcache.Cluster.Couchbase
                 _chunk.Write(_buffer, start, byteCount - start);
 
             // Make sure the async loop goes on
-            _timer.Change(0, Timeout.Infinite);
+            StartReading();
         }
 
         #region IDisposable
         public void Dispose()
         {
-            _timer.Dispose();
             _stream.Dispose();
         }
         #endregion

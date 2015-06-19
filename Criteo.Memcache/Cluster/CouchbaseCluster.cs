@@ -37,6 +37,7 @@ namespace Criteo.Memcache.Cluster
     internal class CouchbaseCluster : IMemcacheCluster
     {
         private bool _isInitialized;
+        private bool _isDisposed = false;
 
         private readonly MemcacheClientConfiguration _configuration;
         private readonly string _bucket;
@@ -125,6 +126,7 @@ namespace Criteo.Memcache.Cluster
                     _bucket);
 
                 var request = WebRequest.Create(url);
+                request.Timeout = Timeout.Infinite;
                 try
                 {
                     request.BeginGetResponse(ConfigurationStreamRequestEndGetResponse, request);
@@ -267,7 +269,9 @@ namespace Criteo.Memcache.Cluster
         /// <param name="err">The exception which was caught upon trying to read data</param>
         private void HandleLinesStreamError(Exception err)
         {
-            RetryConnectingToConfigurationStream(1);
+            lock (this)
+                if (!_isDisposed)
+                    RetryConnectingToConfigurationStream(1);
         }
 
         #endregion
@@ -276,7 +280,11 @@ namespace Criteo.Memcache.Cluster
 
         public void Dispose()
         {
-            _connectionTimer.Dispose();
+            lock (this)
+            {
+                _isDisposed = true;
+                _connectionTimer.Dispose();
+            }
 
             if (_linesStreamReader != null)
                 _linesStreamReader.Dispose();
