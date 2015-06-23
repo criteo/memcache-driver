@@ -15,8 +15,11 @@
    specific language governing permissions and limitations
    under the License.
 */
+using System;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Threading;
 using Criteo.Memcache.Cluster.Couchbase;
 using NUnit.Framework;
 
@@ -25,10 +28,35 @@ namespace Criteo.Memcache.UTest.Tests
     [TestFixture]
     public class AsyncLinesStreamReaderTests
     {
-        private const string Delimiter = "\n\n\n";
+        private const string DELIMITER = "\n\n\n";
 
-        private int _errors;
-        private int _chunks;
+        private class TestCounters
+        {
+            private int _errors;
+            private int _chunks;
+
+            public TestCounters()
+            {
+                _errors = 0;
+                _chunks = 0;
+            }
+
+            public int Errors { get { return _errors; } }
+
+            public int Chunks { get { return _chunks; } }
+
+            public void IncrementErrors()
+            {
+                Interlocked.Increment(ref _errors);
+            }
+
+            public void IncrementChunks()
+            {
+                Interlocked.Increment(ref _chunks);
+            }
+        }
+
+        private TestCounters _counters;
         private Stream _stream;
         private AsyncLinesStreamReader _reader;
         private MemoryStream _memoryStream;
@@ -36,16 +64,15 @@ namespace Criteo.Memcache.UTest.Tests
         [SetUp]
         public void SetUp()
         {
-            _errors = _chunks = 0;
+            var localCounters = new TestCounters();
+            _counters = localCounters;
 
             _memoryStream = new MemoryStream();
             _stream = Stream.Synchronized(_memoryStream);
 
             _reader = new AsyncLinesStreamReader(_stream);
-            _reader.OnError += _ => { _errors++; };
-            _reader.OnChunk += _ => { _chunks++; };
-
-            _reader.StartReading();
+            _reader.OnError += e => { localCounters.IncrementErrors(); Debug.WriteLine(e.Message); Debug.WriteLine(e.StackTrace); };
+            _reader.OnChunk += _ => { localCounters.IncrementChunks(); };
         }
 
         [TearDown]
@@ -61,10 +88,10 @@ namespace Criteo.Memcache.UTest.Tests
         [Test]
         public void TestNothingHappens()
         {
-            Send("Hello, world!");
+            SendAndTriggerRead("Hello, world!");
 
-            Assert.AreEqual(0, _errors);
-            Assert.AreEqual(0, _chunks);
+            Assert.AreEqual(0, _counters.Errors, "errors");
+            Assert.AreEqual(0, _counters.Chunks, "chunks");
         }
 
         [Test]
@@ -78,18 +105,28 @@ namespace Criteo.Memcache.UTest.Tests
                 Assert.False(_stream.CanRead);
             }
 
+            // Trigger read
+            _reader.StartReading();
+
             // Make sure that an asynchronous read happens
-            Assert.That(() => _errors, Is.EqualTo(1).After(5000, 10));
-            Assert.AreEqual(0, _chunks);
+            Assert.That(() => _counters.Errors, Is.EqualTo(1).After(5000, 10), "errors");
+            Assert.AreEqual(0, _counters.Chunks, "chunks");
         }
 
         [Test]
         public void TestSingleDelimiter()
         {
-            Send(Delimiter);
+            Stream receivedStream = null;
+            _reader.OnChunk += c => receivedStream = c;
 
-            Assert.AreEqual(0, _errors);
-            Assert.AreEqual(1, _chunks);
+            SendAndTriggerRead(DELIMITER);
+            Assert.That(() => receivedStream, Is.Not.Null.After(5000, 10), "chunk received");
+
+            Assert.AreEqual(0, _counters.Errors, "errors");
+            Assert.AreEqual(1, _counters.Chunks, "chunks");
+
+            var received = new StreamReader(receivedStream).ReadToEnd();
+            Assert.IsNullOrEmpty(received, "compare sent vs received");
         }
 
         [Test]
@@ -101,11 +138,14 @@ namespace Criteo.Memcache.UTest.Tests
             Stream receivedStream = null;
             _reader.OnChunk += c => receivedStream = c;
 
-            Send(sent + Delimiter);
-            Assert.IsNotNull(receivedStream);
+            SendAndTriggerRead(sent + DELIMITER);
+            Assert.That(() => receivedStream, Is.Not.Null.After(5000, 10), "chunk received");
+
+            Assert.AreEqual(0, _counters.Errors, "errors");
+            Assert.AreEqual(1, _counters.Chunks, "chunks");
 
             var received = new StreamReader(receivedStream).ReadToEnd();
-            Assert.AreEqual(sent, received);
+            Assert.AreEqual(sent, received, "compare sent vs received");
         }
 
         [Test]
@@ -114,28 +154,36 @@ namespace Criteo.Memcache.UTest.Tests
             const string sentA = "Hello!", sentB = "World!";
 
             // Check that we receive exactly what was sent
-            Stream receivedStream = null;
-            _reader.OnChunk += c => receivedStream = c;
+            Stream receivedStreamA = null;
+            Stream receivedStreamB = null;
+            _reader.OnChunk += c => { if (receivedStreamA == null) { receivedStreamA = c; } else { receivedStreamB = c; } };
 
-            Send(sentA + Delimiter + sentB + Delimiter);
-            Assert.That(() => receivedStream, Is.Not.Null.After(5000, 10));
+            SendAndTriggerRead(sentA + DELIMITER + sentB + DELIMITER);
+            Assert.That(() => receivedStreamB, Is.Not.Null.After(5000, 10), "both chunks received");
 
-            // Check that the last received chunk is the one we expect
-            var received = new StreamReader(receivedStream).ReadToEnd();
-            Assert.AreEqual(0, _errors);
-            Assert.AreEqual(2, _chunks);
-            Assert.AreEqual(sentB, received);
+            Assert.AreEqual(0, _counters.Errors, "errors");
+            Assert.AreEqual(2, _counters.Chunks, "chunks");
+
+            var receivedA = new StreamReader(receivedStreamA).ReadToEnd();
+            Assert.AreEqual(sentA, receivedA, "compare sent vs received (first chunk)");
+            var receivedB = new StreamReader(receivedStreamB).ReadToEnd();
+            Assert.AreEqual(sentB, receivedB, "compare sent vs received (second chunk)");
         }
 
-        private void Send(string str)
+        /// <summary>
+        /// To be called only once per test!
+        /// </summary>
+        /// <param name="str"></param>
+        /// <returns></returns>
+        private void SendAndTriggerRead(string str)
         {
             var data = Encoding.UTF8.GetBytes(str);
 
             _stream.Write(data, 0, data.Length);
+            _stream.Flush();
             _stream.Position = 0;
 
-            // Make sure the data has been read
-            Assert.That(() => _stream.Position, Is.AtLeast(data.Length).After(5000, 10));
+            _reader.StartReading();
         }
     }
 }
