@@ -23,19 +23,44 @@ namespace Criteo.Memcache.Locator
         private IList<IMemcacheNode> _nodes;
         private LookupData _lookupData;
 
+        readonly Action<IMemcacheNode> _nodeStateChange;
+
         public KetamaLocator(string hashName = null)
         {
             _hashPool = new HashPool(() => HashAlgorithm.Create(hashName ?? DefaultHashName));
+            _nodeStateChange = _ => Reinitialize();
         }
 
         public void Initialize(IList<IMemcacheNode> nodes)
         {
-            _nodes = nodes;
-            foreach (var node in nodes)
+            if (nodes == null)
+                throw new ArgumentNullException("nodes");
+
+            if (_nodes != null)
             {
-                node.NodeDead += _ => Reinitialize();
-                node.NodeAlive += _ => Reinitialize();
+                // first de-register events on removed nodes
+                foreach (var node in _nodes.Except(nodes))
+                {
+                    node.NodeDead -= _nodeStateChange;
+                    node.NodeAlive -= _nodeStateChange;
+                }
+
+                // then register only the new ones
+                foreach (var node in nodes.Except(_nodes))
+                {
+                    node.NodeDead += _nodeStateChange;
+                    node.NodeAlive += _nodeStateChange;
+                }
             }
+            else
+            {
+                foreach (var node in nodes)
+                {
+                    node.NodeDead += _nodeStateChange;
+                    node.NodeAlive += _nodeStateChange;
+                }
+            }
+            _nodes = nodes;
 
             using (var hash = _hashPool.Hash)
                 _lookupData = new LookupData(nodes, hash.Value);

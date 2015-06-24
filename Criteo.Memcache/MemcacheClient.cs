@@ -193,6 +193,7 @@ namespace Criteo.Memcache
             _cluster = (configuration.ClusterFactory ?? MemcacheClientConfiguration.DefaultClusterFactory)(configuration);
             _cluster.NodeAdded += RegisterEvents;
             _cluster.NodeRemoved += UnregisterEvents;
+            _cluster.OnError += OnCallbackError;
             _cluster.Initialize();
         }
 

@@ -36,5 +36,7 @@ namespace Criteo.Memcache.Cluster
 
         event Action<IMemcacheNode> NodeAdded;
         event Action<IMemcacheNode> NodeRemoved;
+
+        event Action<Exception> OnError;
     }
 }

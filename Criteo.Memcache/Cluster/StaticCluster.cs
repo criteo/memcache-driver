@@ -34,6 +34,8 @@ namespace Criteo.Memcache.Cluster
 
         public event Action<IMemcacheNode> NodeRemoved;
 
+        public event Action<Exception> OnError;
+
         public StaticCluster(MemcacheClientConfiguration configuration)
         {
             _configuration = configuration;

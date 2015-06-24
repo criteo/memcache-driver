@@ -45,8 +45,8 @@ namespace Criteo.Memcache.Cluster
         private int _currentConfigurationHost;
         private readonly IPEndPoint[] _configurationHosts;
 
-        private readonly IDictionary<string, IMemcacheNode> _memcacheNodes;
-        private VBucketServerMapLocator _locator;
+        private IDictionary<string, IMemcacheNode> _memcacheNodes;
+        private INodeLocator _locator;
 
         private readonly Timer _connectionTimer;
         private readonly ManualResetEventSlim _receivedInitialConfigurationBarrier;
@@ -72,7 +72,7 @@ namespace Criteo.Memcache.Cluster
 
             _memcacheNodes = new Dictionary<string, IMemcacheNode>();
 
-            _locator = new VBucketServerMapLocator(new List<IMemcacheNode>(), new int[][] { });
+            _locator = null;
 
             _connectionTimer = new Timer(_ => ConnectToConfigurationStream(), null, Timeout.Infinite, Timeout.Infinite);
             _receivedInitialConfigurationBarrier = new ManualResetEventSlim();
@@ -81,7 +81,13 @@ namespace Criteo.Memcache.Cluster
         #region IMemcacheCluster
 
         public INodeLocator Locator { get { return _locator; } }
-        public IEnumerable<IMemcacheNode> Nodes { get { return _locator.Nodes; } }
+        public IEnumerable<IMemcacheNode> Nodes
+        {
+            get
+            {
+                return _memcacheNodes.Values.ToArray();
+            }
+        }
 
         public event Action<IMemcacheNode> NodeAdded;
         public event Action<IMemcacheNode> NodeRemoved;
@@ -181,44 +187,85 @@ namespace Criteo.Memcache.Cluster
         /// <param name="chunk">Chunk of data</param>
         public void HandleConfigurationUpdate(Stream chunk)
         {
-            var bucket = JsonSerializer.DeserializeFromStream<JsonBucket>(chunk);
-            if (bucket == null)
-                return;
-
-            var vBucketServerMap = bucket.VBucketServerMap;
-            if (vBucketServerMap == null)
-                return;
-
-            // Serialize configuration updates to avoid trouble
-            lock (this)
+            try
             {
-                var updatedNodes = _locator.Nodes;
-                if (vBucketServerMap.ServerList != null)
-                    updatedNodes = GenerateUpdatedNodeList(vBucketServerMap.ServerList);
+                var bucket = JsonSerializer.DeserializeFromStream<JsonBucket>(chunk);
+                if (bucket == null)
+                    throw new ConfigurationException("Received an empty bucket configuration from Couchbase for bucket " + _bucket);
 
-                // Atomic update to the latest cluster state
-                var updatedVBucketMap = vBucketServerMap.VBucketMap ?? _locator.VBucketMap;
+                // Serialize configuration updates to avoid trouble
+                lock (this)
+                {
+                    var nodesEndPoint = GetNodesFromConfiguration(bucket);
 
-                _locator = new VBucketServerMapLocator(updatedNodes, updatedVBucketMap);
+                    // create new nodes
+                    var updatedNodes = GenerateUpdatedNodeList(nodesEndPoint);
 
-                // Dispose of the unused nodes after updating the current state
-                if (vBucketServerMap.ServerList != null)
-                    CleanupDeletedNodes(vBucketServerMap.ServerList);
+                    switch (bucket.NodeLocator)
+                    {
+                        case "vbucket":
+                            {
+                                if (bucket.VBucketServerMap == null || bucket.VBucketServerMap.VBucketMap == null)
+                                    throw new ConfigurationException("Received an empty vbucket map from Couchbase for bucket " + _bucket);
+
+                                // Atomic update to the latest cluster state
+                                _locator = new VBucketServerMapLocator(updatedNodes, bucket.VBucketServerMap.VBucketMap);
+                                break;
+                            }
+                        case "ketama":
+                            {
+                                if (_locator == null)
+                                    _locator = new KetamaLocator();
+
+                                _locator.Initialize(updatedNodes);
+                                break;
+                            }
+                        default:
+                            throw new ConfigurationException("Unhandled locator type: " + bucket.NodeLocator);
+                    }
+
+                    // Dispose of the unused nodes after updating the current state
+                    CleanupDeletedNodes(nodesEndPoint);
+                }
             }
+            catch (Exception e)
+            {
+                if (OnError != null)
+                    OnError(e);
+            }
+            finally
+            {
+                _receivedInitialConfigurationBarrier.Set();
+            }
+        }
 
-            _receivedInitialConfigurationBarrier.Set();
+        private static IList<string> GetNodesFromConfiguration(JsonBucket bucket)
+        {
+            var nodes = new List<string>();
+            foreach (var node in bucket.Nodes)
+            {
+                // the hostnames includes the port…
+                if (node.ClusterMembership.Equals("active", StringComparison.OrdinalIgnoreCase))
+                {
+                    var nodeHostname = node.Hostname.Split(':').FirstOrDefault();
+                    var nodePort = node.Ports.Direct;
+                    nodes.Add(nodeHostname + ':' + nodePort);
+                }
+            }
+            return nodes;
         }
 
         private List<IMemcacheNode> GenerateUpdatedNodeList(ICollection<string> activeNodes)
         {
             var updatedNodes = new List<IMemcacheNode>(activeNodes.Count);
             var nodeFactory = _configuration.NodeFactory ?? MemcacheClientConfiguration.DefaultNodeFactory;
+            var newNodes = new Dictionary<string, IMemcacheNode>(_memcacheNodes);
             foreach (var server in activeNodes)
             {
                 try
                 {
                     IMemcacheNode node;
-                    if (!_memcacheNodes.TryGetValue(server, out node))
+                    if (!newNodes.TryGetValue(server, out node))
                     {
                         var parts = server.SplitOnFirst(':');
                         var ip = IPAddress.Parse(parts[0]);
@@ -226,7 +273,7 @@ namespace Criteo.Memcache.Cluster
                         var endpoint = new IPEndPoint(ip, port);
 
                         node = nodeFactory(endpoint, _configuration);
-                        _memcacheNodes.Add(server, node);
+                        newNodes.Add(server, node);
 
                         if (NodeAdded != null)
                             NodeAdded(node);
@@ -240,16 +287,18 @@ namespace Criteo.Memcache.Cluster
                         OnError(e);
                 }
             }
+            _memcacheNodes = newNodes;
 
             return updatedNodes;
         }
 
         private void CleanupDeletedNodes(IEnumerable<string> activeNodes)
         {
+            var newNodes = new Dictionary<string, IMemcacheNode>(_memcacheNodes);
             foreach (var server in _memcacheNodes.Keys.Except(activeNodes))
             {
-                var node = _memcacheNodes[server];
-                _memcacheNodes.Remove(server);
+                var node = newNodes[server];
+                newNodes.Remove(server);
 
                 // Nodes which get deleted either should not or cannot receive any requests,
                 // and as such forcing the shutdown (thus marking any pending request as failed)
@@ -260,6 +309,7 @@ namespace Criteo.Memcache.Cluster
                 if (NodeRemoved != null)
                     NodeRemoved(node);
             }
+            _memcacheNodes = newNodes;
         }
 
         /// <summary>
