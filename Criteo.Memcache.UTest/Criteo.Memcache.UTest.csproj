@@ -48,6 +48,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Derived\MemcacheTransportForTest.cs" />
+    <Compile Include="Misc\Aqueduct.cs" />
     <Compile Include="Mocks\NodeMock.cs" />
     <Compile Include="Mocks\RequestKeyWrapper.cs" />
     <Compile Include="Mocks\TransportMock.cs" />
