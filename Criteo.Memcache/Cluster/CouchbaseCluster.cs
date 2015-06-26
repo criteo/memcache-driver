@@ -196,18 +196,17 @@ namespace Criteo.Memcache.Cluster
                 // Serialize configuration updates to avoid trouble
                 lock (this)
                 {
-                    var nodesEndPoint = GetNodesFromConfiguration(bucket);
-
-                    // create new nodes
-                    var updatedNodes = GenerateUpdatedNodeList(nodesEndPoint);
+                    IList<string> nodesEndPoint;
 
                     switch (bucket.NodeLocator)
                     {
                         case "vbucket":
                             {
-                                if (bucket.VBucketServerMap == null || bucket.VBucketServerMap.VBucketMap == null)
+                                if (bucket.VBucketServerMap == null || bucket.VBucketServerMap.VBucketMap == null || bucket.VBucketServerMap.ServerList == null)
                                     throw new ConfigurationException("Received an empty vbucket map from Couchbase for bucket " + _bucket);
 
+                                nodesEndPoint = bucket.VBucketServerMap.ServerList;
+                                var updatedNodes = GenerateUpdatedNodeList(nodesEndPoint);
                                 // Atomic update to the latest cluster state
                                 _locator = new VBucketServerMapLocator(updatedNodes, bucket.VBucketServerMap.VBucketMap);
                                 break;
@@ -217,6 +216,9 @@ namespace Criteo.Memcache.Cluster
                                 if (_locator == null)
                                     _locator = new KetamaLocator();
 
+                                // create new nodes
+                                nodesEndPoint = GetNodesFromConfiguration(bucket);
+                                var updatedNodes = GenerateUpdatedNodeList(nodesEndPoint);
                                 _locator.Initialize(updatedNodes);
                                 break;
                             }
