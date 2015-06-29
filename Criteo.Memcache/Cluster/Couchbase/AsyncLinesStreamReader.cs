@@ -75,7 +75,6 @@ namespace Criteo.Memcache.Cluster.Couchbase
         {
             int byteCount = _stream.EndRead(ar);
 
-            // Delay the next read attempt to avoid consuming too much CPU for nothing
             if (byteCount == 0)
             {
                 StartReading();

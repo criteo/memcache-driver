@@ -15,6 +15,7 @@
    specific language governing permissions and limitations
    under the License.
 */
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -69,7 +70,7 @@ namespace Criteo.Memcache.UTest.Tests
 
             _pipe = new Aqueduct();
             _reader = new AsyncLinesStreamReader(_pipe.Out);
-            _reader.OnError += e => { localCounters.IncrementErrors(); Debug.WriteLine(e.Message); Debug.WriteLine(e.StackTrace); };
+            _reader.OnError += e => { localCounters.IncrementErrors(); Console.Error.WriteLine(e.Message); Console.Error.WriteLine(e.StackTrace); };
             _reader.OnChunk += _ => { localCounters.IncrementChunks(); };
 
             _reader.StartReading();

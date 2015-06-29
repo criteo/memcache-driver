@@ -15,12 +15,19 @@
    specific language governing permissions and limitations
    under the License.
 */
+
+using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
+using System.Threading;
+
 using Criteo.Memcache.Cluster;
 using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Locator;
+
 using NUnit.Framework;
 
 namespace Criteo.Memcache.UTest.Tests
@@ -28,7 +35,47 @@ namespace Criteo.Memcache.UTest.Tests
     [TestFixture]
     public class CouchbaseClusterConfigurationTests
     {
-        private const string SampleValidConfiguration =
+        private class TestCounters
+        {
+            private int _errors;
+            private int _nodesAdded;
+            private int _nodesRemoved;
+
+            public TestCounters()
+            {
+                Reset();
+            }
+
+            public void Reset()
+            {
+                _errors = 0;
+                _nodesAdded = 0;
+                _nodesRemoved = 0;
+            }
+
+            public int Errors { get { return _errors; } }
+
+            public int NodesAdded { get { return _nodesAdded; } }
+
+            public int NodesRemoved { get { return _nodesRemoved; } }
+
+            public void IncrementErrors()
+            {
+                Interlocked.Increment(ref _errors);
+            }
+
+            public void IncrementNodesAdded()
+            {
+                Interlocked.Increment(ref _nodesAdded);
+            }
+
+            public void IncrementNodesRemoved()
+            {
+                Interlocked.Increment(ref _nodesRemoved);
+            }
+        }
+
+        private const string COUCHBASE_CONFIG_TEMPLATE =
             @"{
 ""name"":""Some.Bucket"",
 ""bucketType"":""membase"",
@@ -68,7 +115,7 @@ namespace Criteo.Memcache.UTest.Tests
 {
   ""hashAlgorithm"":""CRC"",
   ""numReplicas"":1,
-  ""serverList"":[""127.0.0.1:11210"",""127.0.0.2:11212""],
+  ""serverList"":[__SERVER_LIST__],
   ""vBucketMap"":[[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[1,0],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[0,1]]
 },
 ""replicaNumber"":1,
@@ -79,39 +126,51 @@ namespace Criteo.Memcache.UTest.Tests
 ""bucketCapabilities"":[""touch"",""couchapi""]
 }";
 
+        private TestCounters _counters;
         private CouchbaseCluster _cluster;
-        private int _nodesAdded;
-        private int _nodesRemoved;
+        private ManualResetEventSlim _mreConfig;
 
-        [TestFixtureSetUp]
-        public void TestFixtureSetUp()
+        [SetUp]
+        public void TestSetUp()
         {
-            _cluster = new CouchbaseCluster(new MemcacheClientConfiguration(), "Some.Bucket", new[] { new IPEndPoint(0, 0) });
-            _cluster.NodeAdded += _ => _nodesAdded++;
-            _cluster.NodeRemoved += _ => _nodesRemoved++;
+            _counters = new TestCounters();
+            _mreConfig = new ManualResetEventSlim();
+            _cluster = new CouchbaseCluster(new MemcacheClientConfiguration() { TransportConnectTimerPeriod = Timeout.InfiniteTimeSpan }, "Some.Bucket", new[] { new IPEndPoint(0, 0) });
+            _cluster.NodeAdded += _ => _counters.IncrementNodesAdded();
+            _cluster.NodeRemoved += _ => _counters.IncrementNodesRemoved();
+            _cluster.OnError += e => { _counters.IncrementErrors(); Console.Error.WriteLine(e.Message); Console.Error.WriteLine(e.StackTrace); };
+            _cluster.OnConfig += () => _mreConfig.Set();
         }
 
-        [TestFixtureTearDown]
-        public void TestFixtureTearDown()
+        [TearDown]
+        public void TestTearDown()
         {
             _cluster.Dispose();
+            _cluster = null;
+
+            _mreConfig.Dispose();
+            _mreConfig = null;
         }
 
         [Test]
         public void TestInitialConfigurationUpdate()
         {
-            _nodesAdded = _nodesRemoved = 0;
+            _mreConfig.Reset();
+            _counters.Reset();
 
-            using (var update = new MemoryStream(Encoding.UTF8.GetBytes(SampleValidConfiguration)))
-                _cluster.HandleConfigurationUpdate(update);
+            // Send a config with two nodes
+            _cluster.HandleConfigurationUpdate(GetValidConfigStream(new List<string>() { "127.0.0.1:11210", "127.0.0.2:11212" }));
 
-            Assert.AreEqual(2, _nodesAdded);
-            Assert.AreEqual(0, _nodesRemoved);
+            Assert.IsTrue(_mreConfig.Wait(TimeSpan.FromSeconds(2)), "The Couchbase cluster failed to receive the new config");
+
+            Assert.AreEqual(2, _counters.NodesAdded, "nodes added");
+            Assert.AreEqual(0, _counters.NodesRemoved, "nodes removed");
+            Assert.AreEqual(0, _counters.Errors, "errors");
 
             var locator = _cluster.Locator as VBucketServerMapLocator;
             Assert.IsNotNull(locator);
 
-            Assert.AreEqual(2, locator.Nodes.Count);
+            Assert.AreEqual(2, locator.Nodes.Count, "number of nodes");
             Assert.AreEqual(1024, locator.VBucketMap.Length);
             Assert.AreEqual(2, locator.VBucketMap[0].Length);
         }
@@ -119,13 +178,83 @@ namespace Criteo.Memcache.UTest.Tests
         [Test]
         public void TestNoopConfigurationUpdate()
         {
-            _nodesAdded = _nodesRemoved = 0;
+            // Initialize + config with two nodes
+            TestInitialConfigurationUpdate();
 
-            using (var update = new MemoryStream(Encoding.UTF8.GetBytes(SampleValidConfiguration)))
-                _cluster.HandleConfigurationUpdate(update);
+            _mreConfig.Reset();
+            _counters.Reset();
 
-            Assert.AreEqual(0, _nodesAdded);
-            Assert.AreEqual(0, _nodesRemoved);
+            // Send the same conf again, expect no change in the cluster
+            _cluster.HandleConfigurationUpdate(GetValidConfigStream(new List<string>() { "127.0.0.1:11210", "127.0.0.2:11212" }));
+
+            Assert.IsTrue(_mreConfig.Wait(TimeSpan.FromSeconds(2)), "The Couchbase cluster failed to receive the new config");
+
+            Assert.AreEqual(0, _counters.NodesAdded, "nodes added");
+            Assert.AreEqual(0, _counters.NodesRemoved, "nodes removed");
+            Assert.AreEqual(0, _counters.Errors, "errors");
+        }
+
+        [Test]
+        public void TestConfigurationSeveralUpdates()
+        {
+            _mreConfig.Reset();
+            _counters.Reset();
+
+            // Send a config with one node
+            _cluster.HandleConfigurationUpdate(GetValidConfigStream(new List<string>() { "127.0.0.1:11210" }));
+
+            Assert.IsTrue(_mreConfig.Wait(TimeSpan.FromSeconds(2)), "The Couchbase cluster failed to receive the new config (1)");
+
+            Assert.AreEqual(1, _counters.NodesAdded, "nodes added");
+            Assert.AreEqual(0, _counters.NodesRemoved, "nodes removed");
+            Assert.AreEqual(0, _counters.Errors, "errors");
+
+            var locator = _cluster.Locator as VBucketServerMapLocator;
+            Assert.IsNotNull(locator);
+            Assert.AreEqual(1, locator.Nodes.Count, "number of nodes");
+
+            _mreConfig.Reset();
+            _counters.Reset();
+
+            // Send a config with another node (2 nodes total)
+            _cluster.HandleConfigurationUpdate(GetValidConfigStream(new List<string>() { "127.0.0.1:11210", "127.0.0.2:11212" }));
+
+            Assert.IsTrue(_mreConfig.Wait(TimeSpan.FromSeconds(2)), "The Couchbase cluster failed to receive the new config (2)");
+
+            Assert.AreEqual(1, _counters.NodesAdded, "nodes added");
+            Assert.AreEqual(0, _counters.NodesRemoved, "nodes removed");
+            Assert.AreEqual(0, _counters.Errors, "errors");
+
+            locator = _cluster.Locator as VBucketServerMapLocator;
+            Assert.IsNotNull(locator);
+            Assert.AreEqual(2, locator.Nodes.Count, "number of nodes");
+
+            _mreConfig.Reset();
+            _counters.Reset();
+
+            // Remove one node
+            _cluster.HandleConfigurationUpdate(GetValidConfigStream(new List<string>() { "127.0.0.2:11212" }));
+
+            Assert.IsTrue(_mreConfig.Wait(TimeSpan.FromSeconds(2)), "The Couchbase cluster failed to receive the new config (3)");
+
+            Assert.AreEqual(0, _counters.NodesAdded, "nodes added");
+            Assert.AreEqual(1, _counters.NodesRemoved, "nodes removed");
+            Assert.AreEqual(0, _counters.Errors, "errors");
+
+            locator = _cluster.Locator as VBucketServerMapLocator;
+            Assert.IsNotNull(locator);
+            Assert.AreEqual(1, locator.Nodes.Count, "number of nodes");
+        }
+
+        private Stream GetValidConfigStream(IList<string> servers)
+        {
+            string config;
+            if (servers != null && servers.Count > 0)
+                config = COUCHBASE_CONFIG_TEMPLATE.Replace("__SERVER_LIST__", '"' + string.Join("\",\"", servers) + '"');
+            else
+                config = COUCHBASE_CONFIG_TEMPLATE.Replace("__SERVER_LIST__", string.Empty);
+
+            return new MemoryStream(Encoding.UTF8.GetBytes(config));
         }
     }
 }

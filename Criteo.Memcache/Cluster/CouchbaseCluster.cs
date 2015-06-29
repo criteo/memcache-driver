@@ -21,6 +21,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading;
+
 using Criteo.Memcache.Cluster.Couchbase;
 using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Exceptions;
@@ -54,6 +55,8 @@ namespace Criteo.Memcache.Cluster
 
         public event Action<Exception> OnError;
 
+        public event Action OnConfig;
+
         public CouchbaseCluster(MemcacheClientConfiguration configuration, string bucket, IPEndPoint[] configurationHosts)
         {
             if (configurationHosts.Length == 0)
@@ -81,6 +84,7 @@ namespace Criteo.Memcache.Cluster
         #region IMemcacheCluster
 
         public INodeLocator Locator { get { return _locator; } }
+
         public IEnumerable<IMemcacheNode> Nodes
         {
             get
@@ -90,6 +94,7 @@ namespace Criteo.Memcache.Cluster
         }
 
         public event Action<IMemcacheNode> NodeAdded;
+
         public event Action<IMemcacheNode> NodeRemoved;
 
         public void Initialize()
@@ -141,7 +146,6 @@ namespace Criteo.Memcache.Cluster
                 {
                     // Try the next host
                     connecting = false;
-
                     if (OnError != null)
                         OnError(e);
                 }
@@ -149,7 +153,7 @@ namespace Criteo.Memcache.Cluster
 
             // In case no host can be reached, try again in 30s
             if (!connecting)
-                RetryConnectingToConfigurationStream(30);
+                RetryConnectingToConfigurationStream(delaySeconds: 30.0);
         }
 
         private void RetryConnectingToConfigurationStream(double delaySeconds)
@@ -168,7 +172,6 @@ namespace Criteo.Memcache.Cluster
                 _linesStreamReader = new AsyncLinesStreamReader(response.GetResponseStream());
                 _linesStreamReader.OnError += HandleLinesStreamError;
                 _linesStreamReader.OnChunk += HandleConfigurationUpdate;
-
                 _linesStreamReader.StartReading();
             }
             catch (Exception e)
@@ -177,7 +180,7 @@ namespace Criteo.Memcache.Cluster
                     OnError(e);
 
                 // Handle HTTP query errors by trying another host
-                RetryConnectingToConfigurationStream(1);
+                RetryConnectingToConfigurationStream(delaySeconds: 1.0);
             }
         }
 
@@ -185,7 +188,7 @@ namespace Criteo.Memcache.Cluster
         /// Handles chunks of data, by parsing them as JSON and updating the current cluster state.
         /// </summary>
         /// <param name="chunk">Chunk of data</param>
-        public void HandleConfigurationUpdate(Stream chunk)
+        internal void HandleConfigurationUpdate(Stream chunk)
         {
             try
             {
@@ -238,6 +241,9 @@ namespace Criteo.Memcache.Cluster
             finally
             {
                 _receivedInitialConfigurationBarrier.Set();
+
+                if (OnConfig != null)
+                    OnConfig();
             }
         }
 
@@ -323,7 +329,7 @@ namespace Criteo.Memcache.Cluster
         {
             lock (this)
                 if (!_isDisposed)
-                    RetryConnectingToConfigurationStream(1);
+                    RetryConnectingToConfigurationStream(delaySeconds: 1.0);
         }
 
         #endregion
