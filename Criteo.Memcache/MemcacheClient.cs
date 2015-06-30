@@ -582,9 +582,12 @@ namespace Criteo.Memcache
         /// <returns>True if the client was successfully shut down.</returns>
         public bool Shutdown(bool force = false)
         {
-            // Shutdown all nodes, don't stop on the first one returning false!
-            // Do not reverse '.Shutdown' and 'done'.
-            return _cluster.Nodes.Aggregate(true, (done, node) => node.Shutdown(force) && done);
+            // Shutdown all nodes, don't stop on the first one that return false
+            bool success = true;
+            foreach (var node in _cluster.Nodes)
+                success &= node.Shutdown(force);
+
+            return success;
         }
 
         /// <summary>

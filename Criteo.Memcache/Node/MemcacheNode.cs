@@ -17,7 +17,6 @@
 */
 using System;
 using System.Collections.Concurrent;
-using System.Linq;
 using System.Net;
 using System.Threading;
 
@@ -190,7 +189,12 @@ namespace Criteo.Memcache.Node
             _forceShutDown = force;
             _ongoingShutdown = true;
 
-            return _transportPool.All(transport => transport.Shutdown(force));
+            // Shutdown all transports, don't stop on the first one that returns false
+            bool success = true;
+            foreach (var transport in _transportPool)
+                success &= transport.Shutdown(force);
+
+            return success;
         }
 
         internal bool IsClosing()
