@@ -159,7 +159,7 @@ namespace Criteo.Memcache.UTest.Tests
             _counters.Reset();
 
             // Send a config with two nodes
-            _cluster.HandleConfigurationUpdate(GetValidConfigStream(new List<string>() { "127.0.0.1:11210", "127.0.0.2:11212" }));
+            _cluster.HandleConfigurationUpdate(GetValidConfig(new List<string>() { "127.0.0.1:11210", "127.0.0.2:11212" }));
 
             Assert.IsTrue(_mreConfig.Wait(TimeSpan.FromSeconds(2)), "The Couchbase cluster failed to receive the new config");
 
@@ -185,7 +185,7 @@ namespace Criteo.Memcache.UTest.Tests
             _counters.Reset();
 
             // Send the same conf again, expect no change in the cluster
-            _cluster.HandleConfigurationUpdate(GetValidConfigStream(new List<string>() { "127.0.0.1:11210", "127.0.0.2:11212" }));
+            _cluster.HandleConfigurationUpdate(GetValidConfig(new List<string>() { "127.0.0.1:11210", "127.0.0.2:11212" }));
 
             Assert.IsTrue(_mreConfig.Wait(TimeSpan.FromSeconds(2)), "The Couchbase cluster failed to receive the new config");
 
@@ -201,7 +201,7 @@ namespace Criteo.Memcache.UTest.Tests
             _counters.Reset();
 
             // Send a config with one node
-            _cluster.HandleConfigurationUpdate(GetValidConfigStream(new List<string>() { "127.0.0.1:11210" }));
+            _cluster.HandleConfigurationUpdate(GetValidConfig(new List<string>() { "127.0.0.1:11210" }));
 
             Assert.IsTrue(_mreConfig.Wait(TimeSpan.FromSeconds(2)), "The Couchbase cluster failed to receive the new config (1)");
 
@@ -217,7 +217,7 @@ namespace Criteo.Memcache.UTest.Tests
             _counters.Reset();
 
             // Send a config with another node (2 nodes total)
-            _cluster.HandleConfigurationUpdate(GetValidConfigStream(new List<string>() { "127.0.0.1:11210", "127.0.0.2:11212" }));
+            _cluster.HandleConfigurationUpdate(GetValidConfig(new List<string>() { "127.0.0.1:11210", "127.0.0.2:11212" }));
 
             Assert.IsTrue(_mreConfig.Wait(TimeSpan.FromSeconds(2)), "The Couchbase cluster failed to receive the new config (2)");
 
@@ -233,7 +233,7 @@ namespace Criteo.Memcache.UTest.Tests
             _counters.Reset();
 
             // Remove one node
-            _cluster.HandleConfigurationUpdate(GetValidConfigStream(new List<string>() { "127.0.0.2:11212" }));
+            _cluster.HandleConfigurationUpdate(GetValidConfig(new List<string>() { "127.0.0.2:11212" }));
 
             Assert.IsTrue(_mreConfig.Wait(TimeSpan.FromSeconds(2)), "The Couchbase cluster failed to receive the new config (3)");
 
@@ -246,15 +246,12 @@ namespace Criteo.Memcache.UTest.Tests
             Assert.AreEqual(1, locator.Nodes.Count, "number of nodes");
         }
 
-        private Stream GetValidConfigStream(IList<string> servers)
+        private string GetValidConfig(IList<string> servers)
         {
-            string config;
             if (servers != null && servers.Count > 0)
-                config = COUCHBASE_CONFIG_TEMPLATE.Replace("__SERVER_LIST__", '"' + string.Join("\",\"", servers) + '"');
+                return COUCHBASE_CONFIG_TEMPLATE.Replace("__SERVER_LIST__", '"' + string.Join("\",\"", servers) + '"');
             else
-                config = COUCHBASE_CONFIG_TEMPLATE.Replace("__SERVER_LIST__", string.Empty);
-
-            return new MemoryStream(Encoding.UTF8.GetBytes(config));
+                return COUCHBASE_CONFIG_TEMPLATE.Replace("__SERVER_LIST__", string.Empty);
         }
     }
 }

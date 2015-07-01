@@ -17,6 +17,7 @@
 */
 using System;
 using System.IO;
+using System.Text;
 using System.Threading;
 
 namespace Criteo.Memcache.Cluster.Couchbase
@@ -32,7 +33,7 @@ namespace Criteo.Memcache.Cluster.Couchbase
         private int _delimiters;
 
         public TimeSpan PushCheckInterval { get; set; }
-        public event Action<Stream> OnChunk;
+        public event Action<string> OnChunk;
         public event Action<Exception> OnError;
 
         public AsyncLinesStreamReader(Stream stream)
@@ -97,9 +98,11 @@ namespace Criteo.Memcache.Cluster.Couchbase
                     // MemoryStream reads from the current position, so we need to reset it
                     _chunk.Position = 0;
                     if (OnChunk != null)
-                        OnChunk(_chunk);
+                        OnChunk(new StreamReader(_chunk, Encoding.UTF8).ReadToEnd());
 
-                    _chunk = new MemoryStream();
+                    // Reset the memory stream
+                    _chunk.SetLength(0);
+
                     _delimiters = 0;
                     start = i + 1;
                 }

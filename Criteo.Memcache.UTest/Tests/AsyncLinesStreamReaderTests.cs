@@ -109,17 +109,16 @@ namespace Criteo.Memcache.UTest.Tests
         [Test]
         public void TestSingleDelimiter()
         {
-            Stream receivedStream = null;
-            _reader.OnChunk += c => receivedStream = c;
+            string received = null;
+            _reader.OnChunk += c => received = c;
 
             SendRaw(DELIMITER);
 
-            Assert.That(() => receivedStream, Is.Not.Null.After(5000, 10), "chunk received");
+            Assert.That(() => received, Is.Not.Null.After(5000, 10), "chunk received");
 
             Assert.AreEqual(0, _counters.Errors, "errors");
             Assert.AreEqual(1, _counters.Chunks, "chunks");
 
-            var received = new StreamReader(receivedStream).ReadToEnd();
             Assert.IsNullOrEmpty(received, "compare sent vs received");
         }
 
@@ -129,17 +128,16 @@ namespace Criteo.Memcache.UTest.Tests
             const string sent = "Hello, world!";
 
             // Check that we receive exactly what was sent
-            Stream receivedStream = null;
-            _reader.OnChunk += c => receivedStream = c;
+            string received = null;
+            _reader.OnChunk += c => received = c;
 
             Send(sent);
 
-            Assert.That(() => receivedStream, Is.Not.Null.After(5000, 10), "chunk received");
+            Assert.That(() => received, Is.Not.Null.After(5000, 10), "chunk received");
 
             Assert.AreEqual(0, _counters.Errors, "errors");
             Assert.AreEqual(1, _counters.Chunks, "chunks");
 
-            var received = new StreamReader(receivedStream).ReadToEnd();
             Assert.AreEqual(sent, received, "compare sent vs received");
         }
 
@@ -148,20 +146,21 @@ namespace Criteo.Memcache.UTest.Tests
         {
             const string sentA = "Hello!", sentB = "World!";
 
-            Stream receivedStream = null;
-            _reader.OnChunk += c => receivedStream = c;
+            string received = null;
+            _reader.OnChunk += c => received = c;
 
             // First chunk
             Send(sentA);
 
-            Assert.That(() => receivedStream, Is.Not.Null.After(5000, 10), "first chunk received");
-            var receivedA = new StreamReader(receivedStream).ReadToEnd();
+            Assert.That(() => received, Is.Not.Null.After(5000, 10), "first chunk received");
+            var receivedA = received;
 
             // Second chunk
+            received = null;
             Send(sentB);
 
-            Assert.That(() => receivedStream, Is.Not.Null.After(5000, 10), "second chunk received");
-            var receivedB = new StreamReader(receivedStream).ReadToEnd();
+            Assert.That(() => received, Is.Not.Null.After(5000, 10), "second chunk received");
+            var receivedB = received;
 
             Assert.AreEqual(0, _counters.Errors, "errors");
             Assert.AreEqual(2, _counters.Chunks, "chunks");

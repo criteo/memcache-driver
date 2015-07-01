@@ -226,11 +226,11 @@ namespace Criteo.Memcache.Cluster
         /// Handles chunks of data, by parsing them as JSON and updating the current cluster state.
         /// </summary>
         /// <param name="chunk">Chunk of data</param>
-        internal void HandleConfigurationUpdate(Stream chunk)
+        internal void HandleConfigurationUpdate(string chunk)
         {
             try
             {
-                var bucket = JsonSerializer.DeserializeFromStream<JsonBucket>(chunk);
+                var bucket = JsonSerializer.DeserializeFromString<JsonBucket>(chunk);
                 if (bucket == null)
                     throw new ConfigurationException("Received an empty bucket configuration from Couchbase for bucket " + _bucket);
 
