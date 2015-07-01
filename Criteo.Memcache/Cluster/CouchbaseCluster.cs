@@ -52,6 +52,7 @@ namespace Criteo.Memcache.Cluster
         private readonly Timer _connectionTimer;
         private readonly ManualResetEventSlim _receivedInitialConfigurationBarrier;
         private AsyncLinesStreamReader _linesStreamReader;
+        private WebResponse _webResponse;
 
         public event Action<Exception> OnError;
 
@@ -63,6 +64,9 @@ namespace Criteo.Memcache.Cluster
                 throw new ArgumentException("There should be at least one value in the list", "configurationHosts");
 
             _isInitialized = false;
+
+            _linesStreamReader = null;
+            _webResponse = null;
 
             _configuration = configuration;
             if (_configuration.Authenticator == null)
@@ -117,11 +121,7 @@ namespace Criteo.Memcache.Cluster
 
         private void ConnectToConfigurationStream()
         {
-            if (_linesStreamReader != null)
-            {
-                _linesStreamReader.Dispose();
-                _linesStreamReader = null;
-            }
+            KillCurrentConnection();
 
             // Start loop at 1 to make sure we always try a server different from the last one upon (re)connecting.
             var connecting = false;
@@ -158,26 +158,64 @@ namespace Criteo.Memcache.Cluster
 
         private void RetryConnectingToConfigurationStream(double delaySeconds)
         {
-            _connectionTimer.Change(TimeSpan.FromSeconds(delaySeconds), TimeSpan.FromMilliseconds(Timeout.Infinite));
+            lock (this)
+                if (!_isDisposed)
+                    _connectionTimer.Change(TimeSpan.FromSeconds(delaySeconds), TimeSpan.FromMilliseconds(Timeout.Infinite));
         }
 
         private void ConfigurationStreamRequestEndGetResponse(IAsyncResult ar)
         {
+            if (_linesStreamReader != null)
+            {
+                OnError(new MemcacheException("Sanity check: The previous AsyncLinesStreamReader was not disposed"));
+                return;
+            }
+            if (_webResponse != null)
+            {
+                OnError(new MemcacheException("Sanity check: The previous WebResponse was not disposed"));
+                return;
+            }
+
+            WebResponse response = null;
+            AsyncLinesStreamReader linesStreamReader = null;
+
             try
             {
                 var request = (WebRequest)ar.AsyncState;
-                var response = request.EndGetResponse(ar);
+                response = request.EndGetResponse(ar);
 
                 // Allocate new string reader and start reading
-                _linesStreamReader = new AsyncLinesStreamReader(response.GetResponseStream());
-                _linesStreamReader.OnError += HandleLinesStreamError;
-                _linesStreamReader.OnChunk += HandleConfigurationUpdate;
+                linesStreamReader = new AsyncLinesStreamReader(response.GetResponseStream());
+                linesStreamReader.OnError += HandleLinesStreamError;
+                linesStreamReader.OnChunk += HandleConfigurationUpdate;
+
+                lock (this)
+                    if (!_isDisposed)
+                    {
+                        _webResponse = response;
+                        _linesStreamReader = linesStreamReader;
+                    }
+                    else
+                    {
+                        response.Dispose();
+                        linesStreamReader.Dispose();
+                        return;
+                    }
+
                 _linesStreamReader.StartReading();
             }
             catch (Exception e)
             {
                 if (OnError != null)
                     OnError(e);
+
+                if (response != null)
+                    response.Dispose();
+                _webResponse = null;
+
+                if (linesStreamReader != null)
+                    linesStreamReader.Dispose();
+                _linesStreamReader = null;
 
                 // Handle HTTP query errors by trying another host
                 RetryConnectingToConfigurationStream(delaySeconds: 1.0);
@@ -327,9 +365,7 @@ namespace Criteo.Memcache.Cluster
         /// <param name="err">The exception which was caught upon trying to read data</param>
         private void HandleLinesStreamError(Exception err)
         {
-            lock (this)
-                if (!_isDisposed)
-                    RetryConnectingToConfigurationStream(delaySeconds: 1.0);
+            RetryConnectingToConfigurationStream(delaySeconds: 1.0);
         }
 
         #endregion
@@ -342,10 +378,24 @@ namespace Criteo.Memcache.Cluster
             {
                 _isDisposed = true;
                 _connectionTimer.Dispose();
+
+                KillCurrentConnection();
+            }
+        }
+
+        private void KillCurrentConnection()
+        {
+            if (_linesStreamReader != null)
+            {
+                _linesStreamReader.Dispose();
+                _linesStreamReader = null;
             }
 
-            if (_linesStreamReader != null)
-                _linesStreamReader.Dispose();
+            if (_webResponse != null)
+            {
+                _webResponse.Dispose();
+                _webResponse = null;
+            }
         }
 
         #endregion
