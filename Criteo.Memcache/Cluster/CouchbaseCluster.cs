@@ -374,12 +374,25 @@ namespace Criteo.Memcache.Cluster
 
         public void Dispose()
         {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
             lock (this)
             {
                 _isDisposed = true;
-                _connectionTimer.Dispose();
 
-                KillCurrentConnection();
+                if (disposing)
+                {
+                    _connectionTimer.Dispose();
+
+                    KillCurrentConnection();
+
+                    foreach (var node in _memcacheNodes.Values)
+                        node.Dispose();
+                }
             }
         }
 

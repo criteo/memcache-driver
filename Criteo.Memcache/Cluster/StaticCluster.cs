@@ -77,11 +77,7 @@ namespace Criteo.Memcache.Cluster
             {
                 if (disposing)
                     foreach (var node in _nodes)
-                    {
-                        if (NodeRemoved != null)
-                            NodeRemoved(node);
                         node.Dispose();
-                    }
                 _disposed = true;
             }
         }
