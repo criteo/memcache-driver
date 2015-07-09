@@ -26,7 +26,10 @@ using System.Threading;
 
 using Criteo.Memcache.Cluster;
 using Criteo.Memcache.Configuration;
+using Criteo.Memcache.Headers;
 using Criteo.Memcache.Locator;
+
+using Criteo.Memcache.UTest.Mocks;
 
 using NUnit.Framework;
 
@@ -135,7 +138,14 @@ namespace Criteo.Memcache.UTest.Tests
         {
             _counters = new TestCounters();
             _mreConfig = new ManualResetEventSlim();
-            _cluster = new CouchbaseCluster(new MemcacheClientConfiguration() { TransportConnectTimerPeriod = Timeout.InfiniteTimeSpan }, "Some.Bucket", new[] { new IPEndPoint(0, 0) });
+
+            var config = new MemcacheClientConfiguration()
+                {
+                    TransportConnectTimerPeriod = Timeout.InfiniteTimeSpan,
+                    NodeFactory = (ipendpoint, _) => new NodeMock { EndPoint = ipendpoint, DefaultResponse = Status.NoError },
+                };
+
+            _cluster = new CouchbaseCluster(config, "Some.Bucket", new[] { new IPEndPoint(0, 0) });
             _cluster.NodeAdded += _ => _counters.IncrementNodesAdded();
             _cluster.NodeRemoved += _ => _counters.IncrementNodesRemoved();
             _cluster.OnError += e => { _counters.IncrementErrors(); Console.Error.WriteLine(e.Message); Console.Error.WriteLine(e.StackTrace); };
