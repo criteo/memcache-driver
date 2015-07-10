@@ -169,13 +169,15 @@ namespace Criteo.Memcache.UTest.Tests
             _counters.Reset();
 
             // Send a config with two nodes
-            _cluster.HandleConfigurationUpdate(GetValidConfig(new List<string>() { "127.0.0.1:11210", "127.0.0.2:11212" }));
+            var servers = new List<string>() { "127.0.0.1:11210", "127.0.0.2:11212" };
+            _cluster.HandleConfigurationUpdate(GetValidConfig(servers));
 
             Assert.IsTrue(_mreConfig.Wait(TimeSpan.FromSeconds(2)), "The Couchbase cluster failed to receive the new config");
 
             Assert.AreEqual(2, _counters.NodesAdded, "nodes added");
             Assert.AreEqual(0, _counters.NodesRemoved, "nodes removed");
             Assert.AreEqual(0, _counters.Errors, "errors");
+            CollectionAssert.AreEquivalent(servers, _cluster.Nodes.Select(n => n.EndPoint.ToString()), "Compare clusters nodes against the configuration (3)");
 
             var locator = _cluster.Locator as VBucketServerMapLocator;
             Assert.IsNotNull(locator);
@@ -211,13 +213,15 @@ namespace Criteo.Memcache.UTest.Tests
             _counters.Reset();
 
             // Send a config with one node
-            _cluster.HandleConfigurationUpdate(GetValidConfig(new List<string>() { "127.0.0.1:11210" }));
+            var servers = new List<string>() { "127.0.0.1:11210" };
+            _cluster.HandleConfigurationUpdate(GetValidConfig(servers));
 
             Assert.IsTrue(_mreConfig.Wait(TimeSpan.FromSeconds(2)), "The Couchbase cluster failed to receive the new config (1)");
 
             Assert.AreEqual(1, _counters.NodesAdded, "nodes added");
             Assert.AreEqual(0, _counters.NodesRemoved, "nodes removed");
             Assert.AreEqual(0, _counters.Errors, "errors");
+            CollectionAssert.AreEquivalent(servers, _cluster.Nodes.Select(n => n.EndPoint.ToString()), "Compare clusters nodes against the configuration (1)");
 
             var locator = _cluster.Locator as VBucketServerMapLocator;
             Assert.IsNotNull(locator);
@@ -227,13 +231,15 @@ namespace Criteo.Memcache.UTest.Tests
             _counters.Reset();
 
             // Send a config with another node (2 nodes total)
-            _cluster.HandleConfigurationUpdate(GetValidConfig(new List<string>() { "127.0.0.1:11210", "127.0.0.2:11212" }));
+            servers = new List<string>() { "127.0.0.1:11210", "127.0.0.2:11212" };
+            _cluster.HandleConfigurationUpdate(GetValidConfig(servers));
 
             Assert.IsTrue(_mreConfig.Wait(TimeSpan.FromSeconds(2)), "The Couchbase cluster failed to receive the new config (2)");
 
             Assert.AreEqual(1, _counters.NodesAdded, "nodes added");
             Assert.AreEqual(0, _counters.NodesRemoved, "nodes removed");
             Assert.AreEqual(0, _counters.Errors, "errors");
+            CollectionAssert.AreEquivalent(servers, _cluster.Nodes.Select(n => n.EndPoint.ToString()), "Compare clusters nodes against the configuration (2)");
 
             locator = _cluster.Locator as VBucketServerMapLocator;
             Assert.IsNotNull(locator);
@@ -243,13 +249,15 @@ namespace Criteo.Memcache.UTest.Tests
             _counters.Reset();
 
             // Remove one node
-            _cluster.HandleConfigurationUpdate(GetValidConfig(new List<string>() { "127.0.0.2:11212" }));
+            servers = new List<string>() { "127.0.0.2:11212" };
+            _cluster.HandleConfigurationUpdate(GetValidConfig(servers));
 
             Assert.IsTrue(_mreConfig.Wait(TimeSpan.FromSeconds(2)), "The Couchbase cluster failed to receive the new config (3)");
 
             Assert.AreEqual(0, _counters.NodesAdded, "nodes added");
             Assert.AreEqual(1, _counters.NodesRemoved, "nodes removed");
             Assert.AreEqual(0, _counters.Errors, "errors");
+            CollectionAssert.AreEquivalent(servers, _cluster.Nodes.Select(n => n.EndPoint.ToString()), "Compare clusters nodes against the configuration (3)");
 
             locator = _cluster.Locator as VBucketServerMapLocator;
             Assert.IsNotNull(locator);
