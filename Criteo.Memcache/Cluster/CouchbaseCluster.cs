@@ -308,30 +308,22 @@ namespace Criteo.Memcache.Cluster
             var newNodes = new Dictionary<string, IMemcacheNode>(_memcacheNodes);
             foreach (var server in activeNodes)
             {
-                try
+                IMemcacheNode node;
+                if (!newNodes.TryGetValue(server, out node))
                 {
-                    IMemcacheNode node;
-                    if (!newNodes.TryGetValue(server, out node))
-                    {
-                        var parts = server.SplitOnFirst(':');
-                        var ip = IPAddress.Parse(parts[0]);
-                        var port = int.Parse(parts[1]);
-                        var endpoint = new IPEndPoint(ip, port);
+                    var parts = server.SplitOnFirst(':');
+                    var ip = IPAddress.Parse(parts[0]);
+                    var port = int.Parse(parts[1]);
+                    var endpoint = new IPEndPoint(ip, port);
 
-                        node = nodeFactory(endpoint, _configuration);
-                        newNodes.Add(server, node);
+                    node = nodeFactory(endpoint, _configuration);
+                    newNodes.Add(server, node);
 
-                        if (NodeAdded != null)
-                            NodeAdded(node);
-                    }
-
-                    updatedNodes.Add(node);
+                    if (NodeAdded != null)
+                        NodeAdded(node);
                 }
-                catch (Exception e)
-                {
-                    if (OnError != null)
-                        OnError(e);
-                }
+
+                updatedNodes.Add(node);
             }
             _memcacheNodes = newNodes;
 
