@@ -270,7 +270,7 @@ namespace Criteo.Memcache.Transport
         private IMemcacheRequest DequeueToMatch(MemcacheResponseHeader header)
         {
             if (header.Opcode.IsQuiet())
-                throw new MemcacheException("No way we can match a quiet request !");
+                throw new MemcacheException("No way we can match a quiet request ! Header: " + header);
 
             IMemcacheRequest result;
 
@@ -278,12 +278,12 @@ namespace Criteo.Memcache.Transport
             if (header.Opcode == Opcode.Stat && header.TotalBodyLength != 0 && header.Status == Status.NoError)
             {
                 if (!_pendingRequests.TryPeek(out result))
-                    throw new MemcacheException("Received a response when no request is pending");
+                    throw new MemcacheException("Received a response when no request is pending (Opcode.Stat). Header: " + header);
             }
             else
             {
                 if (!_pendingRequests.TryDequeue(out result))
-                    throw new MemcacheException("Received a response when no request is pending");
+                    throw new MemcacheException("Received a response when no request is pending. Header: " + header);
             }
 
             if (result.RequestId != header.Opaque)
