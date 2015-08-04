@@ -401,11 +401,11 @@ namespace Criteo.Memcache.UTest.Tests
 
             public bool _broken;
 
+#pragma warning disable 67
             public event Action<Exception> TransportError;
-
             public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError;
-
             public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheResponse;
+#pragma warning restore 67
 
             public event Action<IMemcacheTransport> TransportDead;
 
@@ -421,9 +421,10 @@ namespace Criteo.Memcache.UTest.Tests
                 return false;
             }
 
-            public bool Shutdown(bool force)
+            public void Shutdown(Action cb)
             {
-                throw new NotImplementedException();
+                if (null != cb)
+                    cb();
             }
 
             public void Dispose()

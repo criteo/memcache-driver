@@ -341,8 +341,7 @@ namespace Criteo.Memcache.Cluster
                 // Nodes which get deleted either should not or cannot receive any requests,
                 // and as such forcing the shutdown (thus marking any pending request as failed)
                 // is probably the most coherent way to handle things.
-                node.Shutdown(true);
-                node.Dispose();
+                node.Shutdown(node.Dispose);
 
                 if (NodeRemoved != null)
                     NodeRemoved(node);

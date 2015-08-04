@@ -134,22 +134,26 @@ namespace Criteo.Memcache.Transport
             return SendRequest(request);
         }
 
-        public bool Shutdown(bool force)
+        public void Shutdown(Action callback)
         {
             if (_disposed)
-                return true;
+                return;
 
             // Ensure that only one thread triggers the QuitRequest
-            if (0 == Interlocked.Exchange(ref _ongoingShutdown, 1) && _initialized)
-                SendRequest(new QuitRequest());
+            if (0 == Interlocked.Exchange(ref _ongoingShutdown, 1)
+                && _initialized
+                && null != callback)
+                SendRequest(new QuitRequest(() =>
+                    {
+                        callback();
+                        Dispose();
+                    }));
 
-            if (force)
+            if (null == callback)
             {
                 FailPending();
-                return true;
+                Dispose();
             }
-
-            return _pendingRequests.IsEmpty;
         }
 
         #region IDisposable

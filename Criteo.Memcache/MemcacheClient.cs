@@ -575,19 +575,35 @@ namespace Criteo.Memcache
 
         /// <summary>
         /// Attempt to shutdown the memcache client.
-        /// This method may return false if some requests are still pending, allowing for a graceful shutdown.
         /// After a call to Shutdown, the client will reject any new request.
         /// </summary>
-        /// <param name="force">Force an immediate shutdown and fail all pending requests.</param>
-        /// <returns>True if the client was successfully shut down.</returns>
-        public bool Shutdown(bool force = false)
+        /// <param name="callback">
+        /// The callback to trigger when shutdown is complete
+        /// Null means force immediate shutdown
+        /// </param>
+        public void Shutdown(Action callback)
         {
-            // Shutdown all nodes, don't stop on the first one that return false
-            bool success = true;
-            foreach (var node in _cluster.Nodes)
-                success &= node.Shutdown(force);
+            var nodes = _cluster.Nodes.ToArray();
+            int remainingShutdown = nodes.Length;
+            if (remainingShutdown == 0)
+                callback();
 
-            return success;
+            foreach (var node in nodes)
+                if (callback != null)
+                    node.Shutdown(() =>
+                        {
+                            if (0 == Interlocked.Decrement(ref remainingShutdown))
+                                try
+                                {
+                                    callback();
+                                }
+                                catch (Exception e)
+                                {
+                                    OnCallbackError(e);
+                                }
+                        });
+                else
+                    node.Shutdown(null);
         }
 
         /// <summary>

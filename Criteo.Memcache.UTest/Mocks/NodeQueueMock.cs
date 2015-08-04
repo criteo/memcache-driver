@@ -65,9 +65,10 @@ namespace Criteo.Memcache.UTest.Mocks
             return _queue.TryAdd(request, timeout);
         }
 
-        public bool Shutdown(bool force)
+        public void Shutdown(Action cb)
         {
-            return true;
+            if (null != cb)
+                cb();
         }
 
         public void Dispose()

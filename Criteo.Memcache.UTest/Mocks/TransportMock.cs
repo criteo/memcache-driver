@@ -74,9 +74,10 @@ namespace Criteo.Memcache.UTest.Mocks
             }
         }
 
-        public bool Shutdown(bool force)
+        public void Shutdown(Action cb)
         {
-            return true;
+            if (null != cb)
+                cb();
         }
 
 #pragma warning disable 67

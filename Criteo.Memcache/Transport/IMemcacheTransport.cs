@@ -54,10 +54,11 @@ namespace Criteo.Memcache.Transport
 
         /// <summary>
         /// Attempt to shutdown the transport.
-        /// May return false if some requests are still pending, allowing for a graceful shutdown.
         /// </summary>
-        /// <param name="force">Force an immediate shutdown and fail all pending requests.</param>
-        /// <returns>True if the transport was successfully shut down.</returns>
-        bool Shutdown(bool force);
+        /// <param name="shutdownCallback">
+        /// The callback to trigger when shutdown is complete
+        /// Null means force immediate shutdown
+        /// </param>
+        void Shutdown(Action shutdownCallback);
     }
 }

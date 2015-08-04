@@ -19,8 +19,8 @@ using System;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Threading;
-
 using Criteo.Memcache.Configuration;
+using Criteo.Memcache.Exceptions;
 using Criteo.Memcache.Headers;
 using Criteo.Memcache.Requests;
 using Criteo.Memcache.Transport;
@@ -35,7 +35,7 @@ namespace Criteo.Memcache.Node
         private readonly MemcacheClientConfiguration _configuration;
         private volatile bool _ongoingDispose = false;
         private volatile bool _forceShutDown = false;
-        private volatile bool _ongoingShutdown = false;
+        private Action _shutDownCallback = null;
 
         private int _workingTransports;
 
@@ -91,6 +91,9 @@ namespace Criteo.Memcache.Node
 
                     if (!_tokenSource.IsCancellationRequested)
                         _tokenSource.Cancel();
+
+                    if (null != _shutDownCallback)
+                        _shutDownCallback();
                 }
             }
         }
@@ -141,9 +144,12 @@ namespace Criteo.Memcache.Node
                 // Add the transport to the pool, unless the node is disposing of the pool
                 if (!_ongoingDispose)
                 {
-                    _transportPool.Add(transport);
-                    if (_ongoingShutdown)
-                        transport.Shutdown(_forceShutDown);
+                    if (_forceShutDown)
+                        transport.Shutdown(null);
+                    else if (null != _shutDownCallback)
+                        transport.Shutdown(InternalShutdownCallback);
+                    else
+                        _transportPool.Add(transport);
                 }
                 else
                     transport.Dispose();
@@ -184,22 +190,26 @@ namespace Criteo.Memcache.Node
             return false;
         }
 
-        public bool Shutdown(bool force)
+        public void Shutdown(Action callback)
         {
-            _forceShutDown = force;
-            _ongoingShutdown = true;
+            _forceShutDown = callback == null;
+            if (!_forceShutDown && null != Interlocked.CompareExchange(ref _shutDownCallback, callback, null))
+                throw new MemcacheException("Shutdown called twice on the same node: " + ToString());
 
-            // Shutdown all transports, don't stop on the first one that returns false
-            bool success = true;
-            foreach (var transport in _transportPool)
-                success &= transport.Shutdown(force);
+            IMemcacheTransport transport;
+            while (_transportPool.TryTake(out transport, 0))
+                transport.Shutdown(_forceShutDown ? (Action)null : InternalShutdownCallback);
+        }
 
-            return success;
+        private void InternalShutdownCallback()
+        {
+            if (0 == Interlocked.Decrement(ref _workingTransports))
+                _shutDownCallback();
         }
 
         internal bool IsClosing()
         {
-            return _ongoingDispose || _ongoingShutdown;
+            return _ongoingDispose || null != _shutDownCallback || _forceShutDown;
         }
 
         #region IDisposable

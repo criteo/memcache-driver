@@ -70,10 +70,11 @@ namespace Criteo.Memcache.Node
 
         /// <summary>
         /// Attempt to shutdown the node and the transports associated with it.
-        /// May return false ifsome requests are still pending, allowing for a graceful shutdown.
         /// </summary>
-        /// <param name="force">Force an immediate shutdown and fail all pending requests.</param>
-        /// <returns>True if the node was successfully shut down.</returns>
-        bool Shutdown(bool force);
+        /// <param name="shutdownCallback">
+        /// The callback to trigger when shutdown is complete
+        /// Null means force immediate shutdown
+        /// </param>
+        void Shutdown(Action shutdownCallback);
     }
 }

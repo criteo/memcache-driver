@@ -3436,9 +3436,10 @@ namespace Criteo.Memcache.UTest.Tests
             throw new NotImplementedException();
         }
 
-        public bool Shutdown(bool force)
+        public void Shutdown(Action cb)
         {
-            return true;
+            if (null != cb)
+                cb();
         }
 
         public void Dispose()

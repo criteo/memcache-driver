@@ -15,6 +15,8 @@
    specific language governing permissions and limitations
    under the License.
 */
+using System;
+
 using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.Requests
@@ -24,6 +26,13 @@ namespace Criteo.Memcache.Requests
         public override int Replicas
         {
             get { return 0; }
+        }
+
+        private readonly Action _callback;
+
+        public QuitRequest(Action callback)
+        {
+            _callback = callback;
         }
 
         public byte[] GetQueryBuffer()
@@ -37,12 +46,14 @@ namespace Criteo.Memcache.Requests
 
         public void HandleResponse(MemcacheResponseHeader header, byte[] key, byte[] extra, byte[] message)
         {
-            // nothing to handle on a quit response
+            if (null != _callback)
+                _callback();
         }
 
         public void Fail()
         {
-            // same as on a response
+            if (null != _callback)
+                _callback();
         }
     }
 }
