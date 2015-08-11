@@ -145,7 +145,7 @@ namespace Criteo.Memcache.UTest.Tests
                     NodeFactory = (ipendpoint, _) => new NodeMock { EndPoint = ipendpoint, DefaultResponse = Status.NoError },
                 };
 
-            _cluster = new CouchbaseCluster(config, "Some.Bucket", new[] { new IPEndPoint(0, 0) });
+            _cluster = new CouchbaseCluster(config, "Some.Bucket", TimeSpan.FromSeconds(30), new[] { new IPEndPoint(0, 0) });
             _cluster.NodeAdded += _ => _counters.IncrementNodesAdded();
             _cluster.NodeRemoved += _ => _counters.IncrementNodesRemoved();
             _cluster.OnError += e => { _counters.IncrementErrors(); Console.Error.WriteLine(e.Message); Console.Error.WriteLine(e.StackTrace); };

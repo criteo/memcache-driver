@@ -51,7 +51,7 @@ namespace Criteo.Memcache.Configuration
 
     public delegate IMemcacheCluster ClusterAllocator(MemcacheClientConfiguration configuration);
 
-    public delegate ClusterAllocator CouchbaseClusterAllocatorFactory(string bucket, params IPEndPoint[] hosts);
+    public delegate ClusterAllocator CouchbaseClusterAllocatorFactory(string bucket, TimeSpan connectionTimeout, params IPEndPoint[] hosts);
 
     public delegate INodeLocator NodeLocatorAllocator();
 
@@ -95,7 +95,7 @@ namespace Criteo.Memcache.Configuration
             (zone, user, password) => new SaslPlainTextAuthenticator { Zone = zone, User = user, Password = password };
 
         public static readonly CouchbaseClusterAllocatorFactory CouchbaseClusterFactory =
-            (bucket, hosts) => config => new CouchbaseCluster(config, bucket, hosts);
+            (bucket, timeout, hosts) => config => new CouchbaseCluster(config, bucket, timeout, hosts);
 
         #endregion factories
 

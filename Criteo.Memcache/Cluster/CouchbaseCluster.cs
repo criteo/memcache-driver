@@ -54,11 +54,13 @@ namespace Criteo.Memcache.Cluster
         private AsyncLinesStreamReader _linesStreamReader;
         private WebResponse _webResponse;
 
+        private readonly TimeSpan _initializationTimer;
+
         public event Action<Exception> OnError;
 
         public event Action OnConfig;
 
-        public CouchbaseCluster(MemcacheClientConfiguration configuration, string bucket, IPEndPoint[] configurationHosts)
+        public CouchbaseCluster(MemcacheClientConfiguration configuration, string bucket, TimeSpan initializationTimer, IPEndPoint[] configurationHosts)
         {
             if (configurationHosts.Length == 0)
                 throw new ArgumentException("There should be at least one value in the list", "configurationHosts");
@@ -73,6 +75,8 @@ namespace Criteo.Memcache.Cluster
                 _configuration.Authenticator = MemcacheClientConfiguration.SaslPlainAuthenticatorFactory(string.Empty, bucket, string.Empty);
 
             _bucket = bucket;
+
+            _initializationTimer = initializationTimer;
 
             _currentConfigurationHost = 0;
             _configurationHosts = configurationHosts;
@@ -109,7 +113,7 @@ namespace Criteo.Memcache.Cluster
             _connectionTimer.Change(0, Timeout.Infinite);
 
             // Wait till we either get the initial configuration or timeout
-            if (!_receivedInitialConfigurationBarrier.Wait(_configuration.TransportConnectTimerPeriod))
+            if (!_receivedInitialConfigurationBarrier.Wait(_initializationTimer))
                 throw new TimeoutException("Attempts to connect to CouchBase nodes resulted in a timeout");
 
             _isInitialized = true;
