@@ -55,6 +55,7 @@
     <Compile Include="Cluster\Couchbase\AsyncLinesStreamReader.cs" />
     <Compile Include="Exceptions\ConfigurationException.cs" />
     <Compile Include="Locator\VBucketServerMapLocator.cs" />
+    <Compile Include="Node\UnhealthyNode.cs" />
     <Compile Include="Requests\IncrementRequest.cs" />
     <Compile Include="Serializer\ByteSerializer.cs" />
     <Compile Include="Serializer\ISerializer.cs" />

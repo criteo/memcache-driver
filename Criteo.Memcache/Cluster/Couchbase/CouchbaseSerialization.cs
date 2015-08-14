@@ -19,6 +19,9 @@ namespace Criteo.Memcache.Cluster.Couchbase
 {
     internal class JsonBucket
     {
+        public const string TYPE_VBUCKET = "vbucket";
+        public const string TYPE_KETAMA = "ketama";
+
         public string Name { get; set; }
         public string BucketType { get; set; }
         public string AuthType { get; set; }
@@ -35,6 +38,10 @@ namespace Criteo.Memcache.Cluster.Couchbase
 
     internal class JsonNode
     {
+        public const string STATUS_HEALTHY = "healthy";
+        public const string STATUS_UNHEALTHY = "unhealthy";
+        public const string STATUS_WARMUP = "warmup";
+
         public string CouchApiBase { get; set; }
         public double Replication { get; set; }
         public string ClusterMembership { get; set; }

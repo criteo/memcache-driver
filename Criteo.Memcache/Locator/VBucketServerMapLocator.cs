@@ -66,6 +66,7 @@ namespace Criteo.Memcache.Locator
                 yield break;
 
             // Yield replica in the same order (the first one being the master)
+            // Yield the nodes regardless of their status (node.IsDead)
             foreach (var node in VBucketMap[vBucketIndex])
                 if (0 <= node && node < Nodes.Count)
                     yield return Nodes[node];

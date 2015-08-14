@@ -613,7 +613,10 @@ namespace Criteo.Memcache
         {
             get
             {
-                return _cluster.Nodes.Count(node => !node.IsDead);
+                if (_cluster.Nodes != null)
+                    return _cluster.Nodes.Count(node => !node.IsDead);
+                else
+                    return 0;
             }
         }
 

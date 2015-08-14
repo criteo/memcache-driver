@@ -242,28 +242,31 @@ namespace Criteo.Memcache.Cluster
                 lock (this)
                 {
                     IList<string> nodesEndPoint;
+                    var nodeStatus = GetNodesFromConfiguration(bucket);
+                    List<IMemcacheNode> toBeDeleted;
 
                     switch (bucket.NodeLocator)
                     {
-                        case "vbucket":
+                        case JsonBucket.TYPE_VBUCKET:
                             {
                                 if (bucket.VBucketServerMap == null || bucket.VBucketServerMap.VBucketMap == null || bucket.VBucketServerMap.ServerList == null)
                                     throw new ConfigurationException("Received an empty vbucket map from Couchbase for bucket " + _bucket);
 
+                                // The endpoints in VBucketServerMap are in the right order
                                 nodesEndPoint = bucket.VBucketServerMap.ServerList;
-                                var updatedNodes = GenerateUpdatedNodeList(nodesEndPoint);
+                                var updatedNodes = GenerateUpdatedNodeList(nodesEndPoint, nodeStatus, out toBeDeleted);
                                 // Atomic update to the latest cluster state
                                 _locator = new VBucketServerMapLocator(updatedNodes, bucket.VBucketServerMap.VBucketMap);
                                 break;
                             }
-                        case "ketama":
+                        case JsonBucket.TYPE_KETAMA:
                             {
                                 if (_locator == null)
                                     _locator = new KetamaLocator();
 
                                 // create new nodes
-                                nodesEndPoint = GetNodesFromConfiguration(bucket);
-                                var updatedNodes = GenerateUpdatedNodeList(nodesEndPoint);
+                                nodesEndPoint = nodeStatus.Keys.ToList();
+                                var updatedNodes = GenerateUpdatedNodeList(nodesEndPoint, nodeStatus, out toBeDeleted);
                                 _locator.Initialize(updatedNodes);
                                 break;
                             }
@@ -272,7 +275,7 @@ namespace Criteo.Memcache.Cluster
                     }
 
                     // Dispose of the unused nodes after updating the current state
-                    CleanupDeletedNodes(nodesEndPoint);
+                    CleanupNodes(toBeDeleted);
                 }
             }
             catch (Exception e)
@@ -289,9 +292,9 @@ namespace Criteo.Memcache.Cluster
             }
         }
 
-        private static IList<string> GetNodesFromConfiguration(JsonBucket bucket)
+        private static IDictionary<string, bool> GetNodesFromConfiguration(JsonBucket bucket)
         {
-            var nodes = new List<string>();
+            var nodes = new Dictionary<string, bool>();
             foreach (var node in bucket.Nodes)
             {
                 // the hostnames includes the port…
@@ -299,49 +302,88 @@ namespace Criteo.Memcache.Cluster
                 {
                     var nodeHostname = node.Hostname.Split(':').FirstOrDefault();
                     var nodePort = node.Ports.Direct;
-                    nodes.Add(nodeHostname + ':' + nodePort);
+                    var isHealthy = node.Status == JsonNode.STATUS_HEALTHY;
+                    nodes[nodeHostname + ':' + nodePort] = isHealthy;
                 }
             }
             return nodes;
         }
 
-        private List<IMemcacheNode> GenerateUpdatedNodeList(ICollection<string> activeNodes)
+        /// <summary>
+        /// Update and return the ordered list of memcache nodes in the cluster. Existing nodes are kept from the previous list.
+        /// </summary>
+        /// <param name="activeNodes">Node addresses. The order of this list is maintained in the list returned by the method.</param>
+        /// <param name="nodeStatus">[Optional] Associative map of the nodes and their status (healthy/not healthy)</param>
+        /// <param name="toBeDeleted">Returns the nodes from the previous configuration that need to be deleted</param>
+        /// <returns></returns>
+        private IList<IMemcacheNode> GenerateUpdatedNodeList(ICollection<string> activeNodes, IDictionary<string, bool> nodeStatus, out List<IMemcacheNode> toBeDeleted)
         {
-            var updatedNodes = new List<IMemcacheNode>(activeNodes.Count);
-            var nodeFactory = _configuration.NodeFactory ?? MemcacheClientConfiguration.DefaultNodeFactory;
-            var newNodes = new Dictionary<string, IMemcacheNode>(_memcacheNodes);
+            var oldNodes = new Dictionary<string, IMemcacheNode>(_memcacheNodes);
+            var newNodes = new List<KeyValuePair<string, IMemcacheNode>>(activeNodes.Count);
+            toBeDeleted = new List<IMemcacheNode>();
+
             foreach (var server in activeNodes)
             {
+                // The node is considered healthy unless stated otherwise in the nodeStatus argument
+                bool isHealthy = nodeStatus == null || !nodeStatus.ContainsKey(server) || nodeStatus[server];
+
                 IMemcacheNode node;
-                if (!newNodes.TryGetValue(server, out node))
+                if (oldNodes.TryGetValue(server, out node))
                 {
-                    var parts = server.SplitOnFirst(':');
-                    var ip = IPAddress.Parse(parts[0]);
-                    var port = int.Parse(parts[1]);
-                    var endpoint = new IPEndPoint(ip, port);
+                    bool previousIsHealthy = !(node is UnhealthyNode);
+                    if (isHealthy != previousIsHealthy)
+                    {
+                        // Healthy status has changed for this node. Replace it.
+                        toBeDeleted.Add(node);
+                        node = null;
+                    }
+                }
 
-                    node = nodeFactory(endpoint, _configuration);
-                    newNodes.Add(server, node);
-
+                // The node did not exist or must be replaced
+                if (node == null)
+                {
+                    node = ClusterNodeFactory(server, isHealthy);
                     if (NodeAdded != null)
                         NodeAdded(node);
                 }
 
-                updatedNodes.Add(node);
+                newNodes.Add(new KeyValuePair<string, IMemcacheNode>(server, node));
             }
-            _memcacheNodes = newNodes;
 
-            return updatedNodes;
+            // Prepare clean-up of removed nodes
+            foreach(var removedNode in oldNodes.Keys.Except(activeNodes))
+                toBeDeleted.Add(oldNodes[removedNode]);
+
+            // Update the node configuration and return an ordered list
+            _memcacheNodes = newNodes.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+            return newNodes.Select(kvp => kvp.Value).ToList();
         }
 
-        private void CleanupDeletedNodes(IEnumerable<string> activeNodes)
+        private IMemcacheNode ClusterNodeFactory(string server, bool isHealthy)
         {
-            var newNodes = new Dictionary<string, IMemcacheNode>(_memcacheNodes);
-            foreach (var server in _memcacheNodes.Keys.Except(activeNodes))
-            {
-                var node = newNodes[server];
-                newNodes.Remove(server);
+            var parts = server.SplitOnFirst(':');
+            var ip = IPAddress.Parse(parts[0]);
+            var port = int.Parse(parts[1]);
+            var endpoint = new IPEndPoint(ip, port);
 
+            if (isHealthy)
+            {
+                var nodeFactory = _configuration.NodeFactory ?? MemcacheClientConfiguration.DefaultNodeFactory;
+                return nodeFactory(endpoint, _configuration);
+            }
+            else
+            {
+                return new UnhealthyNode(endpoint);
+            }
+        }
+
+        private void CleanupNodes(IEnumerable<IMemcacheNode> toBeDeleted)
+        {
+            if (toBeDeleted == null)
+                return;
+
+            foreach (var node in toBeDeleted)
+            {
                 // Nodes which get deleted either should not or cannot receive any requests,
                 // and as such forcing the shutdown (thus marking any pending request as failed)
                 // is probably the most coherent way to handle things.
@@ -350,7 +392,6 @@ namespace Criteo.Memcache.Cluster
                 if (NodeRemoved != null)
                     NodeRemoved(node);
             }
-            _memcacheNodes = newNodes;
         }
 
         /// <summary>
