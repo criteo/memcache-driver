@@ -16,7 +16,8 @@
    under the License.
 */
 using System;
-
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using Criteo.Memcache.Exceptions;
 using Criteo.Memcache.Headers;
 
@@ -26,7 +27,7 @@ namespace Criteo.Memcache.Requests
     {
         private TimeSpan _expire;
 
-        public Action<Status, byte[]> CallBack { get; set; }
+        public Action<IEnumerable<Status>, byte[]> CallBack { get; set; }
         public Opcode RequestOpcode { get; set; }
         public uint Flag { get; private set; }
         public TimeSpan Expire
@@ -96,13 +97,13 @@ namespace Criteo.Memcache.Requests
             }
 
             if (CallCallback(header.Status) && CallBack != null)
-                CallBack(header.Status, message);
+                CallBack(_receivedStatuses, message);
         }
 
         public void Fail()
         {
             if (CallCallback(Status.InternalError) && CallBack != null)
-                CallBack(Status.InternalError, null);
+                CallBack(_receivedStatuses, null);
         }
 
         public override string ToString()

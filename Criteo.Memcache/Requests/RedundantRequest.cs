@@ -15,6 +15,8 @@
    specific language governing permissions and limitations
    under the License.
 */
+
+using System.Collections.Concurrent;
 using System.Threading;
 
 using Criteo.Memcache.Headers;
@@ -28,6 +30,7 @@ namespace Criteo.Memcache.Requests
     {
         private int _receivedResponses = 0;         // Either a fail-to-send, a response from the node, or a transport fail.
         private int _ignoreNextResponses = 0;       // Integer used as a boolean: 0 --> false, !=0 --> true
+        protected ConcurrentBag<Status> _receivedStatuses = new ConcurrentBag<Status>();
 
         public CallBackPolicy CallBackPolicy { get; set; }
 
@@ -45,7 +48,9 @@ namespace Criteo.Memcache.Requests
             {
                 return false;
             }
-
+            // !!!WARNING!!!
+            // _receivedStatus may be modified during processing in callback
+            _receivedStatuses.Add(respStatus);
             // When the last answer is received we must call the callback.
             if (receivedResponses >= Replicas + 1 &&
                 0 == Interlocked.CompareExchange(ref _ignoreNextResponses, 1, 0))   // If _ignoreNextResponses was 0 (false), then switch it to 1 (true) and return true.
