@@ -50,17 +50,16 @@ namespace Criteo.Memcache.Cluster
         private INodeLocator _locator;
 
         private readonly Timer _connectionTimer;
-        private readonly ManualResetEventSlim _receivedInitialConfigurationBarrier;
         private AsyncLinesStreamReader _linesStreamReader;
         private WebResponse _webResponse;
 
-        private readonly TimeSpan _initializationTimer;
+        private readonly TimeSpan _initializationTimeout;
 
         public event Action<Exception> OnError;
 
         public event Action OnConfig;
 
-        public CouchbaseCluster(MemcacheClientConfiguration configuration, string bucket, TimeSpan initializationTimer, IPEndPoint[] configurationHosts)
+        public CouchbaseCluster(MemcacheClientConfiguration configuration, string bucket, TimeSpan initializationTimeout, IPEndPoint[] configurationHosts)
         {
             if (configurationHosts.Length == 0)
                 throw new ArgumentException("There should be at least one value in the list", "configurationHosts");
@@ -76,7 +75,7 @@ namespace Criteo.Memcache.Cluster
 
             _bucket = bucket;
 
-            _initializationTimer = initializationTimer;
+            _initializationTimeout = initializationTimeout;
 
             _currentConfigurationHost = 0;
             _configurationHosts = configurationHosts;
@@ -86,7 +85,6 @@ namespace Criteo.Memcache.Cluster
             _locator = null;
 
             _connectionTimer = new Timer(_ => ConnectToConfigurationStream(), null, Timeout.Infinite, Timeout.Infinite);
-            _receivedInitialConfigurationBarrier = new ManualResetEventSlim();
         }
 
         #region IMemcacheCluster
@@ -110,18 +108,45 @@ namespace Criteo.Memcache.Cluster
             if (_isInitialized)
                 throw new MemcacheException("Initialize should only be called once on clusters");
 
-            _connectionTimer.Change(0, Timeout.Infinite);
-
-            // Wait till we either get the initial configuration or timeout
-            if (!_receivedInitialConfigurationBarrier.Wait(_initializationTimer))
-                throw new TimeoutException("Attempts to connect to CouchBase nodes resulted in a timeout");
-
+            SynchronouslyConnectConfiguration();
+            ConnectToConfigurationStream();
             _isInitialized = true;
         }
 
         #endregion
 
         #region Couchbase HTTP configuration stream handling
+
+        private void SynchronouslyConnectConfiguration()
+        {
+            var rand = new Random();
+            var i = rand.Next(_configurationHosts.Length - 1);
+            _currentConfigurationHost = (_currentConfigurationHost + i) % _configurationHosts.Length;
+
+            var url = string.Format(
+                "http://{0}:{1}/pools/default/buckets/{2}",
+                _configurationHosts[_currentConfigurationHost].Address,
+                _configurationHosts[_currentConfigurationHost].Port,
+                _bucket);
+
+            try
+            {
+                var webRequest = WebRequest.Create(url);
+                webRequest.Timeout = (int)_initializationTimeout.TotalMilliseconds;
+                var response = webRequest.GetResponse();
+                using (var respStream = response.GetResponseStream())
+                {
+                    var reader = new StreamReader(respStream);
+                    var chunk = reader.ReadToEnd();
+                    HandleConfigurationUpdate(chunk);
+                }
+            }
+            catch (Exception e)
+            {
+                OnError(e);
+                throw;
+            }
+        }
 
         private void ConnectToConfigurationStream()
         {
@@ -285,8 +310,6 @@ namespace Criteo.Memcache.Cluster
             }
             finally
             {
-                _receivedInitialConfigurationBarrier.Set();
-
                 if (OnConfig != null)
                     OnConfig();
             }
@@ -351,7 +374,7 @@ namespace Criteo.Memcache.Cluster
             }
 
             // Prepare clean-up of removed nodes
-            foreach(var removedNode in oldNodes.Keys.Except(activeNodes))
+            foreach (var removedNode in oldNodes.Keys.Except(activeNodes))
                 toBeDeleted.Add(oldNodes[removedNode]);
 
             // Update the node configuration and return an ordered list
