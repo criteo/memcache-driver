@@ -15,9 +15,6 @@
    specific language governing permissions and limitations
    under the License.
 */
-
-using System.Collections.Generic;
-
 namespace Criteo.Memcache.Headers
 {
     public enum Status : ushort
@@ -207,27 +204,6 @@ namespace Criteo.Memcache.Headers
                 default:
                     return false;
             }
-        }
-    }
-
-    public static class StatusAggregator
-    {
-        static public Status AggregateStatus(IEnumerable<Status> statuses)
-        {
-            var aggregateStatus = Status.KeyNotFound;
-            foreach (var status in statuses)
-            {
-                if (status == Status.NoError)
-                {
-                    aggregateStatus = status;
-                    break;
-                }
-                if (status != Status.KeyNotFound)
-                {
-                    aggregateStatus = status;
-                }
-            }
-            return aggregateStatus;
         }
     }
 }

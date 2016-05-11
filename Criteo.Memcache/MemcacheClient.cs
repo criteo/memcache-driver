@@ -148,16 +148,16 @@ namespace Criteo.Memcache
         /// <param name="callback"></param>
         /// <param name="serializer"></param>
         /// <returns></returns>
-        private Action<IEnumerable<Status>, byte[]> SanitizeCallback<T>(Action<Status, T> callback, ISerializer<T> serializer)
+        private Action<Status, byte[]> SanitizeCallback<T>(Action<Status, T> callback, ISerializer<T> serializer)
         {
             if (callback == null)
                 return null;
-            return (IEnumerable<Status> statuses, byte[] m) =>
+            return (Status s, byte[] m) =>
             {
                 try
                 {
                     T value = serializer.FromBytes(m);
-                    callback(StatusAggregator.AggregateStatus(statuses), value);
+                    callback(s, value);
                 }
                 catch (Exception e)
                 {

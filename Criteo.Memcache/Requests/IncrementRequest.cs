@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.Requests
@@ -14,7 +12,7 @@ namespace Criteo.Memcache.Requests
             get;
             set;
         }
-        public Action<IEnumerable<Status>, byte[]> CallBack { get; set; }
+        public Action<Status, byte[]> CallBack { get; set; }
         public ulong Delta { get; set; }
         public ulong Initial { get; set; }
         public TimeSpan Expire
@@ -65,13 +63,13 @@ namespace Criteo.Memcache.Requests
         public void HandleResponse(MemcacheResponseHeader header, byte[] key, byte[] extra, byte[] message)
         {
             if (CallCallback(header.Status) && CallBack != null)
-                CallBack(_receivedStatuses, message);
+                CallBack(header.Status, message);
         }
 
         public void Fail()
         {
             if (CallCallback(Status.InternalError) && CallBack != null)
-                CallBack(_receivedStatuses, null);
+                CallBack(Status.InternalError, null);
         }
 
         public override string ToString()

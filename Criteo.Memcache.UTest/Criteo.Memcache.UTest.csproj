@@ -72,7 +72,6 @@
     <Compile Include="Tests\Requests\NoOpRequestTests.cs" />
     <Compile Include="Tests\Requests\SaslPlainTextRequestTests.cs" />
     <Compile Include="Tests\Requests\SetRequestTests.cs" />
-    <Compile Include="Tests\StatusAggregatorTests.cs" />
     <Compile Include="Tests\TransportTest.cs" />
     <Compile Include="Tests\VBucketLocatorTests.cs" />
   </ItemGroup>

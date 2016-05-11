@@ -16,9 +16,6 @@
    under the License.
 */
 using System;
-using System.Collections;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Linq;
 
 using NUnit.Framework;
@@ -34,16 +31,6 @@ namespace Criteo.Memcache.UTest.Tests
     [TestFixture]
     public class GetRequestTests
     {
-        private Action<IEnumerable<Status>, byte[]> SanitizeCallback(Action<Status, byte[]> callback)
-        {
-            if (callback == null)
-                return null;
-            return (IEnumerable<Status> statuses, byte[] m) =>
-            {
-                callback(StatusAggregator.AggregateStatus(statuses), m);
-            };
-        }
-
         static readonly byte[] GET_QUERY =
         {
             0x80, 0x00, 0x00, 0x05,
@@ -99,7 +86,7 @@ namespace Criteo.Memcache.UTest.Tests
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 RequestId = 0,
-                CallBack =  SanitizeCallback ((s, m) => { message = m; status = s; }),
+                CallBack = (s, m) => { message = m; status = s; },
                 CallBackPolicy = CallBackPolicy.AnyOK,
             };
 
@@ -128,7 +115,7 @@ namespace Criteo.Memcache.UTest.Tests
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 RequestId = 0,
-                CallBack = SanitizeCallback((s, m) => { message = m; status = s; }),
+                CallBack = (s, m) => { message = m; status = s; },
                 CallBackPolicy = CallBackPolicy.AnyOK,
                 Replicas = 2,
             };
@@ -154,7 +141,7 @@ namespace Criteo.Memcache.UTest.Tests
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 RequestId = 0,
-                CallBack = SanitizeCallback((s, m) => { message = m; status = s; }),
+                CallBack = (s, m) => { message = m; status = s; },
                 CallBackPolicy = CallBackPolicy.AnyOK,
                 Replicas = 2,
             };
@@ -177,7 +164,7 @@ namespace Criteo.Memcache.UTest.Tests
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 RequestId = 0,
-                CallBack = SanitizeCallback((s, m) => { message = m; status = s; }),
+                CallBack = (s, m) => { message = m; status = s; },
                 CallBackPolicy = CallBackPolicy.AnyOK,
                 Replicas = 2,
             };
@@ -208,7 +195,7 @@ namespace Criteo.Memcache.UTest.Tests
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 RequestId = 0,
-                CallBack = SanitizeCallback((s, m) => status = s),
+                CallBack = (s, m) => status = s,
                 CallBackPolicy = CallBackPolicy.AnyOK,
                 Replicas = 2,
             };
@@ -231,20 +218,20 @@ namespace Criteo.Memcache.UTest.Tests
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 RequestId = 0,
-                CallBack = SanitizeCallback((s, m) => status = s),
+                CallBack = (s, m) => status = s,
                 CallBackPolicy = CallBackPolicy.AnyOK,
                 Replicas = 2,
             };
-            status = Status.InternalError;
+            status = Status.UnknownCommand;
 
             Assert.DoesNotThrow(() => request.Fail(), "Handle request should not throw an exception");
-            Assert.AreEqual(Status.InternalError, status, "Callback should not be called after the first failed get");
+            Assert.AreEqual(Status.UnknownCommand, status, "Callback should not be called after the first failed get");
 
             Assert.DoesNotThrow(() => request.Fail(), "Handle request should not throw an exception");
-            Assert.AreEqual(Status.InternalError, status, "Callback should not be called after the second failed get");
+            Assert.AreEqual(Status.UnknownCommand, status, "Callback should not be called after the second failed get");
 
             Assert.DoesNotThrow(() => request.HandleResponse(headerFail, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
-            Assert.AreEqual(Status.InternalError, status, "Returned status should be KeynotFound");
+            Assert.AreEqual(Status.KeyNotFound, status, "Returned status should be KeynotFound");
 
         }
 
