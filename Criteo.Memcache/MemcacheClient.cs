@@ -317,7 +317,7 @@ namespace Criteo.Memcache
 
             var keyAsBytes = _configuration.KeySerializer.SerializeToBytes(key);
             var serializer = _configuration.SerializerOf<T>();
-            var request = new SetRequest
+            var request = new SetRequest(callbackPolicy)
             {
                 Key = keyAsBytes,
                 Message = serializer.ToBytes(message),
@@ -325,7 +325,6 @@ namespace Criteo.Memcache
                 Expire = expiration,
                 RequestId = NextRequestId,
                 CallBack = SanitizeCallback(callback),
-                CallBackPolicy = callbackPolicy,
                 Replicas = _configuration.Replicas,
                 RequestOpcode = op,
             };
@@ -372,7 +371,7 @@ namespace Criteo.Memcache
         {
             var keyAsBytes = _configuration.KeySerializer.SerializeToBytes(key);
             var serializer = _configuration.SerializerOf<ulong>();
-            var request = new IncrementRequest
+            var request = new IncrementRequest(CallBackPolicy.AllOK)
             {
                 Key = keyAsBytes,
                 CallBack = SanitizeCallback(callback, serializer),
@@ -398,11 +397,10 @@ namespace Criteo.Memcache
         {
             var keyAsBytes = _configuration.KeySerializer.SerializeToBytes(key);
             var serializer = _configuration.SerializerOf<T>();
-            var request = new GetRequest
+            var request = new GetRequest(callbackPolicy)
             {
                 Key = keyAsBytes,
                 CallBack = SanitizeCallback(callback, serializer),
-                CallBackPolicy = callbackPolicy,
                 RequestId = NextRequestId,
                 Replicas = _configuration.Replicas,
             };
@@ -421,7 +419,7 @@ namespace Criteo.Memcache
         {
             var keyAsBytes = _configuration.KeySerializer.SerializeToBytes(key);
             var serializer = _configuration.SerializerOf<T>();
-            var request = new GetRequest
+            var request = new GetRequest(CallBackPolicy.AnyOK)
             {
                 Key = keyAsBytes,
                 CallBack = SanitizeCallback(callback, serializer),
@@ -429,7 +427,7 @@ namespace Criteo.Memcache
                 RequestOpcode = Opcode.Get,
             };
 
-            var replicaRequest = new GetRequest
+            var replicaRequest = new GetRequest(CallBackPolicy.AnyOK)
             {
                 Key = keyAsBytes,
                 CallBack = SanitizeCallback(callback, serializer),
@@ -453,13 +451,12 @@ namespace Criteo.Memcache
         {
             var keyAsBytes = _configuration.KeySerializer.SerializeToBytes(key);
             var serializer = _configuration.SerializerOf<T>();
-            var request = new GetRequest
+            var request = new GetRequest(callbackPolicy)
             {
                 RequestOpcode = Opcode.GAT,
                 Expire = expire,
                 Key = keyAsBytes,
                 CallBack = SanitizeCallback(callback, serializer),
-                CallBackPolicy = callbackPolicy,
                 RequestId = NextRequestId,
                 Replicas = _configuration.Replicas
             };
@@ -477,11 +474,10 @@ namespace Criteo.Memcache
         public bool Delete(string key, Action<Status> callback, CallBackPolicy callbackPolicy = CallBackPolicy.AllOK)
         {
             var keyAsBytes = _configuration.KeySerializer.SerializeToBytes(key);
-            var request = new DeleteRequest
+            var request = new DeleteRequest(callbackPolicy)
             {
                 Key = keyAsBytes,
                 CallBack = SanitizeCallback(callback),
-                CallBackPolicy = callbackPolicy,
                 RequestId = NextRequestId,
                 Replicas = _configuration.Replicas
             };

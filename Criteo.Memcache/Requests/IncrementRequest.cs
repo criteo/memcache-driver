@@ -31,7 +31,8 @@ namespace Criteo.Memcache.Requests
             }
         }
 
-        public IncrementRequest()
+        public IncrementRequest(CallBackPolicy callBackPolicy)
+            : base(callBackPolicy)
         {
             RequestOpcode = Opcode.Increment;
         }
@@ -63,13 +64,13 @@ namespace Criteo.Memcache.Requests
         public void HandleResponse(MemcacheResponseHeader header, byte[] key, byte[] extra, byte[] message)
         {
             if (CallCallback(header.Status) && CallBack != null)
-                CallBack(header.Status, message);
+                CallBack(GetResult(), message);
         }
 
         public void Fail()
         {
             if (CallCallback(Status.InternalError) && CallBack != null)
-                CallBack(Status.InternalError, null);
+                CallBack(GetResult(), null);
         }
 
         public override string ToString()

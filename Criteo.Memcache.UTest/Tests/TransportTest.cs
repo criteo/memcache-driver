@@ -142,14 +142,14 @@ namespace Criteo.Memcache.UTest.Tests
 
                 serverMock.ReceiveMutex = new ManualResetEventSlim();
                 var clientMutex = new ManualResetEventSlim();
-                var request1 = new GetRequest
+                var request1 = new GetRequest(CallBackPolicy.AnyOK)
                 {
                     RequestId = (uint)42,
                     Key = "Hello, world".Select(c => (byte)c).ToArray(),
                     RequestOpcode = Opcode.Get,
                     CallBack = (r, v) => clientMutex.Set(),
                 };
-                var request2 = new GetRequest
+                var request2 = new GetRequest(CallBackPolicy.AllOK)
                 {
                     RequestId = (uint)42,
                     Key = "Hello, world".Select(c => (byte)c).ToArray(),

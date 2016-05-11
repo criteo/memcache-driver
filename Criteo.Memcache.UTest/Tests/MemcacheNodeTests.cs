@@ -167,7 +167,7 @@ namespace Criteo.Memcache.UTest.Tests
 
                 Status receivedStatus = Status.NoError;
                 node.TrySend(
-                    new SetRequest
+                    new SetRequest(CallBackPolicy.AllOK)
                     {
                         RequestOpcode = Opcode.Set,
                         RequestId = 1,
@@ -217,7 +217,7 @@ namespace Criteo.Memcache.UTest.Tests
                 receivedStatus = Status.NoError;
 
                 var result = node.TrySend(
-                    new SetRequest
+                    new SetRequest(CallBackPolicy.AllOK)
                     {
                         RequestOpcode = Opcode.Set,
                         RequestId = 1,
@@ -246,7 +246,7 @@ namespace Criteo.Memcache.UTest.Tests
                 expectedException = null;
                 callbackMutex.Reset();
                 result = node.TrySend(
-                    new SetRequest
+                    new SetRequest(CallBackPolicy.AllOK)
                     {
                         RequestOpcode = Opcode.Set,
                         RequestId = 1,

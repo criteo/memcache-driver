@@ -54,14 +54,13 @@ namespace Criteo.Memcache.UTest.Tests
         public void SetRequestTest()
         {
             Status status = Status.UnknownCommand;
-            var request = new SetRequest
+            var request = new SetRequest(CallBackPolicy.AllOK)
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 Message = System.Text.Encoding.UTF8.GetBytes(@"World"),
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
                 CallBack = (s) => status = s,
-                CallBackPolicy = CallBackPolicy.AllOK
             };
 
             Assert.AreEqual(Opcode.Set, request.RequestOpcode);
@@ -78,14 +77,13 @@ namespace Criteo.Memcache.UTest.Tests
         public void SetRequestFailTest()
         {
             Status status = Status.UnknownCommand;
-            var request = new SetRequest
+            var request = new SetRequest(CallBackPolicy.AllOK)
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 Message = System.Text.Encoding.UTF8.GetBytes(@"World"),
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
                 CallBack = (s) => status = s,
-                CallBackPolicy = CallBackPolicy.AllOK
             };
 
             var queryBuffer = request.GetQueryBuffer();
@@ -102,14 +100,13 @@ namespace Criteo.Memcache.UTest.Tests
         public void RedundantSetRequestTest()
         {
             Status status = Status.UnknownCommand;
-            var request = new SetRequest
+            var request = new SetRequest(CallBackPolicy.AllOK)
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 Message = System.Text.Encoding.UTF8.GetBytes(@"World"),
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
                 CallBack = (s) => status = s,
-                CallBackPolicy = CallBackPolicy.AllOK,
                 Replicas = 1,
             };
 
@@ -133,14 +130,13 @@ namespace Criteo.Memcache.UTest.Tests
         public void RedundantSetRequestFailTest()
         {
             Status status = Status.UnknownCommand;
-            var request = new SetRequest
+            var request = new SetRequest(CallBackPolicy.AllOK)
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 Message = System.Text.Encoding.UTF8.GetBytes(@"World"),
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
                 CallBack = (s) => status = s,
-                CallBackPolicy = CallBackPolicy.AllOK,
                 Replicas = 1,
             };
 
@@ -160,14 +156,13 @@ namespace Criteo.Memcache.UTest.Tests
             // 2. First response is failing, second one is OK
 
             status = Status.UnknownCommand;
-            request = new SetRequest
+            request = new SetRequest(CallBackPolicy.AllOK)
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 Message = System.Text.Encoding.UTF8.GetBytes(@"World"),
                 RequestId = 0,
                 Expire = TimeSpan.FromHours(1),
                 CallBack = (s) => status = s,
-                CallBackPolicy = CallBackPolicy.AllOK,
                 Replicas = 1,
             };
 
@@ -182,13 +177,13 @@ namespace Criteo.Memcache.UTest.Tests
         public void SetRequestValidInvalidTest()
         {
             // Invalid Expire times
-            Assert.Throws<ArgumentException>(() => new SetRequest() { Expire = TimeSpan.MinValue }, "Invalid negative expire time");
-            Assert.Throws<ArgumentException>(() => new SetRequest() { Expire = TimeSpan.FromSeconds(-1) }, "Invalid negative expire time");
+            Assert.Throws<ArgumentException>(() => new SetRequest(CallBackPolicy.AllOK) { Expire = TimeSpan.MinValue }, "Invalid negative expire time");
+            Assert.Throws<ArgumentException>(() => new SetRequest(CallBackPolicy.AllOK) { Expire = TimeSpan.FromSeconds(-1) }, "Invalid negative expire time");
 
             // Valid requests
-            Assert.DoesNotThrow(() => new SetRequest() { Expire = TimeSpan.Zero }, "Timestamp.Zero translates to infinite TTL");
-            Assert.DoesNotThrow(() => new SetRequest() { Expire = ExpirationTimeUtils.Infinite }, "Timestamp.Zero translates to infinite TTL");
-            Assert.DoesNotThrow(() => new SetRequest() { Expire = TimeSpan.MaxValue }, "Timestamp.MaxValue is considered valid, but the conversion to a timestamp will crash");
+            Assert.DoesNotThrow(() => new SetRequest(CallBackPolicy.AllOK) { Expire = TimeSpan.Zero }, "Timestamp.Zero translates to infinite TTL");
+            Assert.DoesNotThrow(() => new SetRequest(CallBackPolicy.AllOK) { Expire = ExpirationTimeUtils.Infinite }, "Timestamp.Zero translates to infinite TTL");
+            Assert.DoesNotThrow(() => new SetRequest(CallBackPolicy.AllOK) { Expire = TimeSpan.MaxValue }, "Timestamp.MaxValue is considered valid, but the conversion to a timestamp will crash");
         }
 
     }

@@ -16,6 +16,8 @@
    under the License.
 */
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 using NUnit.Framework;
@@ -58,12 +60,11 @@ namespace Criteo.Memcache.UTest.Tests
         public void GetRequestTest()
         {
             byte[] message = null;
-            var request = new GetRequest
+            var request = new GetRequest(CallBackPolicy.AnyOK)
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 RequestId = 0,
                 CallBack = (s, m) => message = m,
-                CallBackPolicy = CallBackPolicy.AnyOK
             };
 
             var queryBuffer = request.GetQueryBuffer();
@@ -82,12 +83,11 @@ namespace Criteo.Memcache.UTest.Tests
             Status status = Status.UnknownCommand;
             byte[] message = new byte[0];
 
-            var request = new GetRequest
+            var request = new GetRequest(CallBackPolicy.AnyOK)
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 RequestId = 0,
                 CallBack = (s, m) => { message = m; status = s; },
-                CallBackPolicy = CallBackPolicy.AnyOK,
             };
 
             var queryBuffer = request.GetQueryBuffer();
@@ -111,12 +111,11 @@ namespace Criteo.Memcache.UTest.Tests
 
             // 1. Test redundancy = 3 and all gets are successful
 
-            var request = new GetRequest
+            var request = new GetRequest(CallBackPolicy.AnyOK)
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 RequestId = 0,
                 CallBack = (s, m) => { message = m; status = s; },
-                CallBackPolicy = CallBackPolicy.AnyOK,
                 Replicas = 2,
             };
 
@@ -137,12 +136,11 @@ namespace Criteo.Memcache.UTest.Tests
 
             // 2. Test redundancy = 3, the first get is failing
 
-            request = new GetRequest
+            request = new GetRequest(CallBackPolicy.AnyOK)
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 RequestId = 0,
                 CallBack = (s, m) => { message = m; status = s; },
-                CallBackPolicy = CallBackPolicy.AnyOK,
                 Replicas = 2,
             };
             status = Status.UnknownCommand;
@@ -160,12 +158,11 @@ namespace Criteo.Memcache.UTest.Tests
 
             // 3. Test redundancy = 3, the first and second gets are failing
 
-            request = new GetRequest
+            request = new GetRequest(CallBackPolicy.AnyOK)
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 RequestId = 0,
                 CallBack = (s, m) => { message = m; status = s; },
-                CallBackPolicy = CallBackPolicy.AnyOK,
                 Replicas = 2,
             };
             status = Status.UnknownCommand;
@@ -191,12 +188,11 @@ namespace Criteo.Memcache.UTest.Tests
 
             // 1. Test redundancy = 3 and all gets are failing, the last on InternalError
 
-            var request = new GetRequest
+            var request = new GetRequest(CallBackPolicy.AnyOK)
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 RequestId = 0,
                 CallBack = (s, m) => status = s,
-                CallBackPolicy = CallBackPolicy.AnyOK,
                 Replicas = 2,
             };
 
@@ -210,16 +206,15 @@ namespace Criteo.Memcache.UTest.Tests
             Assert.AreEqual(Status.UnknownCommand, status, "Callback should not be called after the second failed get");
 
             Assert.DoesNotThrow(() => request.Fail(), "Handle request should not throw an exception");
-            Assert.AreEqual(Status.InternalError, status, "Returned status should be InternalError");
+            Assert.AreEqual(Status.KeyNotFound, status, "Returned status should be KeyNotFound");
 
             // 2. Test redundancy = 3 and all gets are failing, the last on KeyNotFound
 
-            request = new GetRequest
+            request = new GetRequest(CallBackPolicy.AnyOK)
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 RequestId = 0,
                 CallBack = (s, m) => status = s,
-                CallBackPolicy = CallBackPolicy.AnyOK,
                 Replicas = 2,
             };
             status = Status.UnknownCommand;
@@ -231,7 +226,7 @@ namespace Criteo.Memcache.UTest.Tests
             Assert.AreEqual(Status.UnknownCommand, status, "Callback should not be called after the second failed get");
 
             Assert.DoesNotThrow(() => request.HandleResponse(headerFail, null, GET_FLAG, GET_MESSAGE), "Handle request should not throw an exception");
-            Assert.AreEqual(Status.KeyNotFound, status, "Returned status should be KeynotFound");
+            Assert.AreEqual(Status.KeyNotFound, status, "Returned status should be KeyNotFound");
 
         }
 
@@ -239,14 +234,84 @@ namespace Criteo.Memcache.UTest.Tests
         public void GetRequestValidInvalidTest()
         {
             // Invalid Expire times
-            Assert.Throws<ArgumentException>(() => new GetRequest() { Expire = TimeSpan.MinValue }, "Invalid negative expire time");
-            Assert.Throws<ArgumentException>(() => new GetRequest() { Expire = TimeSpan.FromSeconds(-1) }, "Invalid negative expire time");
+            Assert.Throws<ArgumentException>(() => new GetRequest(CallBackPolicy.AnyOK) { Expire = TimeSpan.MinValue }, "Invalid negative expire time");
+            Assert.Throws<ArgumentException>(() => new GetRequest(CallBackPolicy.AnyOK) { Expire = TimeSpan.FromSeconds(-1) }, "Invalid negative expire time");
 
             // Valid requests
-            Assert.DoesNotThrow(() => new GetRequest() { Expire = TimeSpan.Zero }, "Timestamp.Zero translates to infinite TTL");
-            Assert.DoesNotThrow(() => new GetRequest() { Expire = ExpirationTimeUtils.Infinite }, "Timestamp.Zero translates to infinite TTL");
-            Assert.DoesNotThrow(() => new GetRequest() { Expire = TimeSpan.MaxValue }, "Timestamp.MaxValue is considered valid, but the conversion to a timestamp will crash");
+            Assert.DoesNotThrow(() => new GetRequest(CallBackPolicy.AnyOK) { Expire = TimeSpan.Zero }, "Timestamp.Zero translates to infinite TTL");
+            Assert.DoesNotThrow(() => new GetRequest(CallBackPolicy.AnyOK) { Expire = ExpirationTimeUtils.Infinite }, "Timestamp.Zero translates to infinite TTL");
+            Assert.DoesNotThrow(() => new GetRequest(CallBackPolicy.AnyOK) { Expire = TimeSpan.MaxValue }, "Timestamp.MaxValue is considered valid, but the conversion to a timestamp will crash");
         }
 
+        //AnyOK
+        [TestCase(new Status[] {Status.NoError},
+            CallBackPolicy.AnyOK, Status.NoError)]
+
+        [TestCase(new Status[] { Status.NoError, Status.InternalError },
+            CallBackPolicy.AnyOK, Status.NoError)]
+
+        [TestCase(new Status[] { Status.KeyNotFound, Status.InternalError },
+            CallBackPolicy.AnyOK, Status.KeyNotFound)] // if we contacted at least one node in cluster we should think cluster is OK
+
+        [TestCase(new Status[] { Status.InternalError, Status.KeyNotFound },
+            CallBackPolicy.AnyOK, Status.KeyNotFound)] // order doesn't matter
+
+        [TestCase(new Status[] { Status.InternalError, Status.InternalError },
+            CallBackPolicy.AnyOK, Status.InternalError)]
+
+        [TestCase(new Status[] { Status.NoError, Status.KeyNotFound},
+            CallBackPolicy.AnyOK, Status.NoError)]
+
+        [TestCase(new Status[] { Status.NoError, Status.KeyNotFound, Status.Busy },
+            CallBackPolicy.AnyOK, Status.NoError)]
+
+        [TestCase(new Status[] { Status.KeyNotFound, Status.Busy , Status.NoError},
+            CallBackPolicy.AnyOK, Status.NoError)] //order shouldn't matter
+
+        [TestCase(new Status[] { Status.KeyNotFound },
+            CallBackPolicy.AnyOK, Status.KeyNotFound)]
+
+        [TestCase(new Status[] { Status.KeyNotFound , Status.KeyNotFound },
+            CallBackPolicy.AnyOK, Status.KeyNotFound)]
+
+        [TestCase(new Status[] { Status.KeyNotFound, Status.Busy },
+            CallBackPolicy.AnyOK, Status.Busy)]
+
+        [TestCase(new Status[] { Status.AuthRequired },
+            CallBackPolicy.AnyOK, Status.AuthRequired)]
+
+        // AllOK
+        [TestCase(new Status[] { Status.NoError },
+            CallBackPolicy.AllOK, Status.NoError)]
+
+        [TestCase(new Status[] { Status.NoError, Status.NoError },
+            CallBackPolicy.AllOK, Status.NoError)]
+
+        [TestCase(new Status[] { Status.NoError, Status.KeyNotFound, Status.Busy },
+            CallBackPolicy.AllOK, Status.KeyNotFound)]
+
+        [TestCase(new Status[] { Status.KeyNotFound, Status.Busy, Status.NoError },
+            CallBackPolicy.AllOK, Status.KeyNotFound)]
+
+        [TestCase(new Status[] { Status.InternalError },
+            CallBackPolicy.AllOK, Status.InternalError)]
+
+        [TestCase(new Status[] { Status.InternalError, Status.NoError },
+            CallBackPolicy.AllOK, Status.InternalError)]
+        public void ResultAggregationTest(Status[] statuses, CallBackPolicy callBackPolicy, Status expectedResult)
+        {
+            Status result = Status.UnknownCommand;
+
+            var request = new GetRequest(callBackPolicy)
+            {
+                Key = "Hello".Select(c => (byte) c).ToArray(),
+                RequestId = 0,
+                CallBack = (s, m) => result = s,
+                Replicas = statuses.Length - 1,
+            };
+            foreach (var status in statuses)
+                request.HandleResponse(new MemcacheResponseHeader { Opcode = Opcode.Get, Status = status }, null, GET_FLAG, GET_MESSAGE);
+            Assert.AreEqual(expectedResult, result, string.Format("Input statuses: [{0}]", string.Join(", ", statuses)));
+        }
     }
 }

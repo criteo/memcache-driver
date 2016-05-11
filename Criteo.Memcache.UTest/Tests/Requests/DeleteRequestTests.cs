@@ -48,7 +48,7 @@ namespace Criteo.Memcache.UTest.Tests.Requests
         public void DeleteRequestTest()
         {
             Status status = Status.UnknownCommand;
-            var request = new DeleteRequest 
+            var request = new DeleteRequest(CallBackPolicy.AllOK)
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 RequestId = 0, 
@@ -68,7 +68,7 @@ namespace Criteo.Memcache.UTest.Tests.Requests
         public void DeleteRequestFailTest()
         {
             Status status = Status.UnknownCommand;
-            var request = new DeleteRequest
+            var request = new DeleteRequest(CallBackPolicy.AllOK)
             {
                 Key = "Hello".Select(c => (byte)c).ToArray(),
                 RequestId = 0,

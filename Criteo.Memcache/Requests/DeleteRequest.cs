@@ -23,6 +23,11 @@ namespace Criteo.Memcache.Requests
 {
     class DeleteRequest : RedundantRequest, IRedundantRequest, ICouchbaseRequest
     {
+        public DeleteRequest(CallBackPolicy callBackPolicy)
+            : base(callBackPolicy)
+        {
+            
+        }
         public Action<Status> CallBack { get; set; }
 
         public byte[] GetQueryBuffer()
@@ -47,13 +52,13 @@ namespace Criteo.Memcache.Requests
         public void HandleResponse(MemcacheResponseHeader header, byte[] key, byte[] extra, byte[] message)
         {
             if (CallCallback(header.Status) && CallBack != null)
-                CallBack(header.Status);
+                CallBack(GetResult());
         }
 
         public void Fail()
         {
             if (CallCallback(Status.InternalError) && CallBack != null)
-                CallBack(Status.InternalError);
+                CallBack(GetResult());
         }
 
         public override string ToString()

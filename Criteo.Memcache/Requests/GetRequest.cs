@@ -45,7 +45,8 @@ namespace Criteo.Memcache.Requests
             }
         }
 
-        public GetRequest()
+        public GetRequest(CallBackPolicy callBackPolicy)
+            : base(callBackPolicy)
         {
             // set the default opcode to get
             RequestOpcode = Opcode.Get;
@@ -96,13 +97,13 @@ namespace Criteo.Memcache.Requests
             }
 
             if (CallCallback(header.Status) && CallBack != null)
-                CallBack(header.Status, message);
+                CallBack(GetResult(), message);
         }
 
         public void Fail()
         {
             if (CallCallback(Status.InternalError) && CallBack != null)
-                CallBack(Status.InternalError, null);
+                CallBack(GetResult(), null);
         }
 
         public override string ToString()
