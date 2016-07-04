@@ -18,17 +18,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
 using System.Threading;
-
-using NUnit.Framework;
-
+using Criteo.Memcache.Authenticators;
 using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Headers;
 using Criteo.Memcache.Requests;
 using Criteo.Memcache.Transport;
 using Criteo.Memcache.UTest.Mocks;
-using Criteo.Memcache.Authenticators;
+using NUnit.Framework;
 
 namespace Criteo.Memcache.UTest.Tests
 {

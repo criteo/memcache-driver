@@ -21,11 +21,11 @@ using System.Net;
 using System.Threading;
 using Criteo.Memcache.Authenticators;
 using Criteo.Memcache.Cluster;
+using Criteo.Memcache.KeySerializer;
 using Criteo.Memcache.Locator;
 using Criteo.Memcache.Node;
-using Criteo.Memcache.Transport;
-using Criteo.Memcache.KeySerializer;
 using Criteo.Memcache.Serializer;
+using Criteo.Memcache.Transport;
 
 namespace Criteo.Memcache.Configuration
 {
@@ -120,6 +120,7 @@ namespace Criteo.Memcache.Configuration
         public TimeSpan TransportConnectTimerPeriod { get; set; }
         public int TransportReceiveBufferSize { get; set; }
         public int TransportSendBufferSize { get; set; }
+        public int PinnedBufferSize { get; set; }
         public TimeSpan DeadTimeout { get; set; }
         public TimeSpan SocketTimeout { get; set; }
         public int Replicas { get; set; }
@@ -151,9 +152,13 @@ namespace Criteo.Memcache.Configuration
             TransportConnectTimerPeriod = TimeSpan.FromMilliseconds(1000);
             Replicas = 0;
 
-            const int sixtyFourKb = 1 << 16;
-            TransportReceiveBufferSize = sixtyFourKb;
-            TransportSendBufferSize = sixtyFourKb;
+            // The point is having something just bigger than the MTU. I could use 10KB to handle jumbo frames also.
+            const int tenKB = 10 * 1024;
+            PinnedBufferSize = tenKB;
+
+            const int sixtyFourKB = 1 << 16;
+            TransportReceiveBufferSize = sixtyFourKB;
+            TransportSendBufferSize = sixtyFourKB;
 
             KeySerializer = new UTF8KeySerializer();
         }

@@ -17,6 +17,7 @@
 */
 using System;
 using System.Collections.Concurrent;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -62,6 +63,7 @@ namespace Criteo.Memcache.Transport
         private readonly SocketAsyncEventArgs _sendAsynchEvtArgs;
         private readonly SocketAsyncEventArgs _receiveHeaderAsynchEvtArgs;
         private readonly SocketAsyncEventArgs _receiveBodyAsynchEvtArgs;
+        private readonly int _pinnedBufferSize;
 
         private MemcacheResponseHeader _currentResponse;
 
@@ -94,6 +96,7 @@ namespace Criteo.Memcache.Transport
             _registerEvents = registerEvents;
             _transportAvailable = transportAvailable;
             _nodeClosing = nodeClosing;
+            _pinnedBufferSize = clientConfig.PinnedBufferSize;
 
             _connectTimer = new Timer(TryConnect);
             _initialized = false;
@@ -110,6 +113,7 @@ namespace Criteo.Memcache.Transport
             _receiveHeaderAsynchEvtArgs.Completed += OnReceiveHeaderComplete;
 
             _receiveBodyAsynchEvtArgs = new SocketAsyncEventArgs();
+            _receiveBodyAsynchEvtArgs.SetBuffer(new byte[_pinnedBufferSize], 0, _pinnedBufferSize);
             _receiveBodyAsynchEvtArgs.Completed += OnReceiveBodyComplete;
 
             if (planToConnect)
@@ -360,8 +364,11 @@ namespace Criteo.Memcache.Transport
         {
             _currentResponse = new MemcacheResponseHeader(headerBytes);
 
-            var body = _currentResponse.TotalBodyLength == 0 ? null : new byte[_currentResponse.TotalBodyLength];
-            _receiveBodyAsynchEvtArgs.SetBuffer(body, 0, (int)_currentResponse.TotalBodyLength);
+            long sizeToRead = Math.Min(_pinnedBufferSize, _currentResponse.TotalBodyLength);
+
+            var bodyStream = _currentResponse.TotalBodyLength == 0 ? null : new MemoryStream((int)_currentResponse.TotalBodyLength);
+            _receiveBodyAsynchEvtArgs.SetBuffer(0, (int)sizeToRead);
+            _receiveBodyAsynchEvtArgs.UserToken = bodyStream;
 
             try
             {
@@ -385,15 +392,25 @@ namespace Criteo.Memcache.Transport
                 if (args.SocketError != SocketError.Success)
                     throw new SocketException((int)args.SocketError);
 
-                // check if we read a full body, else continue
-                if (args.BytesTransferred + args.Offset < _currentResponse.TotalBodyLength)
+                var bodyStream = args.UserToken as MemoryStream;
+                byte[] receivedBuffer = null;
+                if (bodyStream != null)
                 {
-                    int offset = args.BytesTransferred + args.Offset;
-                    args.SetBuffer(offset, (int)_currentResponse.TotalBodyLength - offset);
-                    if (!socket.ReceiveAsync(args))
-                        OnReceiveHeaderComplete(socket, args);
-                    return;
+                    bodyStream.Write(args.Buffer, 0, args.BytesTransferred);
+                    // check if we read a full body, else continue
+                    if (bodyStream.Position < _currentResponse.TotalBodyLength)
+                    {
+                        int sizeToRead = (int)Math.Min(_pinnedBufferSize, _currentResponse.TotalBodyLength - bodyStream.Position);
+                        args.SetBuffer(0, sizeToRead);
+                        if (!socket.ReceiveAsync(args))
+                            OnReceiveHeaderComplete(socket, args);
+                        return;
+                    }
+
+                    // the full buffer has been received, assign it
+                    receivedBuffer = bodyStream.GetBuffer();
                 }
+
                 // should assert we have the good request
                 var request = DequeueToMatch(_currentResponse);
 
@@ -404,30 +421,30 @@ namespace Criteo.Memcache.Transport
 
                 byte[] extra = null;
                 if (_currentResponse.ExtraLength == _currentResponse.TotalBodyLength)
-                    extra = args.Buffer;
+                    extra = receivedBuffer;
                 else if (_currentResponse.ExtraLength > 0)
                 {
                     extra = new byte[_currentResponse.ExtraLength];
-                    Array.Copy(args.Buffer, 0, extra, 0, _currentResponse.ExtraLength);
+                    Array.Copy(receivedBuffer, 0, extra, 0, _currentResponse.ExtraLength);
                 }
 
                 byte[] key = null;
                 if (_currentResponse.KeyLength > 0)
                 {
                     key = new byte[_currentResponse.KeyLength];
-                    Array.Copy(args.Buffer, _currentResponse.ExtraLength, key, 0, _currentResponse.KeyLength);
+                    Array.Copy(receivedBuffer, _currentResponse.ExtraLength, key, 0, _currentResponse.KeyLength);
                 }
 
                 var payloadLength = _currentResponse.TotalBodyLength - _currentResponse.KeyLength - _currentResponse.ExtraLength;
                 byte[] payload = null;
                 if (payloadLength == _currentResponse.TotalBodyLength)
                 {
-                    payload = args.Buffer;
+                    payload = receivedBuffer;
                 }
                 else if (payloadLength > 0)
                 {
                     payload = new byte[payloadLength];
-                    Array.Copy(args.Buffer, _currentResponse.KeyLength + _currentResponse.ExtraLength, payload, 0, payloadLength);
+                    Array.Copy(receivedBuffer, _currentResponse.KeyLength + _currentResponse.ExtraLength, payload, 0, payloadLength);
                 }
 
                 if (request != null)
