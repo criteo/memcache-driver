@@ -60,10 +60,11 @@ namespace Criteo.Memcache.Transport
         private readonly ConcurrentQueue<IMemcacheRequest> _pendingRequests;
         private Socket _socket;
 
-        private readonly SocketAsyncEventArgs _sendAsynchEvtArgs;
+        private readonly SocketAsyncEventArgs _sendAsyncEvtArgs;
         private readonly SocketAsyncEventArgs _receiveHeaderAsynchEvtArgs;
         private readonly SocketAsyncEventArgs _receiveBodyAsynchEvtArgs;
         private readonly int _pinnedBufferSize;
+        private MemoryStream _sendStream;
 
         private MemcacheResponseHeader _currentResponse;
 
@@ -105,8 +106,9 @@ namespace Criteo.Memcache.Transport
 
             _pendingRequests = new ConcurrentQueue<IMemcacheRequest>();
 
-            _sendAsynchEvtArgs = new SocketAsyncEventArgs();
-            _sendAsynchEvtArgs.Completed += OnSendRequestComplete;
+            _sendAsyncEvtArgs = new SocketAsyncEventArgs();
+            _sendAsyncEvtArgs.SetBuffer(new byte[_pinnedBufferSize], 0, _pinnedBufferSize);
+            _sendAsyncEvtArgs.Completed += OnSendRequestComplete;
 
             _receiveHeaderAsynchEvtArgs = new SocketAsyncEventArgs();
             _receiveHeaderAsynchEvtArgs.SetBuffer(new byte[MemcacheResponseHeader.Size], 0, MemcacheResponseHeader.Size);
@@ -183,8 +185,8 @@ namespace Criteo.Memcache.Transport
                             if (socket != null)
                                 socket.Dispose();
 
-                            if (_sendAsynchEvtArgs != null)
-                                _sendAsynchEvtArgs.Dispose();
+                            if (_sendAsyncEvtArgs != null)
+                                _sendAsyncEvtArgs.Dispose();
 
                             if (_receiveHeaderAsynchEvtArgs != null)
                                 _receiveHeaderAsynchEvtArgs.Dispose();
@@ -564,14 +566,19 @@ namespace Criteo.Memcache.Transport
             }
         }
 
-        private bool SendAsynch(byte[] buffer, int offset, int count, ManualResetEventSlim callAvailable)
+        private bool SendAsync(byte[] buffer, ManualResetEventSlim callAvailable)
         {
-            _sendAsynchEvtArgs.UserToken = callAvailable;
+            _sendAsyncEvtArgs.UserToken = callAvailable;
 
-            _sendAsynchEvtArgs.SetBuffer(buffer, offset, count);
-            if (!_socket.SendAsync(_sendAsynchEvtArgs))
+            int sizeToSend = Math.Min(_pinnedBufferSize, buffer.Length);
+            _sendStream = new MemoryStream(buffer);
+            _sendStream.Read(_sendAsyncEvtArgs.Buffer, 0, sizeToSend);
+            // reset the position, since it will be used to track what's been actually read from the async call
+            _sendStream.Position = 0;
+            _sendAsyncEvtArgs.SetBuffer(0, sizeToSend);
+            if (!_socket.SendAsync(_sendAsyncEvtArgs))
             {
-                OnSendRequestComplete(_socket, _sendAsynchEvtArgs);
+                OnSendRequestComplete(_socket, _sendAsyncEvtArgs);
                 return false;
             }
 
@@ -587,11 +594,32 @@ namespace Criteo.Memcache.Transport
                 if (args.SocketError != SocketError.Success)
                     throw new SocketException((int)args.SocketError);
 
-                // check if we sent a full request, else continue
-                if (args.BytesTransferred + args.Offset < args.Buffer.Length)
+                int byteSentToProcess = (int)_sendStream.Position + args.Count;
+                bool allReadFromStream = byteSentToProcess == _sendStream.Length;
+
+                // check if we sent a full buffer or the stream has not been entierly processed
+                if (!allReadFromStream || args.BytesTransferred < args.Count - args.Offset)
                 {
-                    int offset = args.BytesTransferred + args.Offset;
-                    args.SetBuffer(offset, args.Buffer.Length - offset);
+                    // recompute the current position in the pinned buffer and the stream
+                    int newBufferOffset = args.Offset + args.BytesTransferred;
+                    // setup the stream position to what's been actually processed
+                    _sendStream.Position += args.BytesTransferred;
+
+                    if (allReadFromStream || newBufferOffset < _pinnedBufferSize / 2)
+                    {
+                        // if the buffer already contains all the data or there is still more than half to consume
+                        // just resend the current buffer
+                        args.SetBuffer(newBufferOffset, args.Count - args.BytesTransferred);
+                    }
+                    else
+                    {
+                        // rewrite all we can to the pinned buffer
+                        int sizeToSend = (int)Math.Min(_sendStream.Length - _sendStream.Position, _pinnedBufferSize);
+                        _sendStream.Read(args.Buffer, 0, sizeToSend);
+                        // rewind the stream to keep the position to what's been actually sent
+                        _sendStream.Position -= sizeToSend;
+                        args.SetBuffer(0, sizeToSend);
+                    }
                     if (!socket.SendAsync(args))
                         OnSendRequestComplete(socket, args);
                     return;
@@ -629,7 +657,7 @@ namespace Criteo.Memcache.Transport
                 }
 
                 _pendingRequests.Enqueue(request);
-                SendAsynch(buffer, 0, buffer.Length, callAvailable);
+                SendAsync(buffer, callAvailable);
             }
             catch (Exception e)
             {
