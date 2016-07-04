@@ -552,10 +552,15 @@ namespace Criteo.Memcache.Transport
             _sendAsynchEvtArgs.UserToken = callAvailable;
 
             _sendAsynchEvtArgs.SetBuffer(buffer, offset, count);
-            if (!_socket.SendAsync(_sendAsynchEvtArgs))
+
+            // Socket caches the ExecutionContext, leading to an incorect LogicalCallContext flow
+            using (ExecutionContext.SuppressFlow())
             {
-                OnSendRequestComplete(_socket, _sendAsynchEvtArgs);
-                return false;
+                if (!_socket.SendAsync(_sendAsynchEvtArgs))
+                {
+                    OnSendRequestComplete(_socket, _sendAsynchEvtArgs);
+                    return false;
+                }
             }
 
             return true;
