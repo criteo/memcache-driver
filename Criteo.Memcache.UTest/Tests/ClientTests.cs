@@ -18,7 +18,8 @@
 using System;
 using System.Linq;
 using System.Net;
-
+using System.Runtime.Remoting.Messaging;
+using System.Threading;
 using Moq;
 using NUnit.Framework;
 
@@ -35,6 +36,8 @@ namespace Criteo.Memcache.UTest.Tests
     [TestFixture]
     public class ClientTests
     {
+        private const string CallContextKey = "MemcacheClientTest";
+
         IMemcacheCluster _clusterMock;
         INodeLocator _locatorMock;
         IMemcacheNode _nodeMock;
@@ -44,11 +47,17 @@ namespace Criteo.Memcache.UTest.Tests
         [SetUp]
         public void Setup()
         {
+            CallContext.LogicalSetData(CallContextKey, "Fail");
+
+            var dummyExecutionContext = ExecutionContext.Capture();
+
+            CallContext.FreeNamedDataSlot(CallContextKey);
+
             var nodeMock = new Mock<IMemcacheNode>();
             nodeMock.Setup(n => n.EndPoint).Returns(new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 11211));
             nodeMock.Setup(n => n.IsDead).Returns(false);
             nodeMock.Setup(n => n.TrySend(It.IsAny<IMemcacheRequest>(), It.IsAny<int>()))
-                .Callback((IMemcacheRequest req, int timeout) => req.HandleResponse(_responseHeader, _key, _extra, _message))
+                .Callback((IMemcacheRequest req, int timeout) => ExecutionContext.Run(dummyExecutionContext, _ => req.HandleResponse(_responseHeader, _key, _extra, _message), null))
                 .Returns(true);
             _nodeMock = nodeMock.Object;
 
@@ -63,7 +72,7 @@ namespace Criteo.Memcache.UTest.Tests
 
             _key = null;
             _extra = null;
-            _message = null; 
+            _message = null;
             _responseHeader = default(MemcacheResponseHeader);
         }
 
@@ -116,6 +125,29 @@ namespace Criteo.Memcache.UTest.Tests
             // assert that both set and get throws NotSupportedException for an unknown type
             Assert.Throws(typeof(NotSupportedException), () => client.Set("Hello", new TestType(), TimeSpan.Zero));
             Assert.Throws(typeof(NotSupportedException), () => client.Get("Hello", (Status s, TestType v) => { }));
+        }
+
+        [Test]
+        public void ExecutionContextShouldFlow()
+        {
+            var config = new MemcacheClientConfiguration
+            {
+                ClusterFactory = c => _clusterMock,
+            };
+            var client = new MemcacheClient(config);
+
+            object value = null;
+
+            _extra = new byte[] { 0, 0, 0, 0 };
+
+            CallContext.LogicalSetData(CallContextKey, "OK");
+
+            client.Get("test", (Status s, byte[] v) =>
+            {
+                value = CallContext.LogicalGetData("MemcacheClientTest");
+            });
+
+            Assert.AreEqual("OK", value, "The execution context didn't flow");
         }
     }
 }

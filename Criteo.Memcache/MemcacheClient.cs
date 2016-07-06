@@ -128,11 +128,22 @@ namespace Criteo.Memcache
         {
             if (callback == null)
                 return null;
+
+            // The underlying socket in MemcacheTransport doesn't flow the execution context so we take care of that ourselves
+            var executionContext = TryCaptureExecutionContext();
+
             return v =>
             {
                 try
                 {
-                    callback(v);
+                    if (executionContext == null)
+                    {
+                        callback(v);
+                    }
+                    else
+                    {
+                        ExecutionContext.Run(executionContext, _ => callback(v), null);
+                    }
                 }
                 catch (Exception e)
                 {
@@ -152,12 +163,24 @@ namespace Criteo.Memcache
         {
             if (callback == null)
                 return null;
+
+            // The underlying socket in MemcacheTransport doesn't flow the execution context so we take care of that ourselves
+            var executionContext = TryCaptureExecutionContext();
+
             return (Status s, byte[] m) =>
             {
                 try
                 {
                     T value = serializer.FromBytes(m);
-                    callback(s, value);
+
+                    if (executionContext == null)
+                    {
+                        callback(s, value);
+                    }
+                    else
+                    {
+                        ExecutionContext.Run(executionContext, _ => callback(s, value), null);
+                    }
                 }
                 catch (Exception e)
                 {
@@ -247,6 +270,7 @@ namespace Criteo.Memcache
         protected bool SendRequestWithReplica(ICouchbaseRequest request, ICouchbaseRequest requestReplica)
         {
             var req = request;
+
             foreach (var node in _cluster.Locator.Locate(request))
             {
                 if (!node.IsDead && node.TrySend(req, _configuration.QueueTimeout))
@@ -487,6 +511,8 @@ namespace Criteo.Memcache
 
         public void Ping(Action<EndPoint, Status> callback)
         {
+            var executionContext = TryCaptureExecutionContext();
+
             foreach (var node in _cluster.Nodes)
             {
                 if (node.IsDead)
@@ -496,7 +522,7 @@ namespace Criteo.Memcache
                     var localNode = node;
                     var request = new NoOpRequest
                     {
-                        Callback = r => callback(localNode.EndPoint, r.Status),
+                        Callback = r => ExecuteInContext(() => callback(localNode.EndPoint, r.Status), executionContext),
                         RequestId = NextRequestId
                     };
 
@@ -515,11 +541,13 @@ namespace Criteo.Memcache
             var aliveNodes = _cluster.Nodes.Where(n => !n.IsDead).ToList();
             var answerToGet = aliveNodes.Count;
 
+            var executionContext = TryCaptureExecutionContext();
+
             Action<MemcacheResponseHeader> onResponse = r =>
                     {
                         if (Interlocked.Decrement(ref answerToGet) == 0)
                         {
-                            callback();
+                            ExecuteInContext(callback, executionContext);
                         }
                     };
 
@@ -547,6 +575,8 @@ namespace Criteo.Memcache
         {
             var keyAsBytes = _configuration.KeySerializer.SerializeToBytes(key);
 
+            var executionContext = TryCaptureExecutionContext();
+
             foreach (var node in _cluster.Nodes)
             {
                 if (node.IsDead)
@@ -556,10 +586,11 @@ namespace Criteo.Memcache
                 else
                 {
                     var localNode = node;
+
                     var request = new StatRequest
                     {
                         Key = keyAsBytes,
-                        Callback = r => callback(localNode.EndPoint, r),
+                        Callback = r => ExecuteInContext(() => callback(localNode.EndPoint, r), executionContext),
                         RequestId = NextRequestId
                     };
 
@@ -581,25 +612,61 @@ namespace Criteo.Memcache
         {
             var nodes = _cluster.Nodes.ToArray();
             int remainingShutdown = nodes.Length;
-            if (remainingShutdown == 0)
-                callback();
+
+            ExecutionContext executionContext = null;
+
+            if (callback != null)
+            {
+                if (remainingShutdown == 0)
+                {
+                    callback();
+                    return;
+                }
+
+                executionContext = TryCaptureExecutionContext();
+            }
 
             foreach (var node in nodes)
+            {
                 if (callback != null)
+                {
                     node.Shutdown(() =>
+                    {
+                        if (0 == Interlocked.Decrement(ref remainingShutdown))
                         {
-                            if (0 == Interlocked.Decrement(ref remainingShutdown))
-                                try
-                                {
-                                    callback();
-                                }
-                                catch (Exception e)
-                                {
-                                    OnCallbackError(e);
-                                }
-                        });
+                            try
+                            {
+                                ExecuteInContext(callback, executionContext);
+                            }
+                            catch (Exception e)
+                            {
+                                OnCallbackError(e);
+                            }
+                        }
+                    });
+                }
                 else
+                {
                     node.Shutdown(null);
+                }
+            }
+        }
+
+        private static ExecutionContext TryCaptureExecutionContext()
+        {
+            return ExecutionContext.IsFlowSuppressed() ? null : ExecutionContext.Capture();
+        }
+
+        private static void ExecuteInContext(Action action, ExecutionContext executionContext)
+        {
+            if (executionContext == null)
+            {
+                action();
+            }
+            else
+            {
+                ExecutionContext.Run(executionContext, c => ((Action)c).Invoke(), action);
+            }
         }
 
         /// <summary>
