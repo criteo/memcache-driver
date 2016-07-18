@@ -64,7 +64,6 @@ namespace Criteo.Memcache.Transport
         private readonly SocketAsyncEventArgs _receiveHeaderAsynchEvtArgs;
         private readonly SocketAsyncEventArgs _receiveBodyAsynchEvtArgs;
         private readonly int _pinnedBufferSize;
-        private MemoryStream _sendStream;
 
         private MemcacheResponseHeader _currentResponse;
 
@@ -412,6 +411,7 @@ namespace Criteo.Memcache.Transport
 
                     // the full buffer has been received, assign it
                     receivedBuffer = bodyStream.GetBuffer();
+                    bodyStream.Dispose();
                 }
 
                 // should assert we have the good request
@@ -579,11 +579,12 @@ namespace Criteo.Memcache.Transport
         private bool SendAsync(byte[] buffer)
         {
             int sizeToSend = Math.Min(_pinnedBufferSize, buffer.Length);
-            _sendStream = new MemoryStream(buffer);
-            _sendStream.Read(_sendAsyncEvtArgs.Buffer, 0, sizeToSend);
+            var sendStream = new MemoryStream(buffer);
+            sendStream.Read(_sendAsyncEvtArgs.Buffer, 0, sizeToSend);
             // reset the position, since it will be used to track what's been actually read from the async call
-            _sendStream.Position = 0;
+            sendStream.Position = 0;
             _sendAsyncEvtArgs.SetBuffer(0, sizeToSend);
+            _sendAsyncEvtArgs.UserToken = sendStream;
             if (!_socket.SendAsync(_sendAsyncEvtArgs))
             {
                 OnSendRequestComplete(_socket, _sendAsyncEvtArgs);
@@ -598,12 +599,13 @@ namespace Criteo.Memcache.Transport
             try
             {
                 var socket = (Socket)sender;
+                var sendStream = (MemoryStream)args.UserToken;
 
                 if (args.SocketError != SocketError.Success)
                     throw new SocketException((int)args.SocketError);
 
-                int byteSentToProcess = (int)_sendStream.Position + args.Count;
-                bool allReadFromStream = byteSentToProcess == _sendStream.Length;
+                int byteSentToProcess = (int)sendStream.Position + args.Count;
+                bool allReadFromStream = byteSentToProcess == sendStream.Length;
 
                 // the stream has not been entierly processed or we haven't sent all prepared data
                 if (!allReadFromStream || args.BytesTransferred < args.Count - args.Offset)
@@ -611,7 +613,7 @@ namespace Criteo.Memcache.Transport
                     // recompute the current position in the pinned buffer and the stream
                     int newBufferOffset = args.Offset + args.BytesTransferred;
                     // setup the stream position to what's been actually processed
-                    _sendStream.Position += args.BytesTransferred;
+                    sendStream.Position += args.BytesTransferred;
 
                     if (allReadFromStream || newBufferOffset < _pinnedBufferSize / 2)
                     {
@@ -622,10 +624,10 @@ namespace Criteo.Memcache.Transport
                     else
                     {
                         // rewrite all we can to the pinned buffer
-                        int sizeToSend = (int)Math.Min(_sendStream.Length - _sendStream.Position, _pinnedBufferSize);
-                        _sendStream.Read(args.Buffer, 0, sizeToSend);
+                        int sizeToSend = (int)Math.Min(sendStream.Length - sendStream.Position, _pinnedBufferSize);
+                        sendStream.Read(args.Buffer, 0, sizeToSend);
                         // rewind the stream to keep the position to what's been actually sent
-                        _sendStream.Position -= sizeToSend;
+                        sendStream.Position -= sizeToSend;
                         args.SetBuffer(0, sizeToSend);
                     }
                     if (!socket.SendAsync(args))
@@ -633,6 +635,7 @@ namespace Criteo.Memcache.Transport
                     return;
                 }
 
+                sendStream.Dispose();
                 SendComplete();
             }
             catch (Exception e)
