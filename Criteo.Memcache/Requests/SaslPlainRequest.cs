@@ -1,5 +1,4 @@
-﻿using Criteo.Memcache.Headers;
-/* Licensed to the Apache Software Foundation (ASF) under one
+﻿/* Licensed to the Apache Software Foundation (ASF) under one
    or more contributor license agreements.  See the NOTICE file
    distributed with this work for additional information
    regarding copyright ownership.  The ASF licenses this file
@@ -17,14 +16,14 @@
    under the License.
 */
 using System;
-using System.Linq;
 using System.Text;
+using Criteo.Memcache.Headers;
 
 namespace Criteo.Memcache.Requests
 {
     internal class SaslPlainRequest : MemcacheRequestBase, IMemcacheRequest
     {
-        private static readonly byte[] DefaultKey = "PLAIN".Select(c => (byte) c).ToArray();
+        private static readonly byte[] DefaultKey = Encoding.UTF8.GetBytes("PLAIN");
 
         public override byte[] Key { get { return DefaultKey; } }
         public override uint RequestId { get { return 0; } }

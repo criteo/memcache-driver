@@ -21,7 +21,6 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
-
 using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Exceptions;
 using Criteo.Memcache.Headers;
@@ -48,6 +47,7 @@ namespace Criteo.Memcache.Transport
 
         private readonly Action<IMemcacheTransport> _registerEvents;
         private readonly Action<IMemcacheTransport> _transportAvailable;
+        private Action<IMemcacheTransport> _sendComplete;
         private readonly Func<bool> _nodeClosing;
 
         private readonly Timer _connectTimer;
@@ -263,6 +263,7 @@ namespace Criteo.Memcache.Transport
                         Start();
                         _initialized = true;
                         _alive = true;
+                        _sendComplete = _transportAvailable;
                     }
                     catch (Exception e)
                     {
@@ -476,7 +477,7 @@ namespace Criteo.Memcache.Transport
             if (1 == Interlocked.CompareExchange(ref _transportAvailableInReceive, 0, 1))
             {
                 // the flag has been successfully reset
-                TransportAvailable();
+                SendComplete();
             }
         }
 
@@ -511,6 +512,10 @@ namespace Criteo.Memcache.Transport
             Authenticate();
         }
 
+        /// <summary>
+        /// This method is able to handle multisteps authitications
+        /// (even if it's not implemented here, SASL can have multi-steps authentications)
+        /// </summary>
         private bool Authenticate()
         {
             if (_clientConfig.Authenticator == null)
@@ -520,9 +525,14 @@ namespace Criteo.Memcache.Transport
             {
                 bool authDone = false;
                 var authenticationToken = _clientConfig.Authenticator.CreateToken();
+
+                // we need to synchronize the sends, else the authentication response could be triggerd before
+                // the send is complete (bug already seen, don't remove that synchronization)
+                _sendComplete = _ => mre.Set();
                 while (authenticationToken != null && !authDone)
                 {
                     IMemcacheRequest request;
+                    // the StepAuthenticate is blocking, it will wait for the response before sending the next step
                     var authStatus = authenticationToken.StepAuthenticate(_clientConfig.SocketTimeout, out request);
                     switch (authStatus)
                     {
@@ -536,15 +546,15 @@ namespace Criteo.Memcache.Transport
                             if (request == null)
                                 throw new AuthenticationException("Unable to authenticate : step required but no request from token");
                             mre.Reset();
-                            if (!SendRequest(request, mre))
+                            if (!SendRequest(request))
                                 throw new AuthenticationException("Unable to authenticate : unable to send authentication request");
+                            mre.Wait();
                             break;
 
                         default:
                             throw new AuthenticationException("Unable to authenticate : status " + authStatus);
                     }
                 }
-                mre.Wait();
             }
 
             return true;
@@ -562,14 +572,12 @@ namespace Criteo.Memcache.Transport
             // fails, the Initialize method reschedules it.
             else if (Initialize())
             {
-                TransportAvailable();
+                SendComplete();
             }
         }
 
-        private bool SendAsync(byte[] buffer, ManualResetEventSlim callAvailable)
+        private bool SendAsync(byte[] buffer)
         {
-            _sendAsyncEvtArgs.UserToken = callAvailable;
-
             int sizeToSend = Math.Min(_pinnedBufferSize, buffer.Length);
             _sendStream = new MemoryStream(buffer);
             _sendStream.Read(_sendAsyncEvtArgs.Buffer, 0, sizeToSend);
@@ -597,7 +605,7 @@ namespace Criteo.Memcache.Transport
                 int byteSentToProcess = (int)_sendStream.Position + args.Count;
                 bool allReadFromStream = byteSentToProcess == _sendStream.Length;
 
-                // check if we sent a full buffer or the stream has not been entierly processed
+                // the stream has not been entierly processed or we haven't sent all prepared data
                 if (!allReadFromStream || args.BytesTransferred < args.Count - args.Offset)
                 {
                     // recompute the current position in the pinned buffer and the stream
@@ -625,10 +633,7 @@ namespace Criteo.Memcache.Transport
                     return;
                 }
 
-                if (args.UserToken == null)
-                    TransportAvailable();
-                else
-                    (args.UserToken as ManualResetEventSlim).Set();
+                SendComplete();
             }
             catch (Exception e)
             {
@@ -636,7 +641,7 @@ namespace Criteo.Memcache.Transport
             }
         }
 
-        private bool SendRequest(IMemcacheRequest request, ManualResetEventSlim callAvailable = null)
+        private bool SendRequest(IMemcacheRequest request)
         {
             try
             {
@@ -657,7 +662,7 @@ namespace Criteo.Memcache.Transport
                 }
 
                 _pendingRequests.Enqueue(request);
-                SendAsync(buffer, callAvailable);
+                SendAsync(buffer);
             }
             catch (Exception e)
             {
@@ -669,14 +674,14 @@ namespace Criteo.Memcache.Transport
         }
 
         // Register the transport on the node.
-        private void TransportAvailable()
+        private void SendComplete()
         {
             if (_ongoingShutdown != 0)
                 return;
             try
             {
-                if (_transportAvailable != null)
-                    _transportAvailable(this);
+                if (_sendComplete != null)
+                    _sendComplete(this);
             }
             catch (Exception e)
             {
