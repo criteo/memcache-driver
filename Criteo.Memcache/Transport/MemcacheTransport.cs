@@ -61,8 +61,8 @@ namespace Criteo.Memcache.Transport
         private Socket _socket;
 
         private readonly SocketAsyncEventArgs _sendAsyncEvtArgs;
-        private readonly SocketAsyncEventArgs _receiveHeaderAsynchEvtArgs;
-        private readonly SocketAsyncEventArgs _receiveBodyAsynchEvtArgs;
+        private readonly SocketAsyncEventArgs _receiveHeaderAsyncEvtArgs;
+        private readonly SocketAsyncEventArgs _receiveBodyAsyncEvtArgs;
         private readonly int _pinnedBufferSize;
 
         private MemcacheResponseHeader _currentResponse;
@@ -109,13 +109,13 @@ namespace Criteo.Memcache.Transport
             _sendAsyncEvtArgs.SetBuffer(new byte[_pinnedBufferSize], 0, _pinnedBufferSize);
             _sendAsyncEvtArgs.Completed += OnSendRequestComplete;
 
-            _receiveHeaderAsynchEvtArgs = new SocketAsyncEventArgs();
-            _receiveHeaderAsynchEvtArgs.SetBuffer(new byte[MemcacheResponseHeader.Size], 0, MemcacheResponseHeader.Size);
-            _receiveHeaderAsynchEvtArgs.Completed += OnReceiveHeaderComplete;
+            _receiveHeaderAsyncEvtArgs = new SocketAsyncEventArgs();
+            _receiveHeaderAsyncEvtArgs.SetBuffer(new byte[MemcacheResponseHeader.Size], 0, MemcacheResponseHeader.Size);
+            _receiveHeaderAsyncEvtArgs.Completed += OnReceiveHeaderComplete;
 
-            _receiveBodyAsynchEvtArgs = new SocketAsyncEventArgs();
-            _receiveBodyAsynchEvtArgs.SetBuffer(new byte[_pinnedBufferSize], 0, _pinnedBufferSize);
-            _receiveBodyAsynchEvtArgs.Completed += OnReceiveBodyComplete;
+            _receiveBodyAsyncEvtArgs = new SocketAsyncEventArgs();
+            _receiveBodyAsyncEvtArgs.SetBuffer(new byte[_pinnedBufferSize], 0, _pinnedBufferSize);
+            _receiveBodyAsyncEvtArgs.Completed += OnReceiveBodyComplete;
 
             if (planToConnect)
                 _connectTimer.Change(0, Timeout.Infinite);
@@ -187,11 +187,11 @@ namespace Criteo.Memcache.Transport
                             if (_sendAsyncEvtArgs != null)
                                 _sendAsyncEvtArgs.Dispose();
 
-                            if (_receiveHeaderAsynchEvtArgs != null)
-                                _receiveHeaderAsynchEvtArgs.Dispose();
+                            if (_receiveHeaderAsyncEvtArgs != null)
+                                _receiveHeaderAsyncEvtArgs.Dispose();
 
-                            if (_receiveBodyAsynchEvtArgs != null)
-                                _receiveBodyAsynchEvtArgs.Dispose();
+                            if (_receiveBodyAsyncEvtArgs != null)
+                                _receiveBodyAsyncEvtArgs.Dispose();
                         }
                         _disposed = true;
                     }
@@ -320,9 +320,9 @@ namespace Criteo.Memcache.Transport
         {
             try
             {
-                _receiveHeaderAsynchEvtArgs.SetBuffer(0, MemcacheResponseHeader.Size);
-                if (!_socket.ReceiveAsync(_receiveHeaderAsynchEvtArgs))
-                    OnReceiveHeaderComplete(_socket, _receiveHeaderAsynchEvtArgs);
+                _receiveHeaderAsyncEvtArgs.SetBuffer(0, MemcacheResponseHeader.Size);
+                if (!_socket.ReceiveAsync(_receiveHeaderAsyncEvtArgs))
+                    OnReceiveHeaderComplete(_socket, _receiveHeaderAsyncEvtArgs);
             }
             catch (Exception e)
             {
@@ -369,13 +369,13 @@ namespace Criteo.Memcache.Transport
             long sizeToRead = Math.Min(_pinnedBufferSize, _currentResponse.TotalBodyLength);
 
             var bodyStream = _currentResponse.TotalBodyLength == 0 ? null : new MemoryStream((int)_currentResponse.TotalBodyLength);
-            _receiveBodyAsynchEvtArgs.SetBuffer(0, (int)sizeToRead);
-            _receiveBodyAsynchEvtArgs.UserToken = bodyStream;
+            _receiveBodyAsyncEvtArgs.SetBuffer(0, (int)sizeToRead);
+            _receiveBodyAsyncEvtArgs.UserToken = bodyStream;
 
             try
             {
-                if (_currentResponse.TotalBodyLength == 0 || !_socket.ReceiveAsync(_receiveBodyAsynchEvtArgs))
-                    OnReceiveBodyComplete(_socket, _receiveBodyAsynchEvtArgs);
+                if (_currentResponse.TotalBodyLength == 0 || !_socket.ReceiveAsync(_receiveBodyAsyncEvtArgs))
+                    OnReceiveBodyComplete(_socket, _receiveBodyAsyncEvtArgs);
             }
             catch (Exception e)
             {
