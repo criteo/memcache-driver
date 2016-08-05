@@ -325,8 +325,8 @@ namespace Criteo.Memcache.Cluster
                 {
                     var nodeHostname = node.Hostname.Split(':').FirstOrDefault();
                     var nodePort = node.Ports.Direct;
-                    var isHealthy = node.Status == JsonNode.STATUS_HEALTHY;
-                    nodes[nodeHostname + ':' + nodePort] = isHealthy;
+                    var isReachable = node.Status == JsonNode.STATUS_HEALTHY || node.Status == JsonNode.STATUS_WARMUP;
+                    nodes[nodeHostname + ':' + nodePort] = isReachable;
                 }
             }
             return nodes;
@@ -336,7 +336,7 @@ namespace Criteo.Memcache.Cluster
         /// Update and return the ordered list of memcache nodes in the cluster. Existing nodes are kept from the previous list.
         /// </summary>
         /// <param name="activeNodes">Node addresses. The order of this list is maintained in the list returned by the method.</param>
-        /// <param name="nodeStatus">[Optional] Associative map of the nodes and their status (healthy/not healthy)</param>
+        /// <param name="nodeStatus">[Optional] Associative map of the nodes and their status (reachable/not reachable)</param>
         /// <param name="toBeDeleted">Returns the nodes from the previous configuration that need to be deleted</param>
         /// <returns></returns>
         private IList<IMemcacheNode> GenerateUpdatedNodeList(ICollection<string> activeNodes, IDictionary<string, bool> nodeStatus, out List<IMemcacheNode> toBeDeleted)
@@ -348,13 +348,13 @@ namespace Criteo.Memcache.Cluster
             foreach (var server in activeNodes)
             {
                 // The node is considered healthy unless stated otherwise in the nodeStatus argument
-                bool isHealthy = nodeStatus == null || !nodeStatus.ContainsKey(server) || nodeStatus[server];
+                bool isReachable = nodeStatus == null || !nodeStatus.ContainsKey(server) || nodeStatus[server];
 
                 IMemcacheNode node;
                 if (oldNodes.TryGetValue(server, out node))
                 {
-                    bool previousIsHealthy = !(node is UnhealthyNode);
-                    if (isHealthy != previousIsHealthy)
+                    bool previousIsReachable = !(node is UnhealthyNode);
+                    if (isReachable != previousIsReachable)
                     {
                         // Healthy status has changed for this node. Replace it.
                         toBeDeleted.Add(node);
@@ -365,7 +365,7 @@ namespace Criteo.Memcache.Cluster
                 // The node did not exist or must be replaced
                 if (node == null)
                 {
-                    node = ClusterNodeFactory(server, isHealthy);
+                    node = ClusterNodeFactory(server, isReachable);
                     if (NodeAdded != null)
                         NodeAdded(node);
                 }
