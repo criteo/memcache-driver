@@ -72,7 +72,6 @@
     <Compile Include="KeySerializer\IKeySerializer.cs" />
     <Compile Include="KeySerializer\UTF8KeySerializer.cs" />
     <Compile Include="KeySerializer\KeySerializerWithChecks.cs" />
-    <Compile Include="Locator\HashPool.cs" />
     <Compile Include="Locator\INodeLocator.cs" />
     <Compile Include="Locator\KetamaLocator.cs" />
     <Compile Include="MemcacheClient.cs" />

@@ -19,7 +19,7 @@ namespace Criteo.Memcache.Locator
         private const string DefaultHashName = "System.Security.Cryptography.MD5";
         private const int ServerAddressMutations = 160;
 
-        private readonly HashPool _hashPool;
+        private readonly ThreadLocal<HashAlgorithm> _hash;
         private IList<IMemcacheNode> _nodes;
         private LookupData _lookupData;
 
@@ -27,7 +27,7 @@ namespace Criteo.Memcache.Locator
 
         public KetamaLocator(string hashName = null)
         {
-            _hashPool = new HashPool(() => HashAlgorithm.Create(hashName ?? DefaultHashName));
+            _hash = new ThreadLocal<HashAlgorithm>(() => HashAlgorithm.Create(hashName ?? DefaultHashName));
             _nodeStateChange = _ => Reinitialize();
         }
 
@@ -62,8 +62,7 @@ namespace Criteo.Memcache.Locator
             }
             _nodes = nodes;
 
-            using (var hash = _hashPool.Hash)
-                _lookupData = new LookupData(nodes, hash.Value);
+            _lookupData = new LookupData(nodes, _hash.Value);
 
             UpdateState();
         }
@@ -74,8 +73,7 @@ namespace Criteo.Memcache.Locator
             var newNodes = new List<IMemcacheNode>(_nodes.Count);
             newNodes.AddRange(_nodes.Where(node => !node.IsDead));
 
-            using (var hash = _hashPool.Hash)
-                Interlocked.Exchange(ref _lookupData, new LookupData(newNodes, hash.Value));
+            Interlocked.Exchange(ref _lookupData, new LookupData(newNodes, _hash.Value));
         }
 
         /// <summary>
@@ -95,8 +93,7 @@ namespace Criteo.Memcache.Locator
 
         private uint GetKeyHash(byte[] key)
         {
-            using (var hash = _hashPool.Hash)
-                return hash.Value.ComputeHash(key).CopyToUIntNoRevert(0);
+            return _hash.Value.ComputeHash(key).CopyToUIntNoRevert(0);
         }
 
         public IEnumerable<IMemcacheNode> Locate(IMemcacheRequest req)
