@@ -390,10 +390,10 @@ namespace Criteo.Memcache.UTest.Tests
                     false,
                     () => false);
                 new MemcacheResponseHeader
-                    {
-                        Status = Status.NoError,
-                        Opcode = Opcode.Get,
-                    }.ToData(serverStub.ResponseHeader);
+                {
+                    Status = Status.NoError,
+                    Opcode = Opcode.Get,
+                }.ToData(serverStub.ResponseHeader);
 
                 Exception raised = null;
                 transportToFail.TransportError += e =>
@@ -403,12 +403,18 @@ namespace Criteo.Memcache.UTest.Tests
 
                 Assert.IsFalse(sent, "The request send should fail");
                 Assert.IsNotNull(raised, "The authentication should have failed");
+                // reseting the exception, now it should stay clear
+                raised = null;
 
                 // wait for reconnection to happen (should be done in a instant timer)
                 Assert.That(ref transportToWork, (!Is.Null).After(1000, 10), "The working transport should have been set");
 
+                transportToWork.TransportError += e =>
+                        // when the transport fails collect the exception
+                        Interlocked.Exchange(ref raised, e);
                 sent = transportToWork.TrySend(request.Object);
-                Assert.IsTrue(sent, "The request should have been sent");
+                Assert.IsNull(raised, "The new transport should have raised no exception");
+                Assert.IsTrue(sent, "The request should have been sent with the new transport");
                 var received = sentMutex.Wait(TimeSpan.FromMinutes(5));
                 Assert.IsTrue(received, "The response should have been received");
                 Assert.IsFalse(requestFailed, "The request should not have failed");
