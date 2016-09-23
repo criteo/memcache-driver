@@ -16,7 +16,6 @@
    under the License.
 */
 
-using System.Runtime.Serialization.Formatters;
 using System.Threading;
 
 using Criteo.Memcache.Headers;

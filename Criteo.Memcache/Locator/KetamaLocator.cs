@@ -16,19 +16,30 @@ namespace Criteo.Memcache.Locator
     /// </summary>
     internal class KetamaLocator : INodeLocator
     {
-        private const string DefaultHashName = "System.Security.Cryptography.MD5";
+        private const string DefaultHashingAlgorithmName = "System.Security.Cryptography.MD5";
         private const int ServerAddressMutations = 160;
 
         private readonly ThreadLocal<HashAlgorithm> _hash;
         private IList<IMemcacheNode> _nodes;
         private LookupData _lookupData;
 
-        readonly Action<IMemcacheNode> _nodeStateChange;
+        private readonly Action<IMemcacheNode> _nodeStateChange;
 
-        public KetamaLocator(string hashName = null)
+        public KetamaLocator(string hashName = DefaultHashingAlgorithmName)
         {
-            _hash = new ThreadLocal<HashAlgorithm>(() => HashAlgorithm.Create(hashName ?? DefaultHashName));
+            _hash = new ThreadLocal<HashAlgorithm>(() => GetHash(hashName));
             _nodeStateChange = _ => Reinitialize();
+        }
+
+        private static HashAlgorithm GetHash(string hashName)
+        {
+            switch (hashName)
+            {
+                case DefaultHashingAlgorithmName:
+                    return MD5.Create();
+                default:
+                    throw new NotSupportedException("Unknown hash: " + hashName);
+            }
         }
 
         public void Initialize(IList<IMemcacheNode> nodes)

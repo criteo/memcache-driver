@@ -98,7 +98,7 @@ namespace Criteo.Memcache.Transport
             _nodeClosing = nodeClosing;
             _pinnedBufferSize = clientConfig.PinnedBufferSize;
 
-            _connectTimer = new Timer(TryConnect);
+            _connectTimer = new Timer(TryConnect, null, Timeout.Infinite, Timeout.Infinite);
             _initialized = false;
 
             _registerEvents(this);
@@ -410,7 +410,13 @@ namespace Criteo.Memcache.Transport
                     }
 
                     // the full buffer has been received, assign it
+#if NET_CORE
+                    ArraySegment<byte> arraySegment;
+                    bodyStream.TryGetBuffer(out arraySegment);
+                    receivedBuffer = arraySegment.Array;
+#else
                     receivedBuffer = bodyStream.GetBuffer();
+#endif
                     bodyStream.Dispose();
                 }
 
@@ -447,7 +453,7 @@ namespace Criteo.Memcache.Transport
                 else if (payloadLength > 0)
                 {
                     payload = new byte[payloadLength];
-                    Array.Copy(receivedBuffer, _currentResponse.KeyLength + _currentResponse.ExtraLength, payload, 0, payloadLength);
+                    Array.Copy(receivedBuffer, _currentResponse.KeyLength + _currentResponse.ExtraLength, payload, 0, Convert.ToInt32(payloadLength));
                 }
 
                 if (request != null)
@@ -490,7 +496,9 @@ namespace Criteo.Memcache.Transport
                         try
                         {
                             if (_socket != null)
-                                _socket.Disconnect(false);
+                            {
+                                _socket.Shutdown(SocketShutdown.Both);
+                            }
                         }
                         catch (Exception ex)
                         {

@@ -635,7 +635,11 @@ namespace Criteo.Memcache
 
         private static ExecutionContext TryCaptureExecutionContext()
         {
+#if NET_CORE
+            return ExecutionContext.Capture();
+#else
             return ExecutionContext.IsFlowSuppressed() ? null : ExecutionContext.Capture();
+#endif
         }
 
         private static void ExecuteInContext(Action action, ExecutionContext executionContext)

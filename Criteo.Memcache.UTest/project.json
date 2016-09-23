@@ -1,0 +1,46 @@
+{
+  "buildOptions": {
+    "compile": {
+      "excludeFiles": [ "Tests/AsyncLinesStreamReaderTests.cs", "Tests/MemcacheNodeTests.cs", "Tests/TransportTest.cs" ]
+    }
+  },
+  "configurations": {
+    "Debug": {
+      "buildOptions": {
+        "define": [ "DEBUG" ]
+      }
+    },
+    "Release": {
+      "buildOptions": {
+        "define": [ "RELEASE" ],
+        "optimize": true
+      }
+    }
+  },
+  "dependencies": {
+    "dotnet-test-nunit": "3.4.0-beta-2",
+    "Criteo.Memcache": {
+      "target": "project"
+    },
+    "System.IO.Pipes": "4.0.0",
+    "nunit": "3.4.1",
+    "moq": "4.6.38-alpha"
+  },
+  "testRunner": "nunit",
+  "frameworks": {
+    "netcoreapp1.0": {
+      "imports": [
+        "portable-net45+win8"
+      ],
+      "dependencies": {
+        "Microsoft.NETCore.App": {
+          "version": "1.0.0",
+          "type": "platform"
+        }
+      },
+      "buildOptions": {
+        "define": [ "NET_CORE" ]
+      }
+    }
+  }
+}

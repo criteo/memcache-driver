@@ -18,7 +18,7 @@
 using System;
 using System.IO;
 using System.Text;
-using System.Threading;
+using System.Threading.Tasks;
 
 namespace Criteo.Memcache.Cluster.Couchbase
 {
@@ -29,7 +29,7 @@ namespace Criteo.Memcache.Cluster.Couchbase
 
         private readonly Stream _stream;
         private readonly byte[] _buffer;
-        private MemoryStream _chunk;
+        private readonly MemoryStream _chunk;
         private int _delimiters;
 
         public TimeSpan PushCheckInterval { get; set; }
@@ -50,7 +50,7 @@ namespace Criteo.Memcache.Cluster.Couchbase
         {
             try
             {
-                _stream.BeginRead(_buffer, 0, _buffer.Length, EndRead, null);
+                _stream.ReadAsync(_buffer, 0, _buffer.Length).ContinueWith(EndRead);
             }
             catch (Exception e)
             {
@@ -59,11 +59,12 @@ namespace Criteo.Memcache.Cluster.Couchbase
             }
         }
 
-        protected void EndRead(IAsyncResult ar)
+        protected void EndRead(Task<int> readTask)
         {
             try
             {
-                UnprotectedEndRead(ar);
+                int byteCount = readTask.Result;
+                UnprotectedEndRead(byteCount);
             }
             catch (Exception e)
             {
@@ -72,10 +73,8 @@ namespace Criteo.Memcache.Cluster.Couchbase
             }
         }
 
-        protected void UnprotectedEndRead(IAsyncResult ar)
+        protected void UnprotectedEndRead(int byteCount)
         {
-            int byteCount = _stream.EndRead(ar);
-
             if (byteCount == 0)
             {
                 StartReading();

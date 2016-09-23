@@ -98,6 +98,7 @@
     <Compile Include="SynchronousProxyClient.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Criteo.Memcache.project.json" />
     <None Include="Criteo.MemcacheClient.nuspec">
       <SubType>Designer</SubType>
     </None>

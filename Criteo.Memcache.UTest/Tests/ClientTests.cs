@@ -18,7 +18,9 @@
 using System;
 using System.Linq;
 using System.Net;
+#if !NET_CORE
 using System.Runtime.Remoting.Messaging;
+#endif
 using System.Threading;
 using Moq;
 using NUnit.Framework;
@@ -47,11 +49,15 @@ namespace Criteo.Memcache.UTest.Tests
         [SetUp]
         public void Setup()
         {
+#if !NET_CORE
             CallContext.LogicalSetData(CallContextKey, "Fail");
+#endif
 
             var dummyExecutionContext = ExecutionContext.Capture();
 
+#if !NET_CORE
             CallContext.FreeNamedDataSlot(CallContextKey);
+#endif
 
             var nodeMock = new Mock<IMemcacheNode>();
             nodeMock.Setup(n => n.EndPoint).Returns(new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 11211));
@@ -127,6 +133,7 @@ namespace Criteo.Memcache.UTest.Tests
             Assert.Throws(typeof(NotSupportedException), () => client.Get("Hello", (Status s, TestType v) => { }));
         }
 
+#if !NET_CORE
         [Test]
         public void ExecutionContextShouldFlow()
         {
@@ -149,5 +156,6 @@ namespace Criteo.Memcache.UTest.Tests
 
             Assert.AreEqual("OK", value, "The execution context didn't flow");
         }
+#endif
     }
 }

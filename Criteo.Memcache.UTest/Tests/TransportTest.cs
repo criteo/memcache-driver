@@ -18,6 +18,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Criteo.Memcache.Authenticators;
 using Criteo.Memcache.Configuration;
@@ -26,6 +27,7 @@ using Criteo.Memcache.Requests;
 using Criteo.Memcache.Transport;
 using Criteo.Memcache.UTest.Mocks;
 using NUnit.Framework;
+using NUnit.Framework.Constraints;
 
 namespace Criteo.Memcache.UTest.Tests
 {
@@ -57,7 +59,7 @@ namespace Criteo.Memcache.UTest.Tests
                 // build the request buffer
                 var requestBuffer = new byte[MemcacheRequestHeader.Size + requestHeader.TotalBodyLength];
                 requestHeader.ToData(requestBuffer);
-                Array.Copy(requestBody, 0, requestBuffer, MemcacheRequestHeader.Size, requestHeader.TotalBodyLength);
+                Array.Copy(requestBody, 0, requestBuffer, MemcacheRequestHeader.Size, Convert.ToInt32(requestHeader.TotalBodyLength));
 
                 // build the response header
                 var responseHeader = new MemcacheResponseHeader
@@ -79,7 +81,7 @@ namespace Criteo.Memcache.UTest.Tests
                 // build the request buffer
                 var responseBody = new byte[responseHeader.TotalBodyLength];
                 Array.Copy(responseExtra, 0, responseBody, 0, responseHeader.ExtraLength);
-                Array.Copy(responseMessage, 0, responseBody, responseHeader.ExtraLength, responseHeader.TotalBodyLength - responseHeader.ExtraLength);
+                Array.Copy(responseMessage, 0, responseBody, responseHeader.ExtraLength, Convert.ToInt32(responseHeader.TotalBodyLength - responseHeader.ExtraLength));
 
                 // set the things to answer to the server
                 serverMock.ResponseBody = responseBody;
@@ -407,7 +409,7 @@ namespace Criteo.Memcache.UTest.Tests
                 raised = null;
 
                 // wait for reconnection to happen (should be done in a instant timer)
-                Assert.That(ref transportToWork, (!Is.Null).After(1000, 10), "The working transport should have been set");
+                Assert.That(() => transportToWork, Is.Not.Null.After(1000, 10), "The working transport should have been set");
 
                 transportToWork.TransportError += e =>
                         // when the transport fails collect the exception

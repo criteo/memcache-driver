@@ -82,6 +82,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="Criteo.Memcache.UTest.project.json" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

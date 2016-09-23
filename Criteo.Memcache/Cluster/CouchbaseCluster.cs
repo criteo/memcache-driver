@@ -21,7 +21,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading;
-
+using System.Threading.Tasks;
 using Criteo.Memcache.Cluster.Couchbase;
 using Criteo.Memcache.Configuration;
 using Criteo.Memcache.Exceptions;
@@ -132,8 +132,13 @@ namespace Criteo.Memcache.Cluster
             try
             {
                 var webRequest = WebRequest.Create(url);
-                webRequest.Timeout = (int)_initializationTimeout.TotalMilliseconds;
-                var response = webRequest.GetResponse();
+                var responseTask = webRequest.GetResponseAsync();
+                if (!responseTask.Wait(_initializationTimeout))
+                {
+                    webRequest.Abort();
+                }
+                var response = responseTask.Result;
+
                 using (var respStream = response.GetResponseStream())
                 {
                     var reader = new StreamReader(respStream);
@@ -166,7 +171,6 @@ namespace Criteo.Memcache.Cluster
                     _bucket);
 
                 var request = WebRequest.Create(url);
-                request.Timeout = Timeout.Infinite;
                 try
                 {
                     request.BeginGetResponse(ConfigurationStreamRequestEndGetResponse, request);
@@ -384,9 +388,9 @@ namespace Criteo.Memcache.Cluster
 
         private IMemcacheNode ClusterNodeFactory(string server, bool isHealthy)
         {
-            var parts = server.SplitOnFirst(':');
-            var ip = IPAddress.Parse(parts[0]);
-            var port = int.Parse(parts[1]);
+            var pos = server.IndexOf(':');
+            var ip = IPAddress.Parse(server.Substring(0, pos));
+            var port = int.Parse(server.Substring(pos + 1));
             var endpoint = new IPEndPoint(ip, port);
 
             if (isHealthy)
@@ -427,9 +431,9 @@ namespace Criteo.Memcache.Cluster
             RetryConnectingToConfigurationStream(delaySeconds: 1.0);
         }
 
-        #endregion
+#endregion
 
-        #region IDisposable
+#region IDisposable
 
         public void Dispose()
         {
@@ -470,6 +474,6 @@ namespace Criteo.Memcache.Cluster
             }
         }
 
-        #endregion
+#endregion
     }
 }

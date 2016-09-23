@@ -48,8 +48,8 @@ namespace Criteo.Memcache.UTest.Misc
                     if (!_disposed)
                     {
                         _server.WaitForPipeDrain();
-                        _server.Close();
-                        _client.Close();
+                        _server.Dispose();
+                        _client.Dispose();
                         _disposed = true;
                     }
         }

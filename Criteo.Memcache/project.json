@@ -1,0 +1,30 @@
+{
+  "configurations": {
+    "Debug": {
+      "buildOptions": {
+        "define": [ "DEBUG" ]
+      }
+    },
+    "Release": {
+      "buildOptions": {
+        "define": [ "RELEASE" ],
+        "optimize": true
+      }
+    }
+  },
+  "buildOptions": {"allowUnsafe": true},
+  "frameworks": {
+    "netstandard1.5": {
+      "buildOptions": {
+        "define": [
+          "NET_CORE"
+        ]
+      },
+      "dependencies": {
+        "NETStandard.Library": "1.6.0",
+        "System.Net.Requests": "4.0.11",
+        "ServiceStack.Text.Core": "1.0.10"
+      }
+    }
+  }
+}

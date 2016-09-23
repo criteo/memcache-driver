@@ -119,7 +119,7 @@ namespace Criteo.Memcache.UTest.Tests
             Assert.AreEqual(0, _counters.Errors, "errors");
             Assert.AreEqual(1, _counters.Chunks, "chunks");
 
-            Assert.IsNullOrEmpty(received, "compare sent vs received");
+            Assert.That(received, Is.Null.Or.Empty, "compare sent vs received");
         }
 
         [Test]
