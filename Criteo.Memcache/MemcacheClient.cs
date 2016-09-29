@@ -30,82 +30,38 @@ using Criteo.Memcache.Serializer;
 
 namespace Criteo.Memcache
 {
-    public enum StoreMode
-    {
-        /// <summary>
-        /// Creates or replace an already existing value
-        /// </summary>
-        Set,
-
-        /// <summary>
-        /// Fails with status KeyNotFound if not present
-        /// </summary>
-        Replace,
-
-        /// <summary>
-        /// Fails with status KeyExists if already present
-        /// </summary>
-        Add,
-    }
-
-    /// <summary>
-    /// The callback policy for redundant requests (ADD/SET/ADD/REPLACE/DELETE).
-    /// </summary>
-    public enum CallBackPolicy
-    {
-        /// <summary>
-        /// Call the callback with an OK status as soon as the first Status.NoError response is received, or with
-        /// the last failed status if all responses are fails.
-        /// </summary>
-        AnyOK,
-
-        /// <summary>
-        /// Call the callback with an OK status if all responses are OK, or with the first received failed status
-        /// </summary>
-        AllOK,
-    };
-
-    /// <summary>
-    /// The main class of the library
-    /// </summary>
     public class MemcacheClient : IDisposable
     {
         private readonly MemcacheClientConfiguration _configuration;
+
         private readonly IMemcacheCluster _cluster;
-        private bool _disposed = false;
+
+        private bool _disposed;
+
+        private int _currentRequestId = 0;
+
+        protected uint NextRequestId
+        {
+            get
+            {
+                return (uint)Interlocked.Increment(ref _currentRequestId);
+            }
+        }
 
         /// <summary>
         /// Raised when the server answer with a error code
         /// </summary>
         public event Action<MemcacheResponseHeader, IMemcacheRequest> MemcacheError;
 
-        private void OnMemcacheError(MemcacheResponseHeader header, IMemcacheRequest request)
-        {
-            if (MemcacheError != null)
-                MemcacheError(header, request);
-        }
-
         /// <summary>
         /// Raised when the transport layer fails
         /// </summary>
         public event Action<Exception> TransportError;
 
-        private void OnTransportError(Exception e)
-        {
-            if (TransportError != null)
-                TransportError(e);
-        }
-
         /// <summary>
         /// Raised when a node seems unreachable
         /// </summary>
         public event Action<IMemcacheNode> NodeError;
-
-        private void OnNodeError(IMemcacheNode node)
-        {
-            if (NodeError != null)
-                NodeError(node);
-        }
 
         /// <summary>
         /// Raised when a client callback thrown an exception
@@ -113,80 +69,34 @@ namespace Criteo.Memcache
         /// </summary>
         public event Action<Exception> CallbackError;
 
-        private void OnCallbackError(Exception e)
+        /// <summary>
+        /// Number of alive nodes
+        /// </summary>
+        public int AliveNodes
         {
-            if (CallbackError != null)
-                CallbackError(e);
+            get
+            {
+                if (_cluster.Nodes != null)
+                    return _cluster.Nodes.Count(node => !node.IsDead);
+
+                return 0;
+            }
         }
 
         /// <summary>
-        /// Used to easily prevent unhandled exception from client callback
+        /// The constructor, see @MemcacheClientConfiguration for details
         /// </summary>
-        /// <param name="callback"></param>
-        /// <returns></returns>
-        private Action<Status> SanitizeCallback(Action<Status> callback)
+        public MemcacheClient(MemcacheClientConfiguration configuration)
         {
-            if (callback == null)
-                return null;
+            if (configuration == null)
+                throw new ArgumentException("Client config should not be null");
 
-            // The underlying socket in MemcacheTransport doesn't flow the execution context so we take care of that ourselves
-            var executionContext = TryCaptureExecutionContext();
-
-            return v =>
-            {
-                try
-                {
-                    if (executionContext == null)
-                    {
-                        callback(v);
-                    }
-                    else
-                    {
-                        ExecutionContext.Run(executionContext, _ => callback(v), null);
-                    }
-                }
-                catch (Exception e)
-                {
-                    OnCallbackError(e);
-                }
-            };
-        }
-
-        /// <summary>
-        /// Used to easily prevent unhandled exception from client callback or serializer
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="callback"></param>
-        /// <param name="serializer"></param>
-        /// <returns></returns>
-        private Action<Status, byte[]> SanitizeCallback<T>(Action<Status, T> callback, ISerializer<T> serializer)
-        {
-            if (callback == null)
-                return null;
-
-            // The underlying socket in MemcacheTransport doesn't flow the execution context so we take care of that ourselves
-            var executionContext = TryCaptureExecutionContext();
-
-            return (Status s, byte[] m) =>
-            {
-                try
-                {
-                    T value = serializer.FromBytes(m);
-
-                    if (executionContext == null)
-                    {
-                        callback(s, value);
-                    }
-                    else
-                    {
-                        ExecutionContext.Run(executionContext, _ => callback(s, value), null);
-                    }
-                }
-                catch (Exception e)
-                {
-                    OnCallbackError(e);
-                }
-            };
+            _configuration = configuration;
+            _cluster = (configuration.ClusterFactory ?? MemcacheClientConfiguration.DefaultClusterFactory)(configuration);
+            _cluster.NodeAdded += RegisterEvents;
+            _cluster.NodeRemoved += UnregisterEvents;
+            _cluster.OnError += OnCallbackError;
+            _cluster.Initialize();
         }
 
         private void RegisterEvents(IMemcacheNode node)
@@ -203,84 +113,28 @@ namespace Criteo.Memcache
             node.NodeDead -= OnNodeError;
         }
 
-        /// <summary>
-        /// The constructor, see @MemcacheClientConfiguration for details
-        /// </summary>
-        /// <param name="configuration"></param>
-        public MemcacheClient(MemcacheClientConfiguration configuration)
+        private void OnMemcacheError(MemcacheResponseHeader header, IMemcacheRequest request)
         {
-            if (configuration == null)
-                throw new ArgumentException("Client config should not be null");
-
-            _configuration = configuration;
-            _cluster = (configuration.ClusterFactory ?? MemcacheClientConfiguration.DefaultClusterFactory)(configuration);
-            _cluster.NodeAdded += RegisterEvents;
-            _cluster.NodeRemoved += UnregisterEvents;
-            _cluster.OnError += OnCallbackError;
-            _cluster.Initialize();
+            if (MemcacheError != null)
+                MemcacheError(header, request);
         }
 
-        /// <summary>
-        /// Sends a request with the policy defined with the configuration object, to multiple nodes if the replicas setting
-        /// is different from zero.
-        /// </summary>
-        /// <param name="request">A memcache request derived from RedundantRequest</param>
-        /// <returns>
-        /// True if the request was sent to at least one node. The caller will receive a callback (if not null).
-        /// False if the request could not be sent to any node. In that case, the callback will not be called.
-        /// </returns>
-        protected bool SendRequest(IRedundantRequest request)
+        private void OnTransportError(Exception e)
         {
-            int countTrySends = 0;
-            int countTrySendsOK = 0;
-
-            foreach (var node in _cluster.Locator.Locate(request))
-            {
-                countTrySends++;
-                if (!node.IsDead && node.TrySend(request, _configuration.QueueTimeout))
-                    countTrySendsOK++;
-
-                // Break after trying to send the request to replicas+1 nodes
-                if (countTrySends > request.Replicas)
-                    break;
-            }
-
-            // The callback will not be called
-            if (countTrySendsOK == 0)
-                return false;
-
-            // If the request was sent to less than Replicas+1 nodes, fail the remaining ones.
-            for (; countTrySendsOK <= request.Replicas; countTrySendsOK++)
-                request.Fail();
-
-            return true;
+            if (TransportError != null)
+                TransportError(e);
         }
 
-        /// <summary>
-        /// Sends a request (no client replication handled)
-        /// If the master node in dead, try to sends a fallback request to the failover node
-        /// sending the failover request
-        /// </summary>
-        /// <param name="request">A memcache request</param>
-        /// <param name="requestReplica">The failover request to send to a replica</param>
-        /// <returns>
-        /// True if the request was sent to at least one node. The caller will receive a callback (if not null).
-        /// False if the request could not be sent to any node. In that case, the callback will not be called.
-        /// </returns>
-        protected bool SendRequestWithReplica(ICouchbaseRequest request, ICouchbaseRequest requestReplica)
+        private void OnNodeError(IMemcacheNode node)
         {
-            var req = request;
+            if (NodeError != null)
+                NodeError(node);
+        }
 
-            foreach (var node in _cluster.Locator.Locate(request))
-            {
-                if (!node.IsDead && node.TrySend(req, _configuration.QueueTimeout))
-                    return true;
-
-                req = requestReplica;
-                requestReplica.VBucket = request.VBucket;
-            }
-
-            return false;
+        private void OnCallbackError(Exception e)
+        {
+            if (CallbackError != null)
+                CallbackError(e);
         }
 
         /// <summary>
@@ -509,6 +363,69 @@ namespace Criteo.Memcache
             return SendRequest(request);
         }
 
+        /// <summary>
+        /// Sends a request with the policy defined with the configuration object, to multiple nodes if the replicas setting
+        /// is different from zero.
+        /// </summary>
+        /// <param name="request">A memcache request derived from RedundantRequest</param>
+        /// <returns>
+        /// True if the request was sent to at least one node. The caller will receive a callback (if not null).
+        /// False if the request could not be sent to any node. In that case, the callback will not be called.
+        /// </returns>
+        protected bool SendRequest(IRedundantRequest request)
+        {
+            int countTrySends = 0;
+            int countTrySendsOK = 0;
+
+            foreach (var node in _cluster.Locator.Locate(request))
+            {
+                countTrySends++;
+                if (!node.IsDead && node.TrySend(request, _configuration.QueueTimeout))
+                    countTrySendsOK++;
+
+                // Break after trying to send the request to replicas+1 nodes
+                if (countTrySends > request.Replicas)
+                    break;
+            }
+
+            // The callback will not be called
+            if (countTrySendsOK == 0)
+                return false;
+
+            // If the request was sent to less than Replicas+1 nodes, fail the remaining ones.
+            for (; countTrySendsOK <= request.Replicas; countTrySendsOK++)
+                request.Fail();
+
+            return true;
+        }
+
+        /// <summary>
+        /// Sends a request (no client replication handled)
+        /// If the master node in dead, try to sends a fallback request to the failover node
+        /// sending the failover request
+        /// </summary>
+        /// <param name="request">A memcache request</param>
+        /// <param name="requestReplica">The failover request to send to a replica</param>
+        /// <returns>
+        /// True if the request was sent to at least one node. The caller will receive a callback (if not null).
+        /// False if the request could not be sent to any node. In that case, the callback will not be called.
+        /// </returns>
+        protected bool SendRequestWithReplica(ICouchbaseRequest request, ICouchbaseRequest requestReplica)
+        {
+            var req = request;
+
+            foreach (var node in _cluster.Locator.Locate(request))
+            {
+                if (!node.IsDead && node.TrySend(req, _configuration.QueueTimeout))
+                    return true;
+
+                req = requestReplica;
+                requestReplica.VBucket = request.VBucket;
+            }
+
+            return false;
+        }
+
         public void Ping(Action<EndPoint, Status> callback)
         {
             var executionContext = TryCaptureExecutionContext();
@@ -652,6 +569,70 @@ namespace Criteo.Memcache
             }
         }
 
+        /// <summary>
+        /// Used to easily prevent unhandled exception from client callback
+        /// </summary>
+        private Action<Status> SanitizeCallback(Action<Status> callback)
+        {
+            if (callback == null)
+                return null;
+
+            // The underlying socket in MemcacheTransport doesn't flow the execution context so we take care of that ourselves
+            var executionContext = TryCaptureExecutionContext();
+
+            return v =>
+            {
+                try
+                {
+                    if (executionContext == null)
+                    {
+                        callback(v);
+                    }
+                    else
+                    {
+                        ExecutionContext.Run(executionContext, _ => callback(v), null);
+                    }
+                }
+                catch (Exception e)
+                {
+                    OnCallbackError(e);
+                }
+            };
+        }
+
+        /// <summary>
+        /// Used to easily prevent unhandled exception from client callback or serializer
+        /// </summary>
+        private Action<Status, byte[]> SanitizeCallback<T>(Action<Status, T> callback, ISerializer<T> serializer)
+        {
+            if (callback == null)
+                return null;
+
+            // The underlying socket in MemcacheTransport doesn't flow the execution context so we take care of that ourselves
+            var executionContext = TryCaptureExecutionContext();
+
+            return (Status s, byte[] m) =>
+            {
+                try
+                {
+                    T value = serializer.FromBytes(m);
+
+                    if (executionContext == null)
+                    {
+                        callback(s, value);
+                    }
+                    else
+                    {
+                        ExecutionContext.Run(executionContext, _ => callback(s, value), null);
+                    }
+                }
+                catch (Exception e)
+                {
+                    OnCallbackError(e);
+                }
+            };
+        }
+
         private static ExecutionContext TryCaptureExecutionContext()
         {
             return ExecutionContext.IsFlowSuppressed() ? null : ExecutionContext.Capture();
@@ -666,30 +647,6 @@ namespace Criteo.Memcache
             else
             {
                 ExecutionContext.Run(executionContext, c => ((Action)c).Invoke(), action);
-            }
-        }
-
-        /// <summary>
-        /// Number of alive nodes
-        /// </summary>
-        public int AliveNodes
-        {
-            get
-            {
-                if (_cluster.Nodes != null)
-                    return _cluster.Nodes.Count(node => !node.IsDead);
-                else
-                    return 0;
-            }
-        }
-
-        private int _currentRequestId = 0;
-
-        protected uint NextRequestId
-        {
-            get
-            {
-                return (uint)Interlocked.Increment(ref _currentRequestId);
             }
         }
 

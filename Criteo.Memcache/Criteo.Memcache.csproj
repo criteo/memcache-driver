@@ -50,6 +50,7 @@
     <Compile Include="Authenticators\IAuthenticationToken.cs" />
     <Compile Include="Authenticators\IMemcacheAuthenticator.cs" />
     <Compile Include="Authenticators\SaslPlainTextAuthenticator.cs" />
+    <Compile Include="CallBackPolicy.cs" />
     <Compile Include="Cluster\CouchbaseCluster.cs" />
     <Compile Include="Cluster\Couchbase\CouchbaseSerialization.cs" />
     <Compile Include="Cluster\Couchbase\AsyncLinesStreamReader.cs" />
@@ -60,6 +61,7 @@
     <Compile Include="Serializer\ByteSerializer.cs" />
     <Compile Include="Serializer\ISerializer.cs" />
     <Compile Include="Serializer\ULongSerializer.cs" />
+    <Compile Include="StoreMode.cs" />
     <Compile Include="Util\ArrayUtil.cs" />
     <Compile Include="Util\VBucketHash.cs" />
     <Compile Include="Exceptions\AuthenticationException.cs" />
